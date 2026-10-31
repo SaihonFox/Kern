@@ -12,6 +12,9 @@ namespace Kern.Compiler.CodeGen;
 /// </summary>
 public sealed partial class CodeGenerator
 {
+	private readonly Dictionary<TypeSymbol, IReadOnlyList<FieldSymbol>> _instanceLayouts =
+		new(ReferenceEqualityComparer.Instance);
+
 	/// <summary>Native-функция в байткоде: пустое тело, флаг Native и ключ привязки (spec §12).</summary>
 	private void DefineNative(FunctionSymbol symbol)
 	{
@@ -53,13 +56,20 @@ public sealed partial class CodeGenerator
 				GenericParams = [.. type.GenericParameterNames]
 			};
 
-			foreach (var field in type.Members.Fields)
-			{
+			// Собственные статические поля и статические backing-поля живут в модульном пуле,
+			// унаследованные статические члены не наследуются (spec §8).
+			foreach (var field in type.Members.OwnFields)
 				if (field.IsStatic)
-				{
 					DefineStaticField(field);
-					continue;
-				}
+
+			foreach (var property in type.Members.OwnProperties)
+				if (property.BackingField is { IsStatic: true } staticBacking)
+					DefineStaticField(staticBacking);
+
+			// Раскладка экземпляра: сначала поля родителя (в его порядке), затем собственные
+			// поля и backing-поля автосвойств. Слоты родителя в его TypeDef совпадают.
+			foreach (var field in InstanceLayout(type))
+			{
 				var slot = definition.Fields.Count;
 				definition.Fields.Add(new FieldDef
 				{
@@ -71,32 +81,37 @@ public sealed partial class CodeGenerator
 				_fieldSlots[field] = slot;
 			}
 
-			foreach (var property in type.Members.Properties)
-			{
-				if (property.BackingField is not { } backing)
-					continue;
-
-				// Статическое автосвойство живёт в модульном FieldPool, а не в экземпляре.
-				if (backing.IsStatic)
-				{
-					DefineStaticField(backing);
-					continue;
-				}
-
-				var slot = definition.Fields.Count;
-				definition.Fields.Add(new FieldDef
-				{
-					Name = backing.Name,
-					Type = TypeSigMap.From(backing.Type, _module.Name),
-					Slot = slot,
-					Flags = MemberFlags.None
-				});
-				_fieldSlots[backing] = slot;
-			}
+			definition.Parents = [.. type.Bases.Select(baseType => TypeSigMap.From(baseType, _module.Name))];
 
 			_typeDefs[type] = definition;
 			_typeIndices[type] = _module.AddType(definition);
 		}
+	}
+
+	/// <summary>
+	/// Порядок слотов экземпляра: родительская часть (в порядке её <see cref="TypeDef"/>) →
+	/// собственные поля → backing-поля собственных автосвойств. Так методы родителя,
+	/// сгенерированные с его слотами, работают и на объекте наследника.
+	/// </summary>
+	private IReadOnlyList<FieldSymbol> InstanceLayout(TypeSymbol type)
+	{
+		if (_instanceLayouts.TryGetValue(type, out var cached))
+			return cached;
+
+		var layout = new List<FieldSymbol>();
+		if (Inheritance.DirectBase(type) is { } baseType)
+			layout.AddRange(InstanceLayout(baseType.Symbol));
+
+		foreach (var field in type.Members.OwnFields)
+			if (!field.IsStatic)
+				layout.Add(field);
+
+		foreach (var property in type.Members.OwnProperties)
+			if (!property.IsStatic && property.BackingField is { } backing)
+				layout.Add(backing);
+
+		_instanceLayouts[type] = layout;
+		return layout;
 	}
 
 	/// <summary>

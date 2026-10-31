@@ -83,6 +83,59 @@ public sealed class TypeFactory
 		};
 	}
 
+	/// <summary>
+	/// Разрешить подпись родителя в контексте reified-типа: параметры типа (scope 0)
+	/// подставляются аргументами <paramref name="owner"/>. Нужно для проверки
+	/// «объект наследника является экземпляром родителя».
+	/// </summary>
+	public KType FromSig(TypeSig sig, KClassType owner)
+	{
+		ArgumentNullException.ThrowIfNull(sig);
+		ArgumentNullException.ThrowIfNull(owner);
+		var arguments = owner.TypeArgs;
+
+		KType Walk(TypeSig current) => current switch
+		{
+			TypeSig.ParamSig { Scope: 0 } param when (uint)param.Index < (uint)arguments.Length =>
+				arguments[param.Index],
+			TypeSig.PrimSig prim => Prim(prim.Kind),
+			TypeSig.NamedSig named => ResolveNamedParts(named.FullName, [.. named.Args.Select(Walk)]),
+			TypeSig.FuncSig func => Func(Walk(func.Return), [.. func.Params.Select(Walk)]),
+			TypeSig.TupleSig tuple => Tuple([.. tuple.Items.Select(Walk)], tuple.Names),
+			TypeSig.NullableSig nullable => Nullable(Walk(nullable.Inner)),
+			TypeSig.UnionSig union => Union([.. union.Members.Select(Walk)]),
+			TypeSig.ParamSig param => throw new InvalidOperationException(
+				$"параметр типа '{param.Canonical}' вне аргументов типа '{owner.Canonical}'"),
+			_ => throw new InvalidOperationException($"неизвестная подпись типа: {current.Canonical}"),
+		};
+
+		return Walk(sig);
+	}
+
+	private KType ResolveNamedParts(string fullName, KType[] arguments)
+	{
+		if (BuiltinKindOf(fullName) is { } builtin)
+		{
+			int expected = builtin switch
+			{
+				BuiltinGenericKind.List or BuiltinGenericKind.Array or BuiltinGenericKind.Task => 1,
+				_ => 2,
+			};
+			if (arguments.Length != expected)
+				throw new InvalidOperationException(
+					$"встроенный тип '{fullName}' ожидает {expected} аргументов, передано {arguments.Length}");
+			return Builtin(builtin, arguments);
+		}
+
+		TypeDef? definition = _module.FindType(fullName);
+		if (definition is null)
+			throw new InvalidOperationException($"тип '{fullName}' не найден в модуле '{_module.Name}'");
+		if (definition.GenericParams.Count != arguments.Length)
+			throw new InvalidOperationException(
+				$"тип '{fullName}' ожидает {definition.GenericParams.Count} аргументов, передано {arguments.Length}");
+		return Named(definition, arguments);
+	}
+
 	private KType ResolveNamed(TypeSig.NamedSig named)
 	{
 		if (BuiltinKindOf(named.FullName) is { } builtin)

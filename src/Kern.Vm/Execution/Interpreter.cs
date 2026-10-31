@@ -369,9 +369,40 @@ public sealed partial class Interpreter
 		return (from, to);
 	}
 
-	private KType InferType(KValue value) => value.Kind switch
+	/// <summary>
+	/// Является ли значение типа <paramref name="actual"/> экземпляром
+	/// <paramref name="expected"/> с учётом родителей из <c>TypeDef.Parents</c> (spec §8):
+	/// объект наследника проходит проверку на родителя. Глубина ограничена защитой от
+	/// испорченного/циклического пула типов.
+	/// </summary>
+	private bool IsInstanceOf(KType actual, KType expected, int depth = 0)
 	{
-		ValueKind.None => _types.Prim(PrimKind.None),
+		if (actual == expected)
+			return true;
+		if (depth >= 32 || actual is not KClassType @class || expected is not KClassType)
+			return false;
+
+		foreach (TypeSig parent in @class.Definition.Parents)
+		{
+			KType resolved;
+			try
+			{
+				resolved = _types.FromSig(parent, @class);
+			}
+			catch (InvalidOperationException)
+			{
+				continue;
+			}
+
+			if (IsInstanceOf(resolved, expected, depth + 1))
+				return true;
+		}
+
+		return false;
+	}
+
+	private KType InferType(KValue value) => value.Kind switch
+	{		ValueKind.None => _types.Prim(PrimKind.None),
 		ValueKind.Nil => _types.Prim(PrimKind.Nil),
 		ValueKind.Void => _types.Prim(PrimKind.Void),
 		ValueKind.Bool => _types.Prim(PrimKind.Bool),

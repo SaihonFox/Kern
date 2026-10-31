@@ -78,7 +78,8 @@ public sealed partial class DeclarationCollector
 		}
 
 		// Конструктор по умолчанию синтезируется только при полном отсутствии других.
-		if (constructors.Count == 0 && !owner.IsStatic)
+		// Абстрактный `@type` не конструируется (spec §8): нет конструктора — `KRN2103`.
+		if (constructors.Count == 0 && !owner.IsStatic && !owner.IsAbstract)
 		{
 			constructors.Add(new FunctionSymbol("ctor", FunctionKind.Constructor)
 			{
@@ -109,6 +110,11 @@ public sealed partial class DeclarationCollector
 			DistinctSignatures(parentSelections),
 			parentFieldSelections,
 			staticInitializer);
+
+		// Slice A1: экземплярные члены прямого родителя-класса видны в типе. Таблица содержит
+		// символы родителей и читает их лениво, поэтому порядок разрешения не важен.
+		if (Inheritance.DirectBase(owner) is { } directBase)
+			owner.Members.SetInheritedBases([directBase.Symbol]);
 	}
 
 	private static string GetDeclaredName(DeclarationNode declaration) => declaration switch

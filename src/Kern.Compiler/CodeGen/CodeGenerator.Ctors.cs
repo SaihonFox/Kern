@@ -73,6 +73,35 @@ public sealed partial class CodeGenerator
 	}
 
 	/// <summary>
+	/// Вызов конструктора прямого родителя в прологе корневого конструктора (slice A1):
+	/// <c>$</c> как получатель, аргументы <c>[A(x)]</c>, <c>Call</c>, <c>Pop</c> результата-void.
+	/// </summary>
+	private void EmitBaseConstructorCall(BoundBaseConstructorCall call)
+	{
+		RecordLine(call.Span);
+		Emit(OpCode.LoadLocal, 0);
+		foreach (var argument in call.Arguments)
+		{
+			EmitExpression(argument);
+			EmitCopyIfUnit(argument.Type);
+		}
+
+		if (!_functionIndices.TryGetValue(call.Target, out var index))
+		{
+			Report("KRN2201", $"Конструктор родителя '{call.Target.Owner?.Name}' не имеет байткода", call.Span);
+			for (var argument = 0; argument < call.Arguments.Count; argument++)
+				Emit(OpCode.Pop);
+			Emit(OpCode.Pop);
+			return;
+		}
+
+		Emit(OpCode.Call);
+		EmitOperand(index);
+		EmitOperand(call.Arguments.Count + 1);
+		Emit(OpCode.Pop);
+	}
+
+	/// <summary>
 	/// Пролог конструктора (spec §8, п.827): копии параметров primary-конструктора в их поля,
 	/// затем инициализаторы полей и свойств в порядке объявления, затем копии
 	/// <c>$</c>-параметров обычного конструктора, затем тело.
@@ -85,6 +114,10 @@ public sealed partial class CodeGenerator
 		// Пролог принадлежит объявлению конструктора, а не первому оператору тела.
 		if (function.Symbol.Declaration is { } declaration)
 			RecordLine(declaration.Span);
+
+		// Родительская часть инициализируется до собственных инициализаторов наследника.
+		if (function.BaseCall is { } baseCall)
+			EmitBaseConstructorCall(baseCall);
 
 		// Поля из параметров primary-конструктора входят в шаг «поля» (п.827):
 		// инициализаторы должны видеть `$.x` уже присвоенным.

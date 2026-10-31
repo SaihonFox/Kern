@@ -95,13 +95,13 @@ public sealed partial class Binder
 		{
 			foreach (var group in type.Members.Functions.Values)
 				foreach (var symbol in group)
-					if (symbol.Body is not null)
+					if (symbol.Body is not null && ReferenceEquals(symbol.Owner, type))
 						functions.Add(BindFunction(symbol));
 
 			// Операторы (B5a): пока единственный вызываемый — индексатор `op []`.
 			// Тело привязывается как у метода: `$` — приёмник в слоте 0.
 			foreach (var @operator in type.Members.Operators)
-				if (@operator.Body is not null)
+				if (@operator.Body is not null && ReferenceEquals(@operator.Owner, type))
 					functions.Add(BindFunction(@operator));
 
 			var boundConstructors = new List<BoundFunction>(type.Members.Constructors.Count);
@@ -114,6 +114,8 @@ public sealed partial class Binder
 
 			foreach (var property in type.Members.Properties)
 			{
+				if (!ReferenceEquals(property.Owner, type))
+					continue;
 				if (property.Getter is { Body: not null } getter)
 					functions.Add(BindFunction(getter));
 				if (property.Setter is { Body: not null } setter)
@@ -203,6 +205,12 @@ public sealed partial class Binder
 			? BindConstructorChain(symbol)
 			: null;
 
+		// Родитель инициализируется в корне цепочки: `[A]` = `[A()]`, `[A(x)]` — с аргументами.
+		BoundBaseConstructorCall? baseCall =
+			symbol.Kind == FunctionKind.Constructor && chain is null
+				? BindBaseConstructor(symbol)
+				: null;
+
 		// Инициализаторы полей — до тела: порядок задан объявлением (spec §8, п.827).
 		List<BoundFieldInitializer> initializers = symbol.Kind == FunctionKind.Constructor
 			? BindInstanceInitializers(symbol)
@@ -219,6 +227,7 @@ public sealed partial class Binder
 		{
 			Initializers = initializers,
 			Chain = chain,
+			BaseCall = baseCall,
 			BoxedSlots = _boxedByFrame[_frame]
 		};
 	}

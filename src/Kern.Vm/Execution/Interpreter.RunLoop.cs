@@ -712,7 +712,7 @@ public sealed partial class Interpreter
 						{
 							KType expected = _types.FromSig(_module.TypeSigPool[code[pc++]]);
 							KType actual = InferType(stack.Pop());
-							stack.Push(KValue.Bool(actual == expected));
+							stack.Push(KValue.Bool(IsInstanceOf(actual, expected)));
 							break;
 						}
 

@@ -91,14 +91,16 @@ public sealed partial class Binder
 		bool isStatic)
 	{
 		var entries = new List<(FieldSymbol Field, ExpressionNode Expression, int Position)>();
-		foreach (var field in owner.Members.Fields)
+		// Только собственные члены: инициализаторы родителя выполняет его конструктор
+		// (slice A1), иначе унаследованные поля инициализировались бы дважды.
+		foreach (var field in owner.Members.OwnFields)
 		{
 			if (field.IsStatic != isStatic || field.Initializer is not { } initializer)
 				continue;
 			entries.Add((field, initializer, initializer.Span.Start));
 		}
 
-		foreach (var property in owner.Members.Properties)
+		foreach (var property in owner.Members.OwnProperties)
 		{
 			if (property.IsStatic != isStatic || property.BackingField is not { } backing)
 				continue;

@@ -28,6 +28,13 @@ public sealed record BoundFunction(
 	/// выполняется в этом конструкторе. Взаимоисключающе с <see cref="Initializers"/>.
 	/// </summary>
 	public BoundConstructorChain? Chain { get; init; }
+
+	/// <summary>
+	/// Вызов конструктора прямого родителя в корне цепочки (slice A1): <c>[A]</c> — это
+	/// <c>[A()]</c>, <c>[A(x)]</c> передаёт аргументы. null — родителя нет или у конструктора
+	/// есть цепочка <c>: $(...)</c> (родителя инициализирует её корень).
+	/// </summary>
+	public BoundBaseConstructorCall? BaseCall { get; init; }
 }
 
 /// <summary>Результат привязки одного модуля: функции и все диагностики (включая ошибки объявлений).</summary>

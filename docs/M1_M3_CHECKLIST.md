@@ -70,10 +70,10 @@ M2 verdict: **🟡 imports, `result` and generic ctor inference are done; native
 | `match`: literals, types, unions, ranges, or-patterns, lists, structural, guards, coverage | ✅ | B4 slices; or-pattern bindings still `KRN2114` |
 | Loops: condition/infinite/do-while, `stop`/`next` in expressions, iteration | 🟡 | `SaveSp/RestoreSp` paths exist; loop-as-expression (list result) missing; `dict`/`str` iteration missing |
 | `unit`/`unit!`: value semantics, structural `==`, hash/compare/clone, auto `to_str` | ✅ | B6/B8 slices |
-| Inheritance: single parent, `@type`/`~fun`/abstract/open, multiple inheritance `[A(…), B(…)]`, `$[A].member` | 🟡 | single parent/override work in examples 06; multiple inheritance and parent selections need the Batch 2 audit |
+| Inheritance: single parent, `@type`/`~fun`/abstract/open, multiple inheritance `[A(…), B(…)]`, `$[A].member` | 🟡 | A1 (2026-10-31): single-parent inherited fields/properties/methods, parent-first layout, parent ctor call, upcast + `is` walk, abstract `@type` not constructible; **not done**: `@fun`/`~fun` virtual dispatch, multiple inheritance, `$[A].member`, generic argument substitution |
 | Properties (auto/get/set/init/computed) | ✅ | examples 06, init/`init` tests |
 | Extension functions/properties/operators | 🟡 | operator/extension basics exist; audit pending |
-| Constructors: primary, secondary, chains, generic ctor inference | 🟡 | chains done; `Box(5) → Box<i32>` missing |
+| Constructors: primary, secondary, chains, generic ctor inference | 🟡 | chains done; `Box(5) → Box<i32>` done in Batch 2; parent ctor call added in A1 (2026-10-31) |
 | Attributes bound to symbols (not only warnings) | ❌ | parsed + `deprecated`/`must_use` diagnostics; not stored on `MemberTable`/symbols |
 | Compile-time reflection stubs (`name_of<T>`, `typeof<T>`) | ❌ | M3 item, not started (examples 24) |
 | `use`/dispose | ✅ | Batch 0 + M5 slice; native `dispose` blocked by `IsStatic` (KNOWN_ISSUES) |

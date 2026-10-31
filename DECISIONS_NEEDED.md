@@ -337,3 +337,11 @@ Options:
 2. Reuse `KRN2190` for both missing and cyclic chains with different messages (no new code, but the spec text for 2190 only covers the missing case).
 3. No compile-time check in stage 1: keep the `KNOWN_ISSUES.md` entry, let the runtime frame-limit panic be the behaviour.
 Recommendation: option 1; the check is a small graph walk over `owner.Members.Constructors` and turns an "accepted but always panics" program into a normal type error. Impact if wrong: one code rename and message change in the binder and its tests; no syntax or runtime change.
+
+### Q28: Diagnostic code for constructing an abstract `@type` (M3 inheritance A1, 2026-11-01)
+Spec §2/§8 says an abstract `@type` is not constructible, but no diagnostic code is assigned. Slice A1 stops synthesizing the default constructor for abstract types, so `Shape()` now reports the existing `KRN2103` («У типа 'Shape' нет конструктора»). That message is accurate but generic: it does not say *why* (abstract), and a user who adds a ctor to the abstract type would still be stopped (it would then be callable).
+Options:
+1. Keep `KRN2103` with the generic message (current behaviour, no new code, no binder branch beyond the synthesized-ctor skip) — recommended for stage 1.
+2. New code `KRN2192` «Абстрактный тип нельзя создать» (error) checked in `BindConstructorCall` for `Kind == AbstractClass`, including explicit ctors; clearer message, one new code.
+3. Reuse `KRN2107` (invalid `main`/declaration family) — wrong family, not recommended.
+Recommendation: option 1 now, option 2 if the owner wants a dedicated message; impact of changing later: one message/code change plus tests.
