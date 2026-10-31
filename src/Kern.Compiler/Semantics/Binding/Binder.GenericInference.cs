@@ -94,6 +94,32 @@ public sealed partial class Binder
 			? new UnitType(type, arguments, type.IsImmutable)
 			: new ClassType(type, arguments);
 
+	/// <summary>Карта аргументов generic-типа получателя: <c>T → i32</c> для <c>Box&lt;i32&gt;</c>.</summary>
+	private static Dictionary<string, KernType> TypeArgumentsMap(KernType type)
+	{
+		var map = new Dictionary<string, KernType>(StringComparer.Ordinal);
+		TypeSymbol? symbol = null;
+		IReadOnlyList<KernType> arguments = [];
+		switch (type)
+		{
+			case UnitType unit:
+				symbol = unit.Symbol;
+				arguments = unit.Arguments;
+				break;
+			case ClassType @class:
+				symbol = @class.Symbol;
+				arguments = @class.Arguments;
+				break;
+		}
+
+		if (symbol is null)
+			return map;
+
+		for (var index = 0; index < symbol.GenericParameters.Count && index < arguments.Count; index++)
+			map[symbol.GenericParameters[index].Name] = arguments[index];
+		return map;
+	}
+
 	/// <summary>Подстановка выведенных аргументов в параметры конструктора для проверки вызова.</summary>
 	private static FunctionSymbol SubstituteConstructor(
 		FunctionSymbol constructor,

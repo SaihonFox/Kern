@@ -1,0 +1,5 @@
+fun main {
+	dict<str, i32> d = ["a": 1, "b": 2]
+	loop var k in d { println(k) }
+	loop var ch in "ab" { println(ch) }
+}

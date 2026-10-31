@@ -72,6 +72,89 @@ public sealed partial class Binder
 		}
 	}
 
+	/// <summary>
+	/// Итерационный loop-выражение: результат — <c>list</c> значений тела
+	/// (<c>list&lt;i32&gt; squares = loop i32 i in 1..5 i ** 2</c>, spec §3).
+	/// </summary>
+	private BoundExpression BindIterationLoopExpression(LoopExpression loop)
+	{
+		if (loop.Bindings.Count != 1)
+		{
+			Report("KRN2101", "Итерационный loop ожидает ровно одну переменную", loop.Span);
+			return new BoundErrorExpression(loop.Span);
+		}
+
+		var binding = loop.Bindings[0];
+		var declared = binding.Type is null ? null : _resolver.Resolve(binding.Type, _typeScope);
+		var previousScope = _scope;
+		_scope = new BoundScope(previousScope);
+		try
+		{
+			var statements = new List<BoundStatement>();
+			if (!TryBindIteration(loop, statements, out var element, out var elementType, out var condition, out var increment))
+				return new BoundErrorExpression(loop.Span);
+
+			var variable = DeclareLocal(binding.Name, declared ?? elementType, false, binding.Span);
+			var loopType = declared ?? elementType;
+			element = Convert(element, loopType, binding.Span);
+			if (IsError(element.Type))
+				return new BoundErrorExpression(loop.Span);
+			DeclareFlow(variable, true, loopType);
+
+			var afterLoop = _flow.Clone();
+			afterLoop.ClearNarrowing();
+			var previousIncrement = _iterationIncrement;
+			BoundBlock loopBody;
+			List<FlowState> breaks;
+			try
+			{
+				_iterationIncrement = increment;
+				loopBody = BindLoopBodyWithFlow(null, loop.Body, out breaks);
+			}
+			finally
+			{
+				_iterationIncrement = previousIncrement;
+			}
+
+			if (loopBody.Value is null || IsVoid(loopBody.Value.Type))
+			{
+				Report("KRN2102", "Тело loop-выражения должно возвращать значение", loop.Span);
+				return new BoundErrorExpression(loop.Span);
+			}
+
+			var valueType = loopBody.Value.Type;
+			var listType = new BuiltinGenericType(BuiltinGenericKind.List, [valueType]);
+			var list = DeclareLocal($"#list{_nextSlot}", listType, false, loop.Span);
+			DeclareFlow(list, true, listType);
+			statements.Add(new BoundLocalDeclaration(
+				list.Name,
+				list.Slot,
+				listType,
+				new BoundCollectionLiteral([], listType, loop.Span),
+				false,
+				loop.Span));
+
+			var bodyStatements = new List<BoundStatement>(loopBody.Statements.Count + 1)
+			{
+				new BoundAssignment(variable.Name, variable.Slot, loopType, element, binding.Span)
+			};
+			bodyStatements.AddRange(loopBody.Statements);
+			var bodyBlock = new BoundBlock(bodyStatements, loopBody.Value, loopBody.FallsThrough, loopBody.Span);
+
+			var expression = new BoundLoopExpression(condition, bodyBlock, false, false, listType, loop.Span)
+			{
+				ListSlot = list.Slot,
+				Increment = increment
+			};
+			_flow = breaks.Count > 0 ? FlowState.Join(breaks) : afterLoop;
+			return new BoundBlockExpression(statements, expression, FallsThrough: true, listType, loop.Span);
+		}
+		finally
+		{
+			_scope = previousScope;
+		}
+	}
+
 	/// <summary>Подготовка счётчика/предела и выражений элемента, условия и инкремента.</summary>
 	private bool TryBindIteration(
 		LoopExpression source,
@@ -92,6 +175,58 @@ public sealed partial class Binder
 			condition = element;
 			increment = EmptyLoopBlock(source.Span);
 			return false;
+		}
+
+		// `dict` итерируется по ключам (list<K>), `str` — по символам.
+		if (iterable.Type is BuiltinGenericType { BuiltinKind: BuiltinGenericKind.Dict } dictionary &&
+			dictionary.Arguments.Count == 2)
+		{
+			FunctionSymbol? keys = null;
+			foreach (var native in NativeMembers(iterable.Type, "keys"))
+			{
+				if (native.Parameters.Count == 0)
+				{
+					keys = native;
+					break;
+				}
+			}
+
+			if (keys is null)
+			{
+				Report("KRN2101", $"У типа '{iterable.Type}' нет членов 'keys' для итерации", source.Span);
+				element = new BoundErrorExpression(source.Span);
+				elementType = ErrorType.Instance;
+				condition = element;
+				increment = EmptyLoopBlock(source.Span);
+				return false;
+			}
+
+			var keyList = new BuiltinGenericType(BuiltinGenericKind.List, [dictionary.Arguments[0]]);
+			iterable = new BoundCallExpression(keys, [], keyList, source.Span, iterable);
+		}
+
+		if (iterable.Type.Equals(PrimitiveType.Str))
+		{
+			elementType = PrimitiveType.Char;
+			var textLocal = DeclareLocal($"#iter{_nextSlot}", PrimitiveType.Str, false, source.Span);
+			DeclareFlow(textLocal, true, PrimitiveType.Str);
+			statements.Add(new BoundLocalDeclaration(
+				textLocal.Name, textLocal.Slot, PrimitiveType.Str, iterable, false, source.Span));
+
+			var textIndex = DeclareLocal($"#index{_nextSlot}", PrimitiveType.I32, false, source.Span);
+			DeclareFlow(textIndex, true, PrimitiveType.I32);
+			statements.Add(new BoundLocalDeclaration(
+				textIndex.Name, textIndex.Slot, PrimitiveType.I32, IntLiteral("0", source.Span), false, source.Span));
+
+			var textExpression = Variable(textLocal, source.Span);
+			var textIndexExpression = Variable(textIndex, source.Span);
+			var textLength = new BoundCallExpression(
+				LoopLengthFunction(PrimitiveType.Str), [], PrimitiveType.I32, source.Span, textExpression);
+			element = new BoundIndexExpression(textExpression, textIndexExpression, PrimitiveType.Char, source.Span);
+			condition = new BoundBinaryExpression(
+				textIndexExpression, "<", textLength, PrimitiveType.Bool, source.Span);
+			increment = Increment(textIndex, IntLiteral("1", source.Span), PrimitiveType.I32, source.Span);
+			return true;
 		}
 
 		if (iterable.Type is not BuiltinGenericType
@@ -245,7 +380,10 @@ public sealed partial class Binder
 	/// <summary>Loop-выражение: результат — <c>list</c> значений тела (spec §3).</summary>
 	private BoundExpression BindLoopExpression(LoopExpression loop)
 	{
-		if (loop.Kind == LoopExpressionKind.Iteration || loop.IsAsync)
+		if (loop.Kind == LoopExpressionKind.Iteration)
+			return BindIterationLoopExpression(loop);
+
+		if (loop.IsAsync)
 		{
 			Report("KRN2109", "Итерационный/асинхронный loop будет поддержан в следующем срезе M3", loop.Span);
 			return new BoundErrorExpression(loop.Span);

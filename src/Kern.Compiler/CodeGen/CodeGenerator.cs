@@ -266,8 +266,7 @@ public sealed partial class CodeGenerator
 				break;
 
 			case BoundLoopExpression loop:
-				Report("KRN2201", "loop-выражение с результатом-list будет поддержано вместе с коллекциями (M4/M5)", loop.Span);
-				Emit(OpCode.PushVoid);
+				EmitLoopExpression(loop);
 				break;
 
 			case BoundMatchExpression match:

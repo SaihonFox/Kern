@@ -678,7 +678,8 @@ public sealed partial class Binder
 				if (field.IsStatic)
 					return StaticMemberThroughInstance(owner, member);
 
-				return new BoundFieldExpression(receiver, field, field.Type, member.Span);
+				var fieldType = Substitute(field.Type, TypeArgumentsMap(receiver.Type));
+				return new BoundFieldExpression(receiver, field, fieldType, member.Span);
 			}
 
 			var property = owner.Members.FindProperty(member.Member);
@@ -687,10 +688,11 @@ public sealed partial class Binder
 				if (property.IsStatic)
 					return StaticMemberThroughInstance(owner, member);
 
+				var propertyType = Substitute(property.Type, TypeArgumentsMap(receiver.Type));
 				if (property.BackingField is { } backing)
-					return new BoundFieldExpression(receiver, backing, property.Type, member.Span);
+					return new BoundFieldExpression(receiver, backing, propertyType, member.Span);
 				if (property.Getter is { } getter)
-					return new BoundCallExpression(getter, [], property.Type, member.Span, receiver);
+					return new BoundCallExpression(getter, [], propertyType, member.Span, receiver);
 			}
 		}
 

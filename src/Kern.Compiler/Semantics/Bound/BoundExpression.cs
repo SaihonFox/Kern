@@ -128,7 +128,14 @@ public sealed record BoundLoopExpression(
 	bool IsDoWhile,
 	bool IsInfinite,
 	KernType Type,
-	TextSpan Span) : BoundExpression(Type, Span);
+	TextSpan Span) : BoundExpression(Type, Span)
+{
+	/// <summary>Слот накопителя <c>list&lt;T&gt;</c>; -1 — старый путь без списка.</summary>
+	public int ListSlot { get; init; } = -1;
+
+	/// <summary>Инкремент счётчика итерации, выполняется после добавления значения.</summary>
+	public BoundStatement? Increment { get; init; }
+}
 
 /// <summary>Вызов после разрешения перегрузки; аргументы идут в порядке параметров.</summary>
 /// <summary>
