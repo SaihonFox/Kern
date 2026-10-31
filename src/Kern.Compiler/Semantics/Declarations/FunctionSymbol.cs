@@ -53,6 +53,13 @@ public sealed class FunctionSymbol(string name, FunctionKind kind)
 
 	public bool IsOverride { get; init; }
 
+	/// <summary>
+	/// <c>async fun</c>: тело возвращает объявленный тип <c>T</c>, а видимый тип функции —
+	/// <c>task&lt;T&gt;</c> (spec §16). Флаг попадает в <c>MemberFlags.Async</c> байткода;
+	/// VM заворачивает результат <c>Ret</c> в завершённую задачу.
+	/// </summary>
+	public bool IsAsync { get; init; }
+
 	public bool IsConstructor => Kind == FunctionKind.Constructor;
 
 	public bool IsOperator => Kind == FunctionKind.Operator;

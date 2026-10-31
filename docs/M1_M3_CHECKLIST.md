@@ -45,7 +45,7 @@ M1 verdict: **🟡 complete for stage 1 except regex literal values (M7).**
 | Primitives, nullable `T?`, unions, tuple types, function types, `never`, error type | ✅ | type resolver tests |
 | Builtin generics: `list/array/dict/set/collection` | ✅ | `collection<T>` upcast exists |
 | `result<T,E>` type | ✅ | M3 (2026-10-31): union of built-in `Ok<T>`/`Err<E>`; `Ok`/`Err` construction, patterns, coverage, `KRN2305`, `ok`/`error` labels |
-| `task<T>` type | 🟡 | exists; async end-to-end gaps (M5) |
+| `task<T>` type | ✅ | 2026-11-01: `async fun -> T` is `task<T>`, calls return a completed `KTask`, `await` yields `T`; parallel spawn/combinators are library-stage |
 | Generic constraints, union alias substitution | 🟡 | basic constraints; substitution edge cases unverified |
 | Native generic member substitution (`list<T>.first() -> T`) | ❌ | KNOWN_ISSUES: binds as `object` |
 | Conversions (widening, nullable, boxing, collection upcast, constant narrowing) | ✅ | constant literal narrowing added in Batch 0 |
@@ -65,7 +65,7 @@ M2 verdict: **🟡 imports, `result` and generic ctor inference are done; native
 | Tuples: literals, named tuples, item access, tuple destructuring | ✅ | Batch 1: `BoundTupleExpression`/`TupleGet`, `p.x`, `(i32 a, str b) = pair`, `var (a, b)`; example 02 checks and runs. Structural `==`/hash/compare and tuple dict keys landed 2026-10-31 |
 | Lambdas as values, captures | ✅ | Batch 1.5: `BoundLambdaExpression`, `MakeClosure`/`CallValue`, capture by value; mutable capture (cells) still `KRN2109` |
 | Local functions (hoisting, recursion) | 🟡 | hoisting + by-value captures work (example 05 `helper`); mutual/self recursion not supported yet (name is not declared while binding the body) |
-| `await` as an expression | ❌ | parsed only; `KRN2101` |
+| `await` as an expression | ✅ | 2026-11-01: `await` only inside `async`, operand `task<T>` → `T`; VM `Await` parks/resumes; `async main`; `AsyncTests` (7 facts) |
 | Flow analysis: definite assignment, smart casts, `never`, unreachable | ✅ | flow tests (archived) + `02_types` flow parts |
 | `match`: literals, types, unions, ranges, or-patterns, lists, structural, guards, coverage | ✅ | B4 slices; or-pattern bindings still `KRN2114` |
 | Loops: condition/infinite/do-while, `stop`/`next` in expressions, iteration | 🟡 | `SaveSp/RestoreSp` paths exist; loop-as-expression (list result) missing; `dict`/`str` iteration missing |

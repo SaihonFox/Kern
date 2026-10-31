@@ -90,6 +90,6 @@ public sealed partial class Binder
 			return null;
 
 		var converted = ConvertWithConversion(argument, target, conversion, argument.Span);
-		return new BoundCallExpression(function, [converted], function.ReturnType, span, receiver);
+		return new BoundCallExpression(function, [converted], CallResultType(function, function.ReturnType), span, receiver);
 	}
 }

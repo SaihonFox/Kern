@@ -307,6 +307,10 @@ public sealed partial class Interpreter
 							if (stack.Count != stackBase)
 								throw new KernPanic(
 									$"нарушен баланс стека в функции '{function.Name}': глубина {stack.Count}, ожидалось {stackBase}");
+							// Асинхронная функция возвращает вызывающему готовую задачу (spec §M5):
+							// await внутри неё уже припарковал/возобновил это состояние.
+							if ((function.Flags & MemberFlags.Async) != 0)
+								result = KValue.Obj(KTask.FromResult(result));
 							if (frameCount == 0)
 							{
 								state.Complete(result);

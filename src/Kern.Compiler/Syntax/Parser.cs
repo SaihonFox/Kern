@@ -334,13 +334,14 @@ public sealed partial class Parser
 		var isStatic = modifiers?.IsStatic ?? false;
 		var accessibility = modifiers?.Accessibility ?? Accessibility.Private;
 		var isOverride = modifiers?.IsOverride ?? false;
+		var isAsync = modifiers?.IsAsync ?? false;
 		if (isAbstract && Current.Kind != TokenKind.LeftBrace)
-			return new FunctionDeclaration(functionName, parameters, new BlockStatement([], new TextSpan(name.Span.End, 0)), new TextSpan(start, Previous.Span.End - start), returnType, attributes, true, isStatic, accessibility, isOverride)
+			return new FunctionDeclaration(functionName, parameters, new BlockStatement([], new TextSpan(name.Span.End, 0)), new TextSpan(start, Previous.Span.End - start), returnType, attributes, true, isStatic, accessibility, isOverride, isAsync)
 			{
 				GenericParameters = genericParameters
 			};
 		var body = ParseFunctionBody();
-		return new FunctionDeclaration(functionName, parameters, body, new TextSpan(start, body.Span.End - start), returnType, attributes, isAbstract, isStatic, accessibility, isOverride)
+		return new FunctionDeclaration(functionName, parameters, body, new TextSpan(start, body.Span.End - start), returnType, attributes, isAbstract, isStatic, accessibility, isOverride, isAsync)
 		{
 			GenericParameters = genericParameters
 		};

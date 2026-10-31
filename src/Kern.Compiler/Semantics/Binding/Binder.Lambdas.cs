@@ -143,6 +143,7 @@ public sealed partial class Binder
 		var outerScope = _scope;
 		var savedNextSlot = _nextSlot;
 		var savedReturn = _returnType;
+		var savedAsync = _isAsyncFunction;
 		var savedFlow = _flow;
 		var savedNoneDepth = _noneReadDepth;
 		var savedConstruction = _constructionType;
@@ -158,6 +159,8 @@ public sealed partial class Binder
 		{
 			_nextSlot = 0;
 			_flow = new FlowState();
+			// `await` внутри лямбды разрешён только для локальной `async fun`.
+			_isAsyncFunction = lambda.IsAsync;
 			_loopContexts.Clear();
 			_functionLabels.Clear();
 			_noneReadDepth = 0;
@@ -241,7 +244,7 @@ public sealed partial class Binder
 			{
 				BoxedSlots = _boxedByFrame[frame]
 			};
-			var functionType = new FunctionType(parameterTypes, returnType);
+			var functionType = new FunctionType(parameterTypes, CallResultTypeForAsync(lambda.IsAsync, returnType));
 			return new BoundLambdaExpression(lambdaSymbol, function, [.. context.Captures], functionType, lambda.Span);
 		}
 		finally
@@ -251,6 +254,7 @@ public sealed partial class Binder
 			_scope = outerScope;
 			_nextSlot = savedNextSlot;
 			_returnType = savedReturn;
+			_isAsyncFunction = savedAsync;
 			_flow = savedFlow;
 			_noneReadDepth = savedNoneDepth;
 			_constructionType = savedConstruction;
@@ -272,6 +276,7 @@ public sealed partial class Binder
 		{
 			Parameters = parameters,
 			ReturnType = returnType,
+			IsAsync = lambda.IsAsync,
 			Body = lambda.Body,
 			Declaration = lambda
 		};

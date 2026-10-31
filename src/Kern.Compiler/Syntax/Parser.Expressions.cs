@@ -245,7 +245,16 @@ public sealed partial class Parser
 
 	private ExpressionNode ParsePrimary()
 	{
-		if (Current.Kind == TokenKind.Await || Current.Kind == TokenKind.Operator && Current.Text is "!" or "-" or "+" or "~")
+		// `await` — унарный оператор с постфиксными операциями в операнде:
+		// `await f(x)`, `await obj.method()`, `await xs[0]` (spec §M5).
+		if (Current.Kind == TokenKind.Await)
+		{
+			var awaitToken = Advance();
+			var awaited = ParseExpression(12);
+			return new UnaryExpression("await", awaited,
+				new TextSpan(awaitToken.Span.Start, awaited.Span.End - awaitToken.Span.Start));
+		}
+		if (Current.Kind == TokenKind.Operator && Current.Text is "!" or "-" or "+" or "~")
 		{
 			var operatorToken = Advance();
 			var operand = ParsePrimary();

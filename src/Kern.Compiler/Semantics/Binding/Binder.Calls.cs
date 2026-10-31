@@ -63,8 +63,19 @@ public sealed partial class Binder
 			ordered.Add(ConvertWithConversion(expression, argument.Parameter.Type, argument.Conversion, expression.Span));
 		}
 
-		var returnType = resolution.ReturnType ?? PrimitiveType.Void;
+		var returnType = CallResultType(resolution.Function!, resolution.ReturnType);
 		WarnDeprecated(resolution.Function!, span);
 		return new BoundCallExpression(resolution.Function!, ordered, returnType, span);
 	}
+
+	/// <summary>
+	/// Видимый тип результата вызова: у <c>async fun</c> тело возвращает <c>T</c>, а вызов
+	/// даёт <c>task&lt;T&gt;</c> (spec §16). Для обычных функций тип не меняется.
+	/// </summary>
+	private static KernType CallResultType(FunctionSymbol function, KernType? returnType) =>
+		CallResultTypeForAsync(function.IsAsync, returnType ?? PrimitiveType.Void);
+
+	/// <summary>Тот же маппинг для локальной async-функции, у которой нет символа вызова.</summary>
+	private static KernType CallResultTypeForAsync(bool isAsync, KernType body) =>
+		isAsync ? new BuiltinGenericType(BuiltinGenericKind.Task, [body]) : body;
 }

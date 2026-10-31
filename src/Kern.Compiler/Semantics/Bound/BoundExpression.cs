@@ -64,6 +64,16 @@ public sealed record BoundUnaryExpression(
 	TextSpan Span) : BoundExpression(Type, Span);
 
 /// <summary>
+/// <c>await task&lt;T&gt;</c> (spec §16): допустим только внутри <c>async fun</c>; результат —
+/// <c>T</c>. Codegen печатает операнд и <c>Await</c>; VM припаркует состояние, если задача
+/// ещё не завершена, иначе положит результат (паника задачи всплывает этим же оператором).
+/// </summary>
+public sealed record BoundAwaitExpression(
+	BoundExpression Operand,
+	KernType Type,
+	TextSpan Span) : BoundExpression(Type, Span);
+
+/// <summary>
 /// Elvis <c>left ?: right</c> (spec §3/§4): <c>nil</c> и <c>none</c> слева означают
 /// «значения нет» — результат <paramref name="Right"/>, иначе само значение слева.
 /// Левая часть вычисляется ровно один раз.

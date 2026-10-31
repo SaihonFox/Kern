@@ -55,7 +55,7 @@ public sealed partial class Binder
 			if (!ok || IsError(returnType))
 				continue;
 
-			var functionType = new FunctionType(parameters, returnType);
+			var functionType = new FunctionType(parameters, CallResultTypeForAsync(declaration.IsAsync, returnType));
 			var variable = DeclareLocal(declaration.Name, functionType, false, local.Span);
 			DeclareFlow(variable, true, functionType);
 			predeclared.Add((local, variable, functionType));
@@ -66,7 +66,10 @@ public sealed partial class Binder
 		{
 			var declaration = local.Function;
 			var value = BindLambda(
-				new LambdaExpression(declaration.Parameters, declaration.ReturnType, declaration.Body, declaration.Span),
+				new LambdaExpression(declaration.Parameters, declaration.ReturnType, declaration.Body, declaration.Span)
+				{
+					IsAsync = declaration.IsAsync
+				},
 				functionType);
 			if (IsError(value.Type))
 				continue;
@@ -90,7 +93,10 @@ public sealed partial class Binder
 
 			var declaration = local.Function;
 			var value = BindLambda(
-				new LambdaExpression(declaration.Parameters, declaration.ReturnType, declaration.Body, declaration.Span),
+				new LambdaExpression(declaration.Parameters, declaration.ReturnType, declaration.Body, declaration.Span)
+				{
+					IsAsync = declaration.IsAsync
+				},
 				hint: null);
 			if (IsError(value.Type))
 				continue;

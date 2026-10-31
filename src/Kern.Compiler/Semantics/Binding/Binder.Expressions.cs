@@ -145,10 +145,32 @@ public sealed partial class Binder
 					return new BoundUnaryExpression("~", operand, operand.Type, unary.Span);
 				Report("KRN2101", $"Оператор '~' требует целочисленный операнд, получено '{operand.Type}'", unary.Span);
 				return new BoundErrorExpression(unary.Span);
+			case "await":
+				return BindAwait(operand, unary.Span);
 			default:
 				Report("KRN2101", $"Унарный оператор '{unary.Operator}' пока не поддержан (M3-A)", unary.Span);
 				return new BoundErrorExpression(unary.Span);
 		}
+	}
+
+	/// <summary>
+	/// <c>await expr</c> (spec §16): только внутри <c>async fun</c>, операнд обязан быть
+	/// <c>task&lt;T&gt;</c>, результат — <c>T</c>. Отдельного кода диагностики нет: формы
+	/// ошибки — это существующий KRN2101.
+	/// </summary>
+	private BoundExpression BindAwait(BoundExpression operand, TextSpan span)
+	{
+		if (!_isAsyncFunction)
+		{
+			Report("KRN2101", "'await' допустим только внутри async-функции", span);
+			return new BoundErrorExpression(span);
+		}
+
+		if (operand.Type is BuiltinGenericType { BuiltinKind: BuiltinGenericKind.Task, Arguments.Count: 1 } task)
+			return new BoundAwaitExpression(operand, task.Arguments[0], span);
+
+		Report("KRN2101", $"'await' ожидает 'task<T>', получено '{operand.Type}'", span);
+		return new BoundErrorExpression(span);
 	}
 
 	private BoundExpression BindBinaryOperator(string symbol, BoundExpression left, BoundExpression right, TextSpan span)

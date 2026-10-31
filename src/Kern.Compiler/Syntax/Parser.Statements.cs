@@ -30,11 +30,18 @@ public sealed partial class Parser
 
 	private StatementNode ParseStatement()
 	{
+		// `async fun f` — локальная async-функция: модификатор сохраняется в объявлении,
+		// поддержка (или честная диагностика) решается байндером.
+		DeclarationModifiers? localModifiers = null;
 		if (Current.Kind == TokenKind.Async && _position + 1 < _tokens.Count && _tokens[_position + 1].Kind == TokenKind.Fun)
+		{
 			Advance();
+			localModifiers = new DeclarationModifiers { IsAsync = true };
+		}
+
 		if (Current.Kind == TokenKind.Fun && _position + 1 < _tokens.Count && _tokens[_position + 1].Kind == TokenKind.Identifier)
 		{
-			var function = ParseFunction();
+			var function = ParseFunction(modifiers: localModifiers);
 			return new LocalFunctionStatement(function, function.Span);
 		}
 		if (Current.Kind == TokenKind.Use)

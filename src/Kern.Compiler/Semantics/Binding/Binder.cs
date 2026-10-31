@@ -27,6 +27,13 @@ public sealed partial class Binder
 	private KernType? _selfType;
 
 	/// <summary>
+	/// Текущая функция объявлена <c>async fun</c>: только в ней допустим <c>await</c>
+	/// (spec §16). Лямбда/локальная функция наследует флаг из своего объявления, а не из
+	/// объемлющей функции.
+	/// </summary>
+	private bool _isAsyncFunction;
+
+	/// <summary>
 	/// Тип, объект которого сейчас создаётся (Q15b, spec §8): тело или пролог его конструктора,
 	/// инициализаторы его полей/свойств. Только в этом контексте можно писать <c>init</c>-члены.
 	/// Вложенные функции контекст не наследуют: <see cref="BindFunction"/> сбрасывает его в null
@@ -158,6 +165,7 @@ public sealed partial class Binder
 		_noneReadDepth = 0;
 		_selfVariable = null;
 		_selfType = null;
+		_isAsyncFunction = symbol.IsAsync;
 		_typeScope = TypeParameterScope.Empty;
 		// Новый кадр: слоты и захваты считаются относительно него (см. Binder.Lambdas.cs).
 		_frame = ++_nextFrame;
@@ -225,6 +233,7 @@ public sealed partial class Binder
 		_current = null;
 		_selfVariable = null;
 		_selfType = null;
+		_isAsyncFunction = false;
 		return new BoundFunction(symbol, parameters, body, _returnType, localCount)
 		{
 			Initializers = initializers,

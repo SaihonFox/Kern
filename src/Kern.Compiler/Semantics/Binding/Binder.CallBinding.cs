@@ -238,7 +238,7 @@ public sealed partial class Binder
 		return new BoundCallExpression(
 			resolution.Function!,
 			ordered,
-			resolution.ReturnType ?? PrimitiveType.Void,
+			CallResultType(resolution.Function!, resolution.ReturnType),
 			span,
 			receiver)
 		{

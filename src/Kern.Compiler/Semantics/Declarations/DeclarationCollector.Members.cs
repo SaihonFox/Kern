@@ -307,6 +307,7 @@ public sealed partial class DeclarationCollector
 			IsAbstract = declaration.IsAbstract,
 			IsOpen = declaration.IsAbstract,
 			IsOverride = declaration.IsOverride,
+			IsAsync = declaration.IsAsync,
 			Body = declaration.Body,
 			Declaration = declaration,
 			Attributes = AttributeValues.Build(declaration.DeclaredAttributes)

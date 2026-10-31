@@ -13,7 +13,8 @@ public sealed record FunctionDeclaration(
 	bool IsAbstract = false,
 	bool IsStatic = false,
 	Accessibility Accessibility = Accessibility.Private,
-	bool IsOverride = false) : DeclarationNode(Span), ITypeMember
+	bool IsOverride = false,
+	bool IsAsync = false) : DeclarationNode(Span), ITypeMember
 {
 	public IReadOnlyList<AttributeNode> DeclaredAttributes { get; } = Attributes ?? [];
 

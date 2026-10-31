@@ -301,6 +301,11 @@ public sealed partial class CodeGenerator
 				EmitResultConstruction(result);
 				break;
 
+			case BoundAwaitExpression awaitExpression:
+				EmitExpression(awaitExpression.Operand);
+				Emit(OpCode.Await);
+				break;
+
 			case BoundFieldExpression field:
 				if (field.Field.IsStatic)
 				{

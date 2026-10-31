@@ -191,7 +191,10 @@ public sealed partial class CodeGenerator
 				? $"{function.Symbol.Owner!.Name}.<static-init>"
 				: function.Symbol.Name,
 			ParamTypes = [.. function.Parameters.Select(parameter => TypeSigMap.From(parameter.Symbol.Type, _module.Name))],
-			ReturnType = TypeSigMap.From(function.ReturnType, _module.Name),
+			ReturnType = function.Symbol.IsAsync
+				? TypeSigMap.From(
+					new BuiltinGenericType(BuiltinGenericKind.Task, [function.ReturnType]), _module.Name)
+				: TypeSigMap.From(function.ReturnType, _module.Name),
 			LocalCount = Math.Max(function.LocalCount, function.Parameters.Count),
 			MaxStack = 256,
 			Flags = function.Symbol.Owner is null ? MemberFlags.Static : MemberFlags.None,
@@ -202,6 +205,8 @@ public sealed partial class CodeGenerator
 			definition.Flags |= MemberFlags.Ctor;
 		if (function.Symbol.IsStatic)
 			definition.Flags |= MemberFlags.Static;
+		if (function.Symbol.IsAsync)
+			definition.Flags |= MemberFlags.Async;
 
 		var index = _module.AddFunction(definition);
 		_functionIndices[function.Symbol] = index;
