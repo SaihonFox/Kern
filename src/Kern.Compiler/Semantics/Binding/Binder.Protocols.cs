@@ -75,6 +75,9 @@ public sealed partial class Binder
 			}
 		}
 
+		if (receiver.Type is TupleType)
+			return new BoundHashExpression(receiver, PrimitiveType.U64, span);
+
 		if (receiver.Type is UnitType unit)
 		{
 			if (!IsHashableKey(unit))
@@ -106,7 +109,7 @@ public sealed partial class Binder
 	{
 		var owner = OwnerOf(receiver.Type);
 		List<FunctionSymbol> candidates = owner is null ? [] : CompareOperators(owner);
-		if (candidates.Count == 0 && receiver.Type is not (UnitType or ClassType))
+		if (candidates.Count == 0 && receiver.Type is not (UnitType or ClassType or TupleType))
 			return null;
 
 		var bound = BindExpression(argument.Value);
@@ -115,6 +118,14 @@ public sealed partial class Binder
 
 		if (candidates.Count > 0)
 			return BindDeclaredCompareCall(candidates, receiver, bound, span);
+
+		if (receiver.Type is TupleType)
+		{
+			var convertedTuple = Convert(bound, receiver.Type, bound.Span);
+			if (IsError(convertedTuple.Type))
+				return new BoundErrorExpression(span);
+			return new BoundCompareExpression(receiver, convertedTuple, PrimitiveType.I32, span);
+		}
 
 		if (receiver.Type is UnitType unit)
 		{
@@ -159,8 +170,24 @@ public sealed partial class Binder
 		BoundExpression right,
 		TextSpan span)
 	{
-		if (left.Type is not (UnitType or ClassType))
+		if (left.Type is not (UnitType or ClassType or TupleType))
 			return null;
+
+		if (left.Type is TupleType tuple)
+		{
+			if (!IsComparableType(tuple))
+			{
+				Report("KRN2101", $"Тип '{tuple}' не поддерживает compare: элементы должны быть сравнимыми", span);
+				return new BoundErrorExpression(span);
+			}
+
+			return new BoundBinaryExpression(
+				new BoundCompareExpression(left, right, PrimitiveType.I32, span),
+				symbol,
+				ZeroI32(span),
+				PrimitiveType.Bool,
+				span);
+		}
 
 		var owner = OwnerOf(left.Type);
 		List<FunctionSymbol> candidates = owner is null ? [] : CompareOperators(owner);
@@ -302,6 +329,7 @@ public sealed partial class Binder
 		PrimitiveType primitive => NumericInfo.TryGet(primitive.Primitive, out _) ||
 			primitive.Primitive is PrimitiveKind.Bool or PrimitiveKind.Char or PrimitiveKind.Str,
 		UnitType unit => IsComparableUnit(unit, visiting),
+		TupleType tuple => tuple.Elements.All(element => IsComparableType(element.Type, visiting)),
 		_ => false,
 	};
 

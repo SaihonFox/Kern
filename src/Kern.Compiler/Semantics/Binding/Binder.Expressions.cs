@@ -246,6 +246,16 @@ public sealed partial class Binder
 		if (left.Type is NilType || right.Type is NilType)
 			return BindNilComparison(symbol, left, right, span);
 
+		if (left.Type is TupleType leftTuple && right.Type is TupleType rightTuple &&
+			TupleShapesEqual(leftTuple, rightTuple))
+		{
+			if (symbol is "==" or "!=")
+				return new BoundBinaryExpression(left, symbol, right, PrimitiveType.Bool, span);
+			if (symbol is "<" or "<=" or ">" or ">=" &&
+				TryBindOrderedComparison(symbol, left, right, span) is { } tupleOrder)
+				return tupleOrder;
+		}
+
 		if (left.Type.Equals(right.Type))
 		{
 			var comparable = IsNumeric(left.Type) || IsBool(left.Type) ||
@@ -257,6 +267,16 @@ public sealed partial class Binder
 			// идентичность ссылки; оба случая исполняет VM (KValueMath.AreEqual).
 			if ((symbol is "==" or "!=") && (left.Type is UnitType or ClassType))
 				return new BoundBinaryExpression(left, symbol, right, PrimitiveType.Bool, span);
+
+			// Кортежи — структурное равенство/порядок (spec §3; DECISIONS 2026-10-31).
+			if (left.Type is TupleType)
+			{
+				if (symbol is "==" or "!=")
+					return new BoundBinaryExpression(left, symbol, right, PrimitiveType.Bool, span);
+				if (symbol is "<" or "<=" or ">" or ">=" &&
+					TryBindOrderedComparison(symbol, left, right, span) is { } tupleOrdered)
+					return tupleOrdered;
+			}
 
 			// B6b1: `<`/`<=`/`>`/`>=` для unit/type — через объявленный `op compare(...) -> i32`
 			// или структурное сравнение сравнимого unit'а; иначе KRN2101 (Q24).
@@ -296,6 +316,20 @@ public sealed partial class Binder
 	private static bool IsNumeric(KernType type) => NumericInfo.IsNumeric(type);
 
 	private static bool IsBool(KernType type) => type.Equals(PrimitiveType.Bool);
+
+	/// <summary>Кортежи совпадают по форме: имена полей не влияют на равенство типов.</summary>
+	private static bool TupleShapesEqual(TupleType left, TupleType right)
+	{
+		if (left.Elements.Count != right.Elements.Count)
+			return false;
+		for (var index = 0; index < left.Elements.Count; index++)
+		{
+			if (!left.Elements[index].Type.Equals(right.Elements[index].Type))
+				return false;
+		}
+
+		return true;
+	}
 
 	private static bool TryCommonNumeric(KernType left, KernType right, out KernType common)
 	{

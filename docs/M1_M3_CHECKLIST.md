@@ -62,7 +62,7 @@ M2 verdict: **🟡 imports, generic ctor inference, `result` constructors and na
 | String interpolation, Elvis `?:`, safe call `?.` | ✅ | Batch 0; example 01 runs |
 | Multi-assignment/swap, `use`/dispose, constant conversions | ✅ | Batch 0 |
 | Destructuring (list/array, `..rest`, `_`) | ✅ | Batch 1; example 02 line 38 |
-| Tuples: literals, named tuples, item access, tuple destructuring | ✅ | Batch 1: `BoundTupleExpression`/`TupleGet`, `p.x`, `(i32 a, str b) = pair`, `var (a, b)`; example 02 checks and runs |
+| Tuples: literals, named tuples, item access, tuple destructuring | ✅ | Batch 1: `BoundTupleExpression`/`TupleGet`, `p.x`, `(i32 a, str b) = pair`, `var (a, b)`; example 02 checks and runs. Structural `==`/hash/compare and tuple dict keys landed 2026-10-31 |
 | Lambdas as values, captures | ✅ | Batch 1.5: `BoundLambdaExpression`, `MakeClosure`/`CallValue`, capture by value; mutable capture (cells) still `KRN2109` |
 | Local functions (hoisting, recursion) | 🟡 | hoisting + by-value captures work (example 05 `helper`); mutual/self recursion not supported yet (name is not declared while binding the body) |
 | `await` as an expression | ❌ | parsed only; `KRN2101` |

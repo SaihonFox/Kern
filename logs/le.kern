@@ -1,6 +1,0 @@
-fun main {
-	list<i32> squares = loop i32 i in 1..=4 i * i
-	println(squares)
-	list<str> tags = loop var ch in "abc" ch.to_str()
-	println(tags)
-}

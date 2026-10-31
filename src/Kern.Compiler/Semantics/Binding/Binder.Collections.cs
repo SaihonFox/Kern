@@ -314,6 +314,7 @@ public sealed partial class Binder
 		// Ошибка уже диагностирована — не порождаем каскад.
 		ErrorType => true,
 		UnitType unit => IsHashableUnit(unit, visiting),
+		TupleType tuple => tuple.Elements.All(element => IsHashableKey(element.Type, visiting)),
 		_ => false,
 	};
 
