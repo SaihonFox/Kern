@@ -282,7 +282,9 @@ public sealed partial class Parser
 			index++;
 
 		return _tokens[index].Kind == TokenKind.Identifier &&
-			(index + 1 >= _tokens.Count || _tokens[index + 1].Kind is TokenKind.Equals or TokenKind.Comma or TokenKind.RightParen or TokenKind.Semicolon ||
+			(index + 1 >= _tokens.Count ||
+			_tokens[index + 1].Kind is TokenKind.Equals or TokenKind.Comma or TokenKind.RightParen or
+				TokenKind.Semicolon or TokenKind.LeftParen ||
 			HasNewlineBetween(_tokens[index].Span.End, _tokens[index + 1].Span.Start));
 	}
 
@@ -333,7 +335,26 @@ public sealed partial class Parser
 		var start = Current.Span.Start;
 		var type = ParseTypeSyntax();
 		var name = Consume(TokenKind.Identifier, "Ожидалось имя локальной переменной");
-		var initializer = Match(TokenKind.Equals) ? ParseExpression() : null;
+		ExpressionNode? initializer;
+		if (Match(TokenKind.Equals))
+		{
+			initializer = ParseExpression();
+		}
+		else if (Current.Kind == TokenKind.LeftParen)
+		{
+			// `Point a(1.0, 2.0)` — объявление с вызовом конструктора без `=` (spec §8).
+			var typeText = type.ToString();
+			var generic = typeText.IndexOf('<', StringComparison.Ordinal);
+			if (generic >= 0)
+				typeText = typeText[..generic];
+			initializer = ParseCall(new IdentifierExpression(
+				typeText.TrimEnd('?', '!'),
+				type.Span));
+		}
+		else
+		{
+			initializer = null;
+		}
 		var additionalBindings = new List<LocalBindingNode>();
 		var end = initializer?.Span.End ?? name.Span.End;
 		while (Match(TokenKind.Comma))

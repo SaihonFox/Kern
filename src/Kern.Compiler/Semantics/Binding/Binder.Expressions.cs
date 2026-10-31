@@ -325,67 +325,6 @@ public sealed partial class Binder
 		return false;
 	}
 
-	private BoundExpression BindLoopExpression(LoopExpression loop)
-	{
-		if (loop.Kind == LoopExpressionKind.Iteration || loop.IsAsync)
-		{
-			Report("KRN2109", "Итерационный/асинхронный loop будет поддержан в следующем срезе M3", loop.Span);
-			return new BoundErrorExpression(loop.Span);
-		}
-
-		BoundExpression? condition = null;
-		if (loop.Kind is LoopExpressionKind.Condition)
-			condition = BindLoopCondition(loop.Condition, loop.Span);
-
-		var entry = _flow.Clone();
-		BoundBlock body;
-		List<FlowState> breaks;
-		if (loop.Kind is LoopExpressionKind.DoWhile)
-		{
-			body = BindLoopBodyWithFlow(null, loop.Body, out breaks);
-			condition = BindLoopCondition(loop.Condition, loop.Span);
-			var exit = _flow.Clone();
-			ApplyConditionFacts(exit, condition, whenTrue: false);
-			_flow = FlowState.Join(exit, breaks);
-		}
-		else
-		{
-			body = BindLoopBodyWithFlow(condition, loop.Body, out breaks);
-			if (loop.Kind == LoopExpressionKind.Infinite)
-			{
-				_flow = breaks.Count > 0 ? FlowState.Join(breaks) : FlowState.Unreachable();
-			}
-			else
-			{
-				var exit = entry.Clone();
-				if (condition is not null)
-					ApplyConditionFacts(exit, condition, whenTrue: false);
-				_flow = FlowState.Join(exit, breaks);
-			}
-		}
-
-		var valueType = body.Value?.Type ?? PrimitiveType.Void;
-		var type = new BuiltinGenericType(BuiltinGenericKind.List, [valueType]);
-		return new BoundLoopExpression(
-			condition,
-			body,
-			loop.Kind == LoopExpressionKind.DoWhile,
-			loop.Kind == LoopExpressionKind.Infinite,
-			type,
-			loop.Span);
-	}
-
-	private BoundExpression BindLoopCondition(ExpressionNode? condition, TextSpan span)
-	{
-		if (condition is null)
-		{
-			Report("KRN2101", "У цикла отсутствует условие", span);
-			return new BoundErrorExpression(span);
-		}
-
-		return BindCondition(condition, "Условие цикла");
-	}
-
 	private KernType CommonExpressionType(KernType then, KernType otherwise, TextSpan span, string context = "if")
 	{
 		if (IsNever(then))
@@ -586,7 +525,6 @@ public sealed partial class Binder
 		IReadOnlyList<TypeSyntax> typeArguments,
 		TextSpan span)
 	{
-		var instanceType = InstanceType(type);
 		var candidates = new List<FunctionSymbol>(type.Members.Constructors);
 		if (candidates.Count == 0)
 		{
@@ -595,16 +533,53 @@ public sealed partial class Binder
 		}
 
 		var (_, callArguments, byCallArgument) = BindArguments(arguments);
-		IReadOnlyList<KernType>? explicitTypes = null;
-		if (typeArguments.Count > 0)
-			explicitTypes = _resolver.ResolveAll(typeArguments, _typeScope);
+		IReadOnlyList<KernType>? explicitTypes = typeArguments.Count > 0
+			? _resolver.ResolveAll(typeArguments, _typeScope)
+			: null;
+		var constructedArguments = type.GenericParameters.Count == 0
+			? []
+			: explicitTypes ?? InferConstructorTypeArguments(type, callArguments);
+		var instanceType = Instantiate(type, constructedArguments);
 
 		var call = new CallArguments(callArguments, instanceType, explicitTypes, span, type.Name);
-		var resolution = OverloadResolver.Resolve(candidates, call);
+
+		// Проверяем вызов по конструкторам с подставленными выведенными аргументами,
+		// а в bound-узел кладём исходный символ (у него есть байткод).
+		var resolvedCandidates = candidates;
+		var substituted = new List<FunctionSymbol>();
+		if (type.GenericParameters.Count > 0 &&
+			constructedArguments.All(argument => !(argument is ErrorType)))
+		{
+			var map = new Dictionary<string, KernType>(StringComparer.Ordinal);
+			for (var index = 0; index < type.GenericParameters.Count && index < constructedArguments.Count; index++)
+				map[type.GenericParameters[index].Name] = constructedArguments[index];
+			foreach (var candidate in candidates)
+				substituted.Add(SubstituteConstructor(candidate, map));
+			resolvedCandidates = substituted;
+		}
+
+		var resolution = OverloadResolver.Resolve(resolvedCandidates, call);
 		if (!resolution.Success)
 		{
+			// Один generic-конструктор и позиционные аргументы: связываем напрямую после
+			// подстановки выведенных аргументов (resolver не всегда принимает выведенный T).
+			if (substituted.Count == 1 && callArguments.Count == substituted[0].Parameters.Count &&
+				TryBindGenericConstructorArguments(substituted[0], callArguments, byCallArgument) is { } manual)
+			{
+				WarnDeprecatedType(type, span);
+				return new BoundObjectCreationExpression(type, candidates[0], manual, instanceType, span);
+			}
+
 			_diagnostics.AddRange(resolution.Diagnostics);
 			return new BoundErrorExpression(span);
+		}
+
+		var constructor = resolution.Function!;
+		if (substituted.Count > 0)
+		{
+			var position = substituted.IndexOf(constructor);
+			if (position >= 0)
+				constructor = candidates[position];
 		}
 
 		var ordered = new List<BoundExpression>(resolution.Arguments.Count);
@@ -627,7 +602,7 @@ public sealed partial class Binder
 		}
 
 		WarnDeprecatedType(type, span);
-		return new BoundObjectCreationExpression(type, resolution.Function!, ordered, instanceType, span);
+		return new BoundObjectCreationExpression(type, constructor, ordered, instanceType, span);
 	}
 
 	private (

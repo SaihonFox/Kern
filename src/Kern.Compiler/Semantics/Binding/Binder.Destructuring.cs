@@ -30,6 +30,9 @@ public sealed partial class Binder
 		if (value.Type is TupleType tuple)
 			return BindTupleDestructuring(statement, value, tuple);
 
+		if (value.Type is UnitType unitType)
+			return BindUnitDestructuring(statement, value, unitType);
+
 		if (value.Type is not BuiltinGenericType
 			{ BuiltinKind: BuiltinGenericKind.List or BuiltinGenericKind.Array } collection ||
 			collection.Arguments.Count != 1)
@@ -143,6 +146,58 @@ public sealed partial class Binder
 			value,
 			false,
 			span));
+	}
+
+	/// <summary>
+	/// Деструктуризация <c>unit</c> по полям (spec §9): <c>(f64 px, f64 py) = point</c>.
+	/// Позиции соответствуют полям в порядке объявления; <c>_</c> пропускает, <c>..rest</c>
+	/// и несовпадение числа целей — ошибка.
+	/// </summary>
+	private BoundStatement BindUnitDestructuring(TupleDeclarationStatement statement, BoundExpression value, UnitType unit)
+	{
+		var fields = unit.Symbol.Members.Fields
+			.Where(field => !field.IsStatic && !field.IsBackingField)
+			.ToList();
+		if (fields.Count != statement.Bindings.Count)
+		{
+			Report(
+				"KRN2102",
+				$"У типа '{unit}' полей {fields.Count}, а целей деструктуризации {statement.Bindings.Count}",
+				statement.Span);
+			return EmptyDestructuring(statement.Span);
+		}
+
+		var source = DeclareLocal($"#destr{_nextSlot}", value.Type, false, statement.Span);
+		DeclareFlow(source, true, value.Type);
+		var statements = new List<BoundStatement>(statement.Bindings.Count + 1)
+		{
+			new BoundLocalDeclaration(source.Name, source.Slot, value.Type, value, false, statement.Span)
+		};
+		var receiver = new BoundVariableExpression(source.Name, source.Slot, value.Type, statement.Span);
+
+		for (var index = 0; index < statement.Bindings.Count; index++)
+		{
+			var binding = statement.Bindings[index];
+			if (binding.RestName is not null)
+			{
+				Report("KRN2114", "..rest в деструктуризации unit не поддерживается", binding.Span);
+				return EmptyDestructuring(statement.Span);
+			}
+
+			if (binding.IsIgnored || binding.Name is null or "_")
+				continue;
+
+			var field = fields[index];
+			var declared = binding.Type is null ? null : _resolver.Resolve(binding.Type, _typeScope);
+			var type = declared ?? field.Type;
+			var access = new BoundFieldExpression(receiver, field, field.Type, binding.Span);
+			var converted = Convert(access, type, binding.Span);
+			if (IsError(converted.Type))
+				return EmptyDestructuring(statement.Span);
+			DeclareDestructured(binding.Name, type, converted, statements, binding.Span);
+		}
+
+		return new BoundBlock(statements, null, FallsThrough: true, statement.Span);
 	}
 
 	/// <summary>Проверка числа целей для литерала списка; возвращает индекс <c>..rest</c> или -1.</summary>

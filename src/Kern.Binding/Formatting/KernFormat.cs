@@ -138,6 +138,7 @@ public static class KernFormat
 		KArray array => FormatList(array.Items.ToArray()),
 		KDict dict => FormatDict(dict),
 		KTuple tuple => $"({string.Join(", ", tuple.Items.ToArray().Select(Value))})",
+		KObject obj => FormatObject(obj),
 		KNativeBox box => box.Value.ToString() ?? "native",
 		_ => reference.ToString() ?? "object",
 	};
@@ -158,8 +159,7 @@ public static class KernFormat
 	}
 
 	private static string FormatDict(KDict dict)
-	{
-		var entries = dict.Items.ToList();
+	{		var entries = dict.Items.ToList();
 		if (entries.Count == 0)
 			return "{}";
 		var builder = new StringBuilder("{");
@@ -172,4 +172,31 @@ public static class KernFormat
 
 		return builder.Append('}').ToString();
 	}
+
+	/// <summary>
+	/// Значение <c>unit</c>/<c>type</c>: <c>Name(field=value, …)</c> в порядке объявления
+	/// (spec §9, golden-конвенция). Вложенные значения печатаются как в коллекциях.
+	/// </summary>
+	private static string FormatObject(KObject obj)
+	{
+		var fields = obj.Type.Definition.Fields;
+		var builder = new StringBuilder(obj.Type.Definition.Name).Append('(');
+		for (var index = 0; index < obj.FieldCount; index++)
+		{
+			if (index > 0)
+				builder.Append(", ");
+			var name = index < fields.Count ? fields[index].Name : index.ToString(System.Globalization.CultureInfo.InvariantCulture);
+			builder.Append(name).Append('=').Append(Repr(obj.GetField(index)));
+		}
+
+		return builder.Append(')').ToString();
+	}
+
+	/// <summary>Представление внутри коллекций/полей: строки и символы в кавычках.</summary>
+	private static string Repr(KValue value) => value.Kind switch
+	{
+		ValueKind.Str => "\"" + value.AsStr.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"",
+		ValueKind.Char => "'" + value.AsChar + "'",
+		_ => Value(value),
+	};
 }

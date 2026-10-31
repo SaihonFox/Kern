@@ -242,6 +242,68 @@ public sealed partial class Binder
 	private BoundExpression IntLiteral(string text, TextSpan span) =>
 		BindExpression(new NumberLiteralExpression(text, span));
 
+	/// <summary>Loop-выражение: результат — <c>list</c> значений тела (spec §3).</summary>
+	private BoundExpression BindLoopExpression(LoopExpression loop)
+	{
+		if (loop.Kind == LoopExpressionKind.Iteration || loop.IsAsync)
+		{
+			Report("KRN2109", "Итерационный/асинхронный loop будет поддержан в следующем срезе M3", loop.Span);
+			return new BoundErrorExpression(loop.Span);
+		}
+
+		BoundExpression? condition = null;
+		if (loop.Kind is LoopExpressionKind.Condition)
+			condition = BindLoopCondition(loop.Condition, loop.Span);
+
+		var entry = _flow.Clone();
+		BoundBlock body;
+		List<FlowState> breaks;
+		if (loop.Kind is LoopExpressionKind.DoWhile)
+		{
+			body = BindLoopBodyWithFlow(null, loop.Body, out breaks);
+			condition = BindLoopCondition(loop.Condition, loop.Span);
+			var exit = _flow.Clone();
+			ApplyConditionFacts(exit, condition, whenTrue: false);
+			_flow = FlowState.Join(exit, breaks);
+		}
+		else
+		{
+			body = BindLoopBodyWithFlow(condition, loop.Body, out breaks);
+			if (loop.Kind == LoopExpressionKind.Infinite)
+			{
+				_flow = breaks.Count > 0 ? FlowState.Join(breaks) : FlowState.Unreachable();
+			}
+			else
+			{
+				var exit = entry.Clone();
+				if (condition is not null)
+					ApplyConditionFacts(exit, condition, whenTrue: false);
+				_flow = FlowState.Join(exit, breaks);
+			}
+		}
+
+		var valueType = body.Value?.Type ?? PrimitiveType.Void;
+		var type = new BuiltinGenericType(BuiltinGenericKind.List, [valueType]);
+		return new BoundLoopExpression(
+			condition,
+			body,
+			loop.Kind == LoopExpressionKind.DoWhile,
+			loop.Kind == LoopExpressionKind.Infinite,
+			type,
+			loop.Span);
+	}
+
+	private BoundExpression BindLoopCondition(ExpressionNode? condition, TextSpan span)
+	{
+		if (condition is null)
+		{
+			Report("KRN2101", "У цикла отсутствует условие", span);
+			return new BoundErrorExpression(span);
+		}
+
+		return BindCondition(condition, "Условие цикла");
+	}
+
 	private static BoundBlock EmptyLoopBlock(TextSpan span) =>
 		new([], null, FallsThrough: true, span);
 }
