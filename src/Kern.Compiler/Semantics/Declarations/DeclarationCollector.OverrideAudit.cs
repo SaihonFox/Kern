@@ -19,6 +19,12 @@ public sealed partial class DeclarationCollector
 			if (symbol.IsStatic)
 				continue;
 
+			// Протокольные/нативные предки (`iter<T>`, `stream`, `collection<T>` и т.п.) —
+			// не ClassType и не дают `open`-методов в MemberTable. `~fun next` у такого типа
+			// реализует протокол, а не переопределяет класс: Q29 к нему не применяется.
+			if (symbol.Bases.Any(baseType => baseType is not ClassType))
+				continue;
+
 			var ancestors = Inheritance.Ancestors(symbol);
 
 			foreach (var group in symbol.Members.OwnFunctions.Values)
