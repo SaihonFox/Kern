@@ -33,7 +33,7 @@ public sealed partial class DeclarationCollector
 			ReceiverType = receiver,
 			Accessibility = declaration.Accessibility,
 			IsAbstract = declaration.IsAbstract,
-			IsOpen = declaration.IsAbstract,
+			IsOpen = declaration.IsAbstract || declaration.IsOpen,
 			Body = declaration.Body,
 			Declaration = declaration,
 			Attributes = AttributeValues.Build(declaration.DeclaredAttributes)

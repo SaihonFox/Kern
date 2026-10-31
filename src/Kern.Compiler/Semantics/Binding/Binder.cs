@@ -605,7 +605,12 @@ public sealed partial class Binder
 
 		var value = BindExpression(assignment.Value, property.Type);
 		value = Convert(value, property.Type, assignment.Value.Span);
-		var call = new BoundCallExpression(setter, [value], property.Type, assignment.Span, receiver);
+		var call = new BoundCallExpression(setter, [value], property.Type, assignment.Span, receiver)
+		{
+			// Q30: accessor'ы класса диспатчатся по типу получателя, как и методы.
+			// init-запись (Binder.InitWrites.cs) остаётся статической: это конструкция объекта.
+			Virtual = IsVirtualCall(receiver.Type, setter),
+		};
 		return new BoundExpressionStatement(call, assignment.Span);
 	}
 

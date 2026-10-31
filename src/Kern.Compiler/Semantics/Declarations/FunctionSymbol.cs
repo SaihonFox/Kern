@@ -46,8 +46,8 @@ public sealed class FunctionSymbol(string name, FunctionKind kind)
 	public bool IsAbstract { get; init; }
 
 	/// <summary>
-	/// Абстрактные методы открыты для переопределения по определению (spec §2).
-	/// Явный <c>open fun</c> пока не хранится в AST — см. отчёт slice D.
+	/// Метод открыт для переопределения: <c>open fun</c> или абстрактный <c>@fun</c>
+	/// (spec §2, Q29).
 	/// </summary>
 	public bool IsOpen { get; init; }
 

@@ -71,7 +71,10 @@ public sealed partial class Binder
 					return new BoundErrorExpression(span);
 				}
 
-				return new BoundCallExpression(function, [], function.ReturnType, span, receiver);
+				return new BoundCallExpression(function, [], function.ReturnType, span, receiver)
+				{
+					Virtual = IsVirtualCall(receiver.Type, function),
+				};
 			}
 		}
 
@@ -244,7 +247,10 @@ public sealed partial class Binder
 					return new BoundErrorExpression(span);
 				}
 
-				return new BoundCallExpression(function, [], function.ReturnType, span, receiver);
+				return new BoundCallExpression(function, [], function.ReturnType, span, receiver)
+				{
+					Virtual = IsVirtualCall(receiver.Type, function),
+				};
 			}
 		}
 
@@ -287,7 +293,11 @@ public sealed partial class Binder
 		if (IsError(converted.Type))
 			return new BoundErrorExpression(span);
 
-		return new BoundCallExpression(selected, [converted], PrimitiveType.I32, span, receiver);
+		return new BoundCallExpression(selected, [converted], PrimitiveType.I32, span, receiver)
+		{
+			// Q30: пользовательский op compare класса диспатчится по типу получателя.
+			Virtual = IsVirtualCall(receiver.Type, selected),
+		};
 	}
 
 	/// <summary>Все объявленные <c>op compare</c> типа с одним параметром.</summary>

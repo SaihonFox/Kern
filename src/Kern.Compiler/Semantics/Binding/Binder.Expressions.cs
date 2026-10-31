@@ -490,7 +490,10 @@ public sealed partial class Binder
 				if (property.BackingField is { } backing)
 					return new BoundFieldExpression(receiver, backing, propertyType, member.Span);
 				if (property.Getter is { } getter)
-					return new BoundCallExpression(getter, [], propertyType, member.Span, receiver);
+					return new BoundCallExpression(getter, [], propertyType, member.Span, receiver)
+					{
+						Virtual = IsVirtualCall(receiver.Type, getter),
+					};
 			}
 		}
 

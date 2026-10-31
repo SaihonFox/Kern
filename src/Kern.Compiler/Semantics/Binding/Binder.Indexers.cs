@@ -76,7 +76,11 @@ public sealed partial class Binder
 		for (var position = 0; position < arguments.Count; position++)
 			converted.Add(Convert(arguments[position], selected.Parameters[position].Type, arguments[position].Span));
 
-		return new BoundCallExpression(selected, converted, CallResultType(selected, selected.ReturnType), index.Span, target);
+		return new BoundCallExpression(selected, converted, CallResultType(selected, selected.ReturnType), index.Span, target)
+		{
+			// Q30: пользовательский индексатор класса диспатчится по типу получателя.
+			Virtual = IsVirtualCall(target.Type, selected),
+		};
 	}
 
 	/// <summary>

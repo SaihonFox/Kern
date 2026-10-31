@@ -90,6 +90,11 @@ public sealed partial class Binder
 			return null;
 
 		var converted = ConvertWithConversion(argument, target, conversion, argument.Span);
-		return new BoundCallExpression(function, [converted], CallResultType(function, function.ReturnType), span, receiver);
+		// Q30: операторы класса диспатчатся по типу получателя; расширения остаются
+		// статическими (IsVirtualCall отсекает IsExtension), unit-типы — тоже.
+		return new BoundCallExpression(function, [converted], CallResultType(function, function.ReturnType), span, receiver)
+		{
+			Virtual = IsVirtualCall(receiver.Type, function),
+		};
 	}
 }

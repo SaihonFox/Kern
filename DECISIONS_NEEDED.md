@@ -347,6 +347,7 @@ Options:
 Recommendation: option 1 now, option 2 if the owner wants a dedicated message; impact of changing later: one message/code change plus tests.
 
 ### Q29: `~fun` override without an `open`/`@fun` base (2026-11-01, inheritance A2)
+**Decided 2026-11-01 (owner): option 1 implemented.** `~fun foo(...)` requires an inherited non-static method with the same name and parameter count marked `open fun` or `@fun`; otherwise `KRN2101` on the `~fun` declaration (missing method, wrong arity, or the ancestor is not open/abstract). Operators and properties are outside this check.
 The parser and binder accept `~fun area()` on a derived type even when no ancestor declares `@fun`/`open fun area()`; virtual dispatch then simply finds the method by name at runtime. C# requires `override` to match a virtual base member. Options:
 1. Require an inherited non-static method with the same name/arity to exist (own `@fun`/`open fun` or inherited); otherwise `KRN2101` (recommended, catches typos and makes `~` meaningful).
 2. Keep allowing it (current behaviour): `~` is documentation only, dispatch works anyway.
@@ -354,6 +355,7 @@ The parser and binder accept `~fun area()` on a derived type even when no ancest
 Recommendation: option 1 in the next inheritance slice; impact: one binder check, tests, no runtime change.
 
 ### Q30: should property accessors and user operators dispatch virtually? (2026-11-01, inheritance A2)
+**Decided 2026-11-01 (owner): option 1 implemented.** Property getters/setters, user operators (`op`, including `hash`/`compare`/`clone`) and the indexer `op []` now dispatch by runtime type like class methods; `init` accessors in constructors, native members, extension members and `unit`/`unit!` stay static.
 Class methods now dispatch by runtime type (`CallVirtual`), but property getters/setters and `op` bodies are still emitted as static `Call`, so an overridden property/operator reached through a parent-typed value uses the base implementation. Options:
 1. Dispatch all instance class members (methods, accessors, operators) by name/arity — consistent object model (recommended).
 2. Methods only (current); document accessors/operators as statically bound.
