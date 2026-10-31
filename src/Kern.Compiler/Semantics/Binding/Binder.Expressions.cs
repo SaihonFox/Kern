@@ -267,6 +267,22 @@ public sealed partial class Binder
 			if (comparable)
 				return new BoundBinaryExpression(left, symbol, right, PrimitiveType.Bool, span);
 
+			// Универсальные ограничения num/inum/fnum (spec §4/§16): `<`, `<=`, `>`, `>=`
+			// допустимы для одинаковых T. Значения reified, поэтому сравнение выполняет VM:
+			// ValueCompare даёт -1/0/1, затем результат сравнивается с нулём. Арифметика на T
+			// этим не открывается — только сравнения.
+			if (left.Type is TypeParameterType parameter &&
+				HasNumericConstraint(parameter) &&
+				symbol is "<" or "<=" or ">" or ">=")
+			{
+				return new BoundBinaryExpression(
+					new BoundCompareExpression(left, right, PrimitiveType.I32, span),
+					symbol,
+					ZeroI32(span),
+					PrimitiveType.Bool,
+					span);
+			}
+
 			// spec §9: `==`/`!=` для unit/unit! — структурное сравнение полей, для type —
 			// идентичность ссылки; оба случая исполняет VM (KValueMath.AreEqual).
 			if ((symbol is "==" or "!=") && (left.Type is UnitType or ClassType))
@@ -318,6 +334,17 @@ public sealed partial class Binder
 		type is PrimitiveType primitive && NumericInfo.TryGet(primitive.Primitive, out var info) && info.IsInteger;
 
 	private static bool IsNumeric(KernType type) => NumericInfo.IsNumeric(type);
+
+	/// <summary>
+	/// Ограничение параметра обобщения включает <c>num</c>/<c>inum</c>/<c>fnum</c> (spec §4):
+	/// только для такого <c>T</c> разрешены сравнения (значения reified, opcode <c>ValueCompare</c>).
+	/// </summary>
+	private static bool HasNumericConstraint(TypeParameterType parameter) =>
+		parameter.Constraints.Any(constraint =>
+			constraint is PrimitiveType
+			{
+				Primitive: PrimitiveKind.Num or PrimitiveKind.Inum or PrimitiveKind.Fnum
+			});
 
 	private static bool IsBool(KernType type) => type.Equals(PrimitiveType.Bool);
 

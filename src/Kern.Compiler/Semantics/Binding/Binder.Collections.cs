@@ -450,6 +450,22 @@ public sealed partial class Binder
 			KernType candidate = candidates[index];
 			if (result.Equals(candidate))
 				continue;
+
+			// Классы объединяются по ближайшему общему предку (spec §3): [Circle, Square]
+			// даёт Shape, и каждый элемент приводится к нему обычным upcast'ом. unit/unit!
+			// в этом не участвуют — у них нет наследования (участвуют только ClassType).
+			if (result is ClassType leftClass && candidate is ClassType rightClass)
+			{
+				if (NearestCommonBase(leftClass, rightClass) is not { } commonBase)
+				{
+					Report("KRN2101", $"Нет общего типа {label}: '{result}' и '{candidate}'", span);
+					return null;
+				}
+
+				result = commonBase;
+				continue;
+			}
+
 			if (!IsNumeric(result) || !IsNumeric(candidate))
 			{
 				Report("KRN2101", $"Нет общего типа {label}: '{result}' и '{candidate}'", span);
@@ -491,6 +507,26 @@ public sealed partial class Binder
 		}
 
 		return result;
+	}
+
+	/// <summary>
+	/// Ближайший общий предок двух классов (spec §3): первый тип в цепочке левого операнда,
+	/// к которому правый приводится обычным upcast'ом. Аргументы дженериков берутся из цепочки
+	/// левого типа (<see cref="Inheritance.Chain"/> подставляет их при переходе к базе),
+	/// поэтому <c>BoxA&lt;i32&gt;</c> и <c>BoxB&lt;i32&gt;</c> объединяются в <c>Base&lt;i32&gt;</c>,
+	/// а <c>Box&lt;i32&gt;</c> и <c>Box&lt;str&gt;</c> — нет (наследование инвариантно).
+	/// <c>null</c> — общих предков нет (разные иерархии).
+	/// </summary>
+	private static ClassType? NearestCommonBase(ClassType left, ClassType right)
+	{
+		// Наследование инвариантно по аргументам: Box<i32> и Box<str> не объединяются в Box,
+		// общим предком будет только Shape. Поэтому предок проверяется обычным upcast'ом
+		// правого операнда к кандидату из цепочки левого (ближайший — первым).
+		foreach (ClassType candidate in Inheritance.Chain(left))
+			if (Conversions.TryClassify(right, candidate, out _))
+				return candidate;
+
+		return null;
 	}
 
 	/// <summary>
