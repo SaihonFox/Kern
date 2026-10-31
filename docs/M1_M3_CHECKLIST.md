@@ -64,25 +64,21 @@ M2 verdict: **✅ imports, `result`, generic ctor inference and native generic m
 | Destructuring (list/array, `..rest`, `_`) | ✅ | Batch 1; example 02 line 38 |
 | Tuples: literals, named tuples, item access, tuple destructuring | ✅ | Batch 1: `BoundTupleExpression`/`TupleGet`, `p.x`, `(i32 a, str b) = pair`, `var (a, b)`; example 02 checks and runs. Structural `==`/hash/compare and tuple dict keys landed 2026-10-31 |
 | Lambdas as values, captures | ✅ | Batch 1.5: `BoundLambdaExpression`, `MakeClosure`/`CallValue`, capture by value; mutable capture (cells) still `KRN2109` |
-| Local functions (hoisting, recursion) | 🟡 | hoisting + by-value captures work (example 05 `helper`); mutual/self recursion not supported yet (name is not declared while binding the body) |
+| Local functions (hoisting, recursion) | ✅ | 2026-11-01: hoisting, by-value captures, self- and mutual recursion through captured `KCell` (explicit signature), cells for mutable captures |
 | `await` as an expression | ✅ | 2026-11-01: `await` only inside `async`, operand `task<T>` → `T`; VM `Await` parks/resumes; `async main`; `AsyncTests` (7 facts) |
 | Flow analysis: definite assignment, smart casts, `never`, unreachable | ✅ | flow tests (archived) + `02_types` flow parts |
 | `match`: literals, types, unions, ranges, or-patterns, lists, structural, guards, coverage | ✅ | B4 slices; or-pattern bindings still `KRN2114` |
-| Loops: condition/infinite/do-while, `stop`/`next` in expressions, iteration | 🟡 | `SaveSp/RestoreSp` paths exist; loop-as-expression (list result) missing; `dict`/`str` iteration missing |
+| Loops: condition/infinite/do-while, `stop`/`next` in expressions, iteration | ✅ | 2026-11-01: ranges/list/array/dict/str iteration, loop-as-expression, `loop@label` + `stop/next label`, dispose frames (label tests) |
 | `unit`/`unit!`: value semantics, structural `==`, hash/compare/clone, auto `to_str` | ✅ | B6/B8 slices |
 | Inheritance: single parent, `@type`/`~fun`/abstract/open, multiple inheritance `[A(…), B(…)]`, `$[A].member` | ✅ | A1–A3b (2026-11-01): single-parent members/layout/parent ctor/upcast/`is`, `CallVirtual` dispatch, multiple independent parents + selectors + all parent ctors, diamonds share one ancestor (`CallBase`, topological layout), abstract-member audit (`KRN2101`), Q29 `~fun` validation (`open fun`/`@fun` base required), Q30 dispatch for accessors/operators/indexers. Remaining minor: `base.`-style super call, operator/property `~` validation |
 | Properties (auto/get/set/init/computed) | ✅ | examples 06, init/`init` tests |
 | Extension functions/properties/operators | ✅ | Audit 2026-11-01: instance member wins; builtin receivers, generic receivers (`fun list<i32>.total`, `i32 list<i32>.count`), properties/operators, overloads, `KRN1400`/`KRN1407`, imported extensions by member name; parser fixes (`$` newline capture, generic receiver). Not supported: type-parameter receiver (`fun list<T>.foo`) |
-| Constructors: primary, secondary, chains, generic ctor inference | 🟡 | chains done; `Box(5) → Box<i32>` done in Batch 2; parent ctor call added in A1 (2026-10-31) |
+| Constructors: primary, secondary, chains, generic ctor inference | ✅ | chains, `Box(5) → Box<i32>`, parent ctor calls (A1), multiple parent ctors (A3a) |
 | Attributes bound to symbols (not only warnings) | ✅ | 2026-11-01: `TypeSymbol`/`FunctionSymbol`/`FieldSymbol`/`PropertySymbol.Attributes`; `TypeDef`/`FunctionDef`/`FieldDef` emission + `.kbc` round-trip; disassembler prints type/function `attr`; grouped `#[A, B]`; `deprecated`/`must_use` read symbol data. Residual: `PropertyDef` is not emitted (property attrs live on accessors), module/global attrs have no slot |
-| Compile-time reflection stubs (`name_of<T>`, `typeof<T>`) | ❌ | M3 item, not started (examples 24) |
+| Compile-time reflection stubs (`name_of<T>`, `typeof<T>`) | ✅ | 2026-11-01: `typeof<T>()` (`TypeOfSig`, canonical text) and `name_of<T>()` (binder literal), `ReflectionStubTests`; runtime `typeof(x)`/`reflect.*` are M4/M7 |
 | `use`/dispose | ✅ | Batch 0 + M5 slice; native `dispose` blocked by `IsStatic` (KNOWN_ISSUES) |
 
-M3 verdict: **🟡 core is in place; lambdas, local functions, `await`, generic-ctor
-inference, imports, inheritance audit, attribute binding, reflection stubs and the remaining
-tuple/loop-expression forms remain.** Tuple support, `in`/`!in`, list/tuple destructuring, the
-`!is` flow fix and the spurious-unreachable fix after iteration loops landed in Batch 1; example
-02 is green.
+M3 verdict: **✅ closed 2026-11-01 for the stage-1 language surface.** Remaining items are re-scoped, not missing: regex literal values (M7), runtime reflection members `typeof(x)`/`reflect.*` (M4/M7), polymorphic extension receivers (`fun list<T>.foo`), generic signature substitution for user generic bodies in native positions (documented `KNOWN_ISSUES`), expression-bodied `op` members, and `~` validation for operators/properties. All ❌/🟡 rows above are closed or explicitly re-scoped.
 
 ## Definition of "M1–M3 done"
 
