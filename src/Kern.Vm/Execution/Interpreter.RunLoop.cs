@@ -493,6 +493,30 @@ public sealed partial class Interpreter
 							});
 							break;
 						}
+					case OpCode.ListSet:
+						{
+							// spec §5: стек [list/array, индекс i32, значение]; запись на месте,
+							// на стек ничего не остаётся. Отрицательный индекс считается с конца.
+							KValue value = stack.Pop();
+							KValue indexValue = stack.Pop();
+							KValue receiver = stack.Pop();
+							if (indexValue.Kind != ValueKind.I32)
+								throw new KernPanic($"ListSet: ожидался индекс i32, получено {indexValue.TypeName}");
+							int index = indexValue.AsI32;
+							switch (receiver.Ref)
+							{
+								case KList list:
+									list[NormalizeIndex(index, list.Count)] = value;
+									break;
+								case KArray array:
+									array[NormalizeIndex(index, array.Length)] = value;
+									break;
+								default:
+									throw new KernPanic(
+										$"ListSet: ожидался list или array, получено {receiver.TypeName}");
+							}
+							break;
+						}
 					case OpCode.StrGet:
 						{
 							// B5b2: стек [str, индекс i32]; выход — char. Отрицательный индекс

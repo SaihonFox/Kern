@@ -60,6 +60,19 @@ public sealed record BoundFieldAssignment(
 	BoundExpression Value,
 	TextSpan Span) : BoundStatement(Span);
 
+/// <summary>
+/// Запись по встроенному индексу (spec §5): <c>xs[i] = v</c> для <c>list&lt;T&gt;</c>/<c>array&lt;T&gt;</c>
+/// (новый опкод <c>ListSet</c>) и <c>d[k] = v</c> для <c>dict&lt;K, V&gt;</c> (<c>DictSet</c> + <c>Pop</c>).
+/// <see cref="Index"/> уже приведён к <c>i32</c> (список/массив) или к <c>K</c> (словарь),
+/// <see cref="Value"/> — к типу элемента/значения. Пользовательский <c>op []</c> и <c>str</c>
+/// остаются только для чтения.
+/// </summary>
+public sealed record BoundIndexStore(
+	BoundExpression Target,
+	BoundExpression Index,
+	BoundExpression Value,
+	TextSpan Span) : BoundStatement(Span);
+
 public sealed record BoundExpressionStatement(
 	BoundExpression Expression,
 	TextSpan Span) : BoundStatement(Span);

@@ -274,8 +274,9 @@ public static class KbcModuleValidator
 				or OpCode.ValueHashFields or OpCode.ValueCompareFields
 				or OpCode.CloneObject
 				or OpCode.Repeat
+				or OpCode.ListSet
 				or OpCode.NewCell or OpCode.LoadCell or OpCode.StoreCell:
-				// B6b1/B8a/B8c + Repeat/Cells: операндов нет — проверять нечего.
+				// B6b1/B8a/B8c + Repeat/Cells/ListSet: операндов нет — проверять нечего.
 				break;
 		}
 	}

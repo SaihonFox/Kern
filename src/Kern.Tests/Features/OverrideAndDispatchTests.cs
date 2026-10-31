@@ -237,6 +237,54 @@ public sealed class OverrideAndDispatchTests
 		Assert.DoesNotContain(OpCode.CallVirtual, OpCodes(Compile(source)));
 	}
 
+	[Fact]
+	public void Operator_and_property_override_with_a_base_run()
+	{
+		const string source = """
+			open type A {
+				op +(A other) -> str { "A" }
+				i32 v => 1
+			}
+
+			type B()[A] {
+				~op +(B other) -> str "B"
+				~i32 v => 2
+			}
+
+			fun apply() -> str {
+				A a = B()
+				a + a
+			}
+
+			fun prop() -> i32 {
+				A a = B()
+				a.v
+			}
+			""";
+
+		Assert.Equal(KValue.Str("B"), Run(source, "apply"));
+		Assert.Equal(KValue.I32(2), Run(source, "prop"));
+	}
+
+	[Fact]
+	public void Operator_and_property_override_without_a_base_report_KRN2101()
+	{
+		const string source = """
+			type C {
+				~op +(C other) -> str "C"
+				~i32 v => 2
+			}
+
+			fun main { println(C().v) }
+			""";
+
+		var outcome = CompileWithDiagnostics(source);
+		var errors = outcome.Diagnostics.Where(diagnostic => diagnostic.Code == "KRN2101").ToList();
+		Assert.Equal(2, errors.Count);
+		Assert.Contains(errors, diagnostic => diagnostic.Message.Contains("Оператор", StringComparison.Ordinal));
+		Assert.Contains(errors, diagnostic => diagnostic.Message.Contains("Свойство", StringComparison.Ordinal));
+	}
+
 	private sealed record Outcome(CodegenResult? Code, IReadOnlyList<Diagnostic> Diagnostics);
 
 	private static NativeCatalog Catalog() =>

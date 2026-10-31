@@ -442,6 +442,11 @@ public sealed partial class Binder
 		if (assignment.Target is MemberAccessExpression member)
 			return BindFieldAssignment(assignment, member);
 
+		// `xs[i] = v` / `d[k] = v` — встроенные коллекции (spec §5); пользовательский op [] и str
+		// остаются только для чтения.
+		if (assignment.Target is IndexExpression indexTarget)
+			return BindIndexAssignment(assignment, indexTarget);
+
 		// `a, b = b, a` (swap) и многоцелевое присваивание: значения считаются слева
 		// направо во временные локальные, затем записываются в цели (spec §3).
 		if (assignment.Target is TupleExpression targets)

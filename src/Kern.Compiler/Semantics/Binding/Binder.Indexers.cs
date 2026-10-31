@@ -164,6 +164,128 @@ public sealed partial class Binder
 	}
 
 	/// <summary>
+	/// spec §5: запись по встроенному индексу. <c>xs[i] = v</c> у <c>list&lt;T&gt;</c>/
+	/// <c>array&lt;T&gt;</c> и <c>d[k] = v</c> у <c>dict&lt;K, V&gt;</c> мутируют коллекцию;
+	/// <c>str</c> и пользовательский <c>op []</c> остаются только для чтения (KRN2106).
+	/// Составное присваивание вычисляет цель и индекс один раз во временные локальные,
+	/// читает текущее значение и записывает объединённое.
+	/// </summary>
+	private BoundStatement BindIndexAssignment(AssignmentStatement assignment, IndexExpression index)
+	{
+		var target = BindExpression(index.Target);
+		if (IsError(target.Type))
+			return new BoundBlock([], null, FallsThrough: true, assignment.Span);
+
+		if (target.Type is not BuiltinGenericType
+			{
+				BuiltinKind: BuiltinGenericKind.List or BuiltinGenericKind.Array or BuiltinGenericKind.Dict
+			} builtin)
+		{
+			Report(
+				"KRN2106",
+				"Индексатор только для чтения: запись по индексу поддержана для list, array и dict",
+				index.Span);
+			return new BoundBlock([], null, FallsThrough: true, assignment.Span);
+		}
+
+		if (index.Arguments.Count != 1)
+		{
+			Report(
+				"KRN2101",
+				$"Запись по индексу '{builtin}' принимает один индекс, получено {index.Arguments.Count}",
+				index.Span);
+			return new BoundBlock([], null, FallsThrough: true, assignment.Span);
+		}
+
+		if (index.Arguments[0] is RangeExpression range)
+		{
+			Report("KRN2106", "Запись срезом не поддержана: срез возвращает новую коллекцию", range.Span);
+			return new BoundBlock([], null, FallsThrough: true, assignment.Span);
+		}
+
+		var isDictionary = builtin.BuiltinKind == BuiltinGenericKind.Dict;
+		var indexType = isDictionary ? builtin.Arguments[0] : PrimitiveType.I32;
+		var valueType = isDictionary ? builtin.Arguments[1] : builtin.Arguments[0];
+
+		var argument = BindExpression(index.Arguments[0]);
+		if (IsError(argument.Type))
+			return new BoundBlock([], null, FallsThrough: true, assignment.Span);
+
+		var convertedIndex = Convert(argument, indexType, argument.Span);
+		if (IsError(convertedIndex.Type))
+			return new BoundBlock([], null, FallsThrough: true, assignment.Span);
+
+		if (assignment.Operator != "=")
+			return BindCompoundIndexAssignment(assignment, target, convertedIndex, valueType, index);
+
+		var convertedValue = Convert(BindExpression(assignment.Value, valueType), valueType, assignment.Value.Span);
+		if (IsError(convertedValue.Type))
+			return new BoundBlock([], null, FallsThrough: true, assignment.Span);
+
+		return new BoundIndexStore(target, convertedIndex, convertedValue, assignment.Span);
+	}
+
+	/// <summary>
+	/// Составное присваивание по индексу (<c>xs[i] += 1</c>, <c>d[k] *= 2</c>): цель и индекс
+	/// вычисляются один раз во временные локальные (имена с <c>#</c>), затем текущее значение
+	/// читается через <see cref="BoundIndexExpression"/> и комбинируется обычным оператором.
+	/// У словаря отсутствующий ключ читается как паника VM — как и у <c>d[k]</c>.
+	/// </summary>
+	private BoundStatement BindCompoundIndexAssignment(
+		AssignmentStatement assignment,
+		BoundExpression target,
+		BoundExpression index,
+		KernType valueType,
+		IndexExpression indexSyntax)
+	{
+		var statements = new List<BoundStatement>(3);
+
+		BoundVariable targetVariable = DeclareLocal($"#indexTarget{_nextSlot}", target.Type, false, indexSyntax.Span);
+		DeclareFlow(targetVariable, true, target.Type);
+		statements.Add(new BoundLocalDeclaration(
+			targetVariable.Name,
+			targetVariable.Slot,
+			target.Type,
+			target,
+			false,
+			indexSyntax.Span));
+
+		BoundVariable indexVariable = DeclareLocal($"#indexKey{_nextSlot}", index.Type, false, indexSyntax.Span);
+		DeclareFlow(indexVariable, true, index.Type);
+		statements.Add(new BoundLocalDeclaration(
+			indexVariable.Name,
+			indexVariable.Slot,
+			index.Type,
+			index,
+			false,
+			indexSyntax.Span));
+
+		var targetReference = new BoundVariableExpression(
+			targetVariable.Name,
+			targetVariable.Slot,
+			target.Type,
+			indexSyntax.Span);
+		var indexReference = new BoundVariableExpression(
+			indexVariable.Name,
+			indexVariable.Slot,
+			index.Type,
+			indexSyntax.Span);
+
+		var current = new BoundIndexExpression(targetReference, indexReference, valueType, indexSyntax.Span);
+		var symbol = assignment.Operator.TrimEnd('=');
+		var combined = BindBinaryOperator(symbol, current, BindExpression(assignment.Value), assignment.Span);
+		if (combined is BoundErrorExpression)
+			return new BoundBlock([], null, FallsThrough: true, assignment.Span);
+
+		var converted = Convert(combined, valueType, assignment.Value.Span);
+		if (IsError(converted.Type))
+			return new BoundBlock([], null, FallsThrough: true, assignment.Span);
+
+		statements.Add(new BoundIndexStore(targetReference, indexReference, converted, assignment.Span));
+		return new BoundBlock(statements, null, FallsThrough: true, assignment.Span);
+	}
+
+	/// <summary>
 	/// B5b2: срез <c>target[start..end]</c>/<c>target[start..=end]</c> (spec §3, round 27).
 	/// Шаг в срезе не поддержан — KRN2101; границы приводятся к <c>i32</c> (несовпадение —
 	/// KRN2102 из <see cref="Convert"/>). Некорректный диапазон проверяет VM (паника).

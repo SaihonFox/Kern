@@ -21,7 +21,7 @@ public sealed partial class Binder
 		try
 		{
 			var statements = new List<BoundStatement>();
-			if (!TryBindIteration(source, statements, out var element, out _, out var condition, out var increment))
+			if (!TryBindIteration(source, statements, out var element, out _, out var condition, out var increment, out var iterationPrefix))
 				return EmptyLoopBlock(span);
 
 			var assignments = BindIterationVariables(source, element, span);
@@ -32,7 +32,8 @@ public sealed partial class Binder
 			afterLoop.ClearNarrowing();
 			var loopBody = BindLoopBodyWithFlow(null, body, source.Label, increment, out var breaks);
 
-			var bodyStatements = new List<BoundStatement>(assignments.Count + loopBody.Statements.Count + 1);
+			var bodyStatements = new List<BoundStatement>(iterationPrefix.Count + assignments.Count + loopBody.Statements.Count + 1);
+			bodyStatements.AddRange(iterationPrefix);
 			bodyStatements.AddRange(assignments);
 			bodyStatements.AddRange(loopBody.Statements);
 			bodyStatements.Add(increment);
@@ -154,7 +155,7 @@ public sealed partial class Binder
 		try
 		{
 			var statements = new List<BoundStatement>();
-			if (!TryBindIteration(loop, statements, out var element, out var elementType, out var condition, out var increment))
+			if (!TryBindIteration(loop, statements, out var element, out var elementType, out var condition, out var increment, out var iterationPrefix))
 				return new BoundErrorExpression(loop.Span);
 
 			var bindingSpan = binding?.Span ?? loop.Span;
@@ -191,10 +192,9 @@ public sealed partial class Binder
 				false,
 				loop.Span));
 
-			var bodyStatements = new List<BoundStatement>(loopBody.Statements.Count + 1)
-			{
-				new BoundAssignment(variable.Name, variable.Slot, loopType, element, bindingSpan)
-			};
+			var bodyStatements = new List<BoundStatement>(iterationPrefix.Count + loopBody.Statements.Count + 1);
+			bodyStatements.AddRange(iterationPrefix);
+			bodyStatements.Add(new BoundAssignment(variable.Name, variable.Slot, loopType, element, bindingSpan));
 			bodyStatements.AddRange(loopBody.Statements);
 			var bodyBlock = new BoundBlock(bodyStatements, loopBody.Value, loopBody.FallsThrough, loopBody.Span);
 
@@ -214,14 +214,17 @@ public sealed partial class Binder
 	}
 
 	/// <summary>Подготовка счётчика/предела и выражений элемента, условия и инкремента.</summary>
+	/// <param name="prefix">Операторы начала каждой итерации (протокол <c>iter&lt;T&gt;</c>); обычно пусто.</param>
 	private bool TryBindIteration(
 		LoopExpression source,
 		List<BoundStatement> statements,
 		out BoundExpression element,
 		out KernType elementType,
 		out BoundExpression condition,
-		out BoundStatement increment)
+		out BoundStatement increment,
+		out List<BoundStatement> prefix)
 	{
+		prefix = [];
 		if (source.Iterable is RangeExpression range)
 			return TryBindRangeIteration(range, statements, out element, out elementType, out condition, out increment);
 
@@ -322,13 +325,30 @@ public sealed partial class Binder
 			return true;
 		}
 
+		// spec §16: тип, реализующий iter<T> через `~fun next -> T?`, итерируется протоколом.
+		if (TryFindIteratorBase(iterable.Type, out var iterator))
+		{
+			return TryBindIteratorProtocol(
+				source,
+				iterable,
+				iterator,
+				statements,
+				out element,
+				out elementType,
+				out condition,
+				out increment,
+				out prefix);
+		}
+
 		if (iterable.Type is not BuiltinGenericType
 			{ BuiltinKind: BuiltinGenericKind.List or BuiltinGenericKind.Array } collection ||
 			collection.Arguments.Count != 1)
 		{
 			Report(
 				"KRN2101",
-				$"Итерационный loop по типу '{iterable.Type}' пока не поддержан: нужен list/array или диапазон",
+				HasAsyncIteratorBase(iterable.Type)
+					? $"Итерация по '{iterable.Type}' через async_iter<T> пока не поддержана (spec §16): используйте sync iter<T> или await next() вручную"
+					: $"Итерационный loop по типу '{iterable.Type}' пока не поддержан: нужен list/array, диапазон или iter<T>",
 				source.Span);
 			element = new BoundErrorExpression(source.Span);
 			elementType = ErrorType.Instance;
@@ -363,6 +383,7 @@ public sealed partial class Binder
 		increment = Increment(indexLocal, IntLiteral("1", source.Span), PrimitiveType.I32, source.Span);
 		return true;
 	}
+
 
 	private bool TryBindRangeIteration(
 		RangeExpression range,

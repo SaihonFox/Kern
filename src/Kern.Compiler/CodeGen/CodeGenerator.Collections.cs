@@ -144,6 +144,28 @@ public sealed partial class CodeGenerator
 	}
 
 	/// <summary>
+	/// Запись по встроенному индексу (spec §5): <c>xs[i] = v</c> кладёт цель, индекс и значение,
+	/// затем <c>ListSet</c> (стек пуст). Для <c>dict</c> — <c>DictSet</c> оставляет словарь,
+	/// поэтому за ним идёт <c>Pop</c>. Значения unit копируются (value-семантика).
+	/// </summary>
+	private void EmitIndexStore(BoundIndexStore store)
+	{
+		EmitExpression(store.Target);
+		EmitExpression(store.Index);
+		EmitCopyIfUnit(store.Index.Type);
+		EmitExpression(store.Value);
+		EmitCopyIfUnit(store.Value.Type);
+		if (store.Target.Type is BuiltinGenericType { BuiltinKind: BuiltinGenericKind.Dict })
+		{
+			Emit(OpCode.DictSet);
+			Emit(OpCode.Pop);
+			return;
+		}
+
+		Emit(OpCode.ListSet);
+	}
+
+	/// <summary>
 	/// Типы ключа и значения из типа литерала (<c>dict&lt;K, V&gt;</c>). Ошибка типа сюда не
 	/// доходит, но на всякий случай используется <c>object</c>.
 	/// </summary>

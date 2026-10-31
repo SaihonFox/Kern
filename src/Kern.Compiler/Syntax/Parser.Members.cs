@@ -173,7 +173,7 @@ public sealed partial class Parser
 		target is ModifierTarget.NestedType or ModifierTarget.MemberFunction or ModifierTarget.Member;
 
 	private static bool AllowsOverride(ModifierTarget target) =>
-		target is ModifierTarget.MemberFunction or ModifierTarget.Member;
+		target is ModifierTarget.MemberFunction or ModifierTarget.Member or ModifierTarget.Operator;
 
 	private static bool AllowsOpen(ModifierTarget target) =>
 		target is ModifierTarget.TopLevelType or ModifierTarget.NestedType or
@@ -461,9 +461,21 @@ public sealed partial class Parser
 			Advance();
 			returnType = ParseTypeSyntax();
 		}
-		SyntaxNode? body = Current.Kind is TokenKind.LeftBrace or TokenKind.Identifier or TokenKind.Dollar
-			? ParseFunctionBody()
-			: null;
+		SyntaxNode? body = null;
+		if (Current.Kind == TokenKind.LeftBrace)
+		{
+			body = ParseBlock();
+		}
+		else
+		{
+			// Тело может быть на следующей строке (`op *(…)-> T` + `T(...)`), поэтому
+			// отделяем его от начала следующего объявления, а не только по переводу строки.
+			var startsDeclaration = Current.Kind is TokenKind.Fun or TokenKind.Type or TokenKind.Unit
+				or TokenKind.Op or TokenKind.Ctor or TokenKind.Use or TokenKind.Hash
+				or TokenKind.RightBrace or TokenKind.Semicolon;
+			if (!startsDeclaration && (!HasNewlineBeforeCurrent() || !modifiers.IsAbstract))
+				body = ParseExpression();
+		}
 		return new OperatorMemberNode(owner is null ? operatorName : $"{owner}.{operatorName}", parameters, returnType, body,
 			new TextSpan(start, (body?.Span.End ?? Previous.Span.End) - start),
 			modifiers.Accessibility, modifiers.IsOverride, Attributes: attributes);

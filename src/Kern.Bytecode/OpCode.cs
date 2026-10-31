@@ -171,6 +171,9 @@ public enum OpCode
 
 	// --- вызов конструктора предка (ромб наследования) ---
 	CallBase,         // functionIdx, argc: как Call, но повторный конструктор того же типа пропускается
+
+	// --- запись по встроенному индексу (spec §5) ---
+	ListSet,          // нет операндов: [list/array, индекс i32, значение] -> пусто; отрицательный индекс с конца
 }
 
 /// <summary>Раскладка операндов и вспомогательные проверки для <see cref="OpCode"/>.</summary>
@@ -199,7 +202,7 @@ public static class OpCodeInfo
 	public static bool IsJump(OpCode op) => op is OpCode.Jmp or OpCode.JmpIf or OpCode.JmpIfNot;
 
 	/// <summary>Известен ли номер опкода (защита от мусора в .kbc).</summary>
-	public static bool IsDefined(int value) => value >= 0 && value <= (int)OpCode.CallBase;
+	public static bool IsDefined(int value) => value >= 0 && value <= (int)OpCode.ListSet;
 
 	public static bool IsDefined(OpCode op) => IsDefined((int)op);
 }

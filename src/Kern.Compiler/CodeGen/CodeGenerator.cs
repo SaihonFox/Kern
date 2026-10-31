@@ -149,6 +149,10 @@ public sealed partial class CodeGenerator
 				Emit(OpCode.Pop);
 				break;
 
+			case BoundIndexStore indexStore:
+				EmitIndexStore(indexStore);
+				break;
+
 			case BoundChainStore chainStore:
 				EmitChainStore(chainStore);
 				break;

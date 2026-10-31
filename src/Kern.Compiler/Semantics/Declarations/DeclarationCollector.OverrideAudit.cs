@@ -44,6 +44,41 @@ public sealed partial class DeclarationCollector
 					var span = function.Declaration?.Span ?? symbol.Declaration?.Span ?? default;
 					_diagnostics.Add(new Diagnostic("KRN2101", problem, span));
 				}
+
+			// Q29 расширен на операторы и свойства (2026-11-01): у них нет `open`-синтаксиса,
+			// поэтому правило — существование одноимённого члена у предка.
+			foreach (var @operator in symbol.Members.Operators)
+			{
+				if (!@operator.IsOverride)
+					continue;
+				var inherited = ancestors.Any(ancestor => ancestor.Members.Operators.Any(candidate =>
+					candidate.OpSymbol == @operator.OpSymbol &&
+					candidate.Parameters.Count == @operator.Parameters.Count));
+				if (inherited)
+					continue;
+				var span = @operator.Declaration?.Span ?? symbol.Declaration?.Span ?? default;
+				_diagnostics.Add(new Diagnostic(
+					"KRN2101",
+					$"Оператор '{symbol.Name}.{@operator.OpSymbol}' помечен '~', но в предках нет " +
+						$"оператора '{@operator.OpSymbol}' с числом параметров {@operator.Parameters.Count}",
+					span));
+			}
+
+			foreach (var property in symbol.Members.OwnProperties)
+			{
+				if (!property.IsOverride)
+					continue;
+				var inherited = ancestors.Any(ancestor =>
+					ancestor.Members.OwnProperties.Any(candidate => candidate.Name == property.Name));
+				if (inherited)
+					continue;
+				var span = property.Declaration?.Span ?? symbol.Declaration?.Span ?? default;
+				_diagnostics.Add(new Diagnostic(
+					"KRN2101",
+					$"Свойство '{symbol.Name}.{property.Name}' помечено '~', но в предках нет свойства " +
+						$"'{property.Name}'",
+					span));
+			}
 		}
 	}
 
