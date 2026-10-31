@@ -20,6 +20,13 @@ public sealed partial class CodeGenerator
 		_ => true
 	};
 
+	/// <summary>Копирование значения <c>unit</c> при присваивании/передаче (spec §9).</summary>
+	private void EmitCopyIfUnit(KernType type)
+	{
+		if (type is UnitType)
+			Emit(OpCode.CopyUnit);
+	}
+
 	/// <summary>
 	/// <c>obj?.member</c>: приёмник один раз в слот, проверка на <c>nil</c>, затем обычный
 	/// доступ из слота; в ветви <c>nil</c> на стек кладётся <c>nil</c>.

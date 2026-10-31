@@ -587,6 +587,16 @@ public sealed partial class Interpreter
 							stack.Push(KValue.Obj(new KTuple(itemTypes, PopItems(ref stack, sigs.Length))));
 							break;
 						}
+					case OpCode.TupleGet:
+						{
+							// spec §3: [кортеж] -> элемент по индексу; имя выбирает компилятор.
+							int index = code[pc++];
+							KValue receiver = stack.Pop();
+							if (receiver.Ref is not KTuple tuple)
+								throw new KernPanic($"TupleGet: ожидался кортеж, получено {receiver.TypeName}");
+							stack.Push(tuple[index]);
+							break;
+						}
 
 					// ---------- функции-значения и замыкания ----------
 					case OpCode.MakeFunc:

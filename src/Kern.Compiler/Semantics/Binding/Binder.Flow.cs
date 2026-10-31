@@ -364,7 +364,11 @@ public sealed partial class Binder
 		if (test is null)
 			return new BoundErrorExpression(binary.Span);
 
-		CheckPatternCompatible(operand.Type, test, binary.Right.Span, "типа");
+		// `!is` с заведомо несовместимым типом — законная проверка (всегда true), не ошибка:
+		// сужение могло оставить конкретный тип из union.
+		if (binary.Operator == "is")
+			CheckPatternCompatible(operand.Type, test, binary.Right.Span, "типа");
+
 		return new BoundTypeTestExpression(operand, test, binary.Operator == "!is", binary.Span);
 	}
 

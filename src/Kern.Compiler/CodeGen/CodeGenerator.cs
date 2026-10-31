@@ -359,6 +359,14 @@ public sealed partial class CodeGenerator
 				EmitCollectionLiteral(collection);
 				break;
 
+			case BoundTupleExpression tuple:
+				EmitTupleLiteral(tuple);
+				break;
+
+			case BoundTupleItemExpression tupleItem:
+				EmitTupleItem(tupleItem);
+				break;
+
 			case BoundDictionaryLiteral dictionary:
 				EmitDictionaryLiteral(dictionary);
 				break;
@@ -693,12 +701,6 @@ public sealed partial class CodeGenerator
 			case PrimitiveKind.Char: Emit(OpCode.ConvChar); break;
 			case PrimitiveKind.Bool: Emit(OpCode.ConvBool); break;
 		}
-	}
-
-	private void EmitCopyIfUnit(KernType type)
-	{
-		if (type is UnitType)
-			Emit(OpCode.CopyUnit);
 	}
 
 	private static bool IsVoid(KernType type) => type is PrimitiveType { Primitive: PrimitiveKind.Void };

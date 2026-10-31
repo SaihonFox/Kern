@@ -40,6 +40,8 @@ public sealed partial class Binder
 				return EmptyLoopBlock(span);
 			DeclareFlow(variable, true, loopType);
 
+			var afterLoop = _flow.Clone();
+			afterLoop.ClearNarrowing();
 			var previousIncrement = _iterationIncrement;
 			BoundBlock loopBody;
 			List<FlowState> breaks;
@@ -61,7 +63,7 @@ public sealed partial class Binder
 
 			var block = new BoundBlock(bodyStatements, null, loopBody.FallsThrough, loopBody.Span);
 			statements.Add(new BoundLoopStatement(condition, block, IsDoWhile: false, IsInfinite: false, span));
-			_flow = breaks.Count > 0 ? FlowState.Join(breaks) : FlowState.Unreachable();
+			_flow = breaks.Count > 0 ? FlowState.Join(breaks) : afterLoop;
 			return new BoundBlock(statements, null, FallsThrough: true, span);
 		}
 		finally

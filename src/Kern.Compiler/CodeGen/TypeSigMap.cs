@@ -20,6 +20,11 @@ internal static class TypeSigMap
 				BuiltinGenericType.GetCanonicalName(builtin.BuiltinKind),
 				[.. builtin.Arguments.Select(argument => From(argument, moduleName))]),
 			NullableType nullable => new TypeSig.NullableSig(From(nullable.Underlying, moduleName)),
+			TupleType tuple => new TypeSig.TupleSig(
+				[.. tuple.Elements.Select(element => From(element.Type, moduleName))],
+				tuple.Elements.Any(element => element.Name is not null)
+					? [.. tuple.Elements.Select(element => element.Name)]
+					: null),
 			_ => TypeSig.Object
 		};
 

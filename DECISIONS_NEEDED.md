@@ -148,6 +148,16 @@ Options:
 
 Recommendation: option 1.
 
+### Q27: named tuple literal syntax
+The spec defines named tuple **types** `(i32 x, i32 y)` and member access `tuple.x`, but no syntax for a named tuple **literal**. The implementation takes member names from the expected type (`(i32 x, i32 y) p = (1, 2)`), so `p.x` works; writing `(x = 1, y = 2)` is not valid.
+
+Options:
+1. Keep names from the expected type only (current). Recommended — no new syntax, matches the spec as written; a literal without an expected named type has positional members.
+2. Add `(x = 1, y = 2)` as a named literal (the `=` form collides with named call arguments only inside calls, not in tuples).
+3. Add `(x: 1, y: 2)` (colon form).
+
+Recommendation: option 1 until an example needs a named literal; option 2 if the owner wants names to be independent of the expected type.
+
 ## Deferred work (owner request, 2026-10-27)
 
 - **Examples refresh** (owner asked, then said "пока не делать"): provide examples covering `type`, inheritance, multiple inheritance, etc.; fix the existing examples against everything decided so far and report which files were changed and what exactly; add new examples. Survey done while recording: 41 `.kern` files under `examples/01..31`; all use the short `$field` form (no `$.`); inheritance is shown only as `@type` + `~fun` (`examples/03_units`, `22_events_patterns`) and single-parent `[A]` (`examples/23_native_inheritance`, `26_di`). No example exercises spec §2 multiple inheritance `type C(str name, i32 id)[A(name), B(id)]`, parent-ctor arguments `[A(x * 2)]`, `$[A].member` selection, or abstract members left abstract; no example shows `task<T>` async (see Q20).

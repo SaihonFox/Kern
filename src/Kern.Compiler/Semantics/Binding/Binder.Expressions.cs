@@ -69,6 +69,7 @@ public sealed partial class Binder
 		CallExpression call => BindCall(call),
 		StructuredCallExpression structured => BindStructuredCall(structured),
 		GenericCallExpression generic => BindGenericCall(generic),
+		TupleExpression tuple => BindTupleLiteral(tuple, hint),
 		CollectionExpression collection => BindCollectionLiteral(collection, hint),
 		TypedCollectionExpression typed => BindTypedCollectionLiteral(typed, hint),
 		DictionaryExpression dictionary => BindDictionaryLiteral(dictionary, hint),
@@ -678,6 +679,10 @@ public sealed partial class Binder
 
 	private BoundExpression BindMemberAccessOn(BoundExpression receiver, MemberAccessExpression member)
 	{
+		// Кортеж: `t.x` — доступ к элементу по имени (spec §3).
+		if (receiver.Type is TupleType tuple)
+			return BindTupleItemAccess(receiver, tuple, member);
+
 		var owner = OwnerOf(receiver.Type);
 		if (owner is not null)
 		{

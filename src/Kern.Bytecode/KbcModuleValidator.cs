@@ -164,7 +164,7 @@ public static class KbcModuleValidator
 				or OpCode.NewTuple or OpCode.MakeFunc or OpCode.LoadCapture
 				or OpCode.CallValue or OpCode.TypeOfSig or OpCode.IsType
 				or OpCode.NewList or OpCode.NewArray or OpCode.NewDict
-				or OpCode.MakeClosure or OpCode.Call => code[at + 1],
+				or OpCode.MakeClosure or OpCode.Call or OpCode.TupleGet => code[at + 1],
 			_ => -1,
 		};
 
@@ -204,6 +204,12 @@ public static class KbcModuleValidator
 				// из любой функции, а не только из метода владельца (spec §4).
 				if (arg < 0)
 					throw new KbcFormatException($"{where}: отрицательный слот поля: {arg}");
+				break;
+			case OpCode.TupleGet:
+				// Индекс элемента кортежа; арность известна только значению во время
+				// исполнения, поэтому здесь проверяется лишь неотрицательность.
+				if (arg < 0)
+					throw new KbcFormatException($"{where}: отрицательный индекс элемента кортежа: {arg}");
 				break;
 			case OpCode.LoadStatic or OpCode.StoreStatic:
 				if ((uint)arg >= (uint)module.FieldPool.Count)

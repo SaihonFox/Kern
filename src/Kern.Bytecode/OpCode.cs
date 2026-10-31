@@ -151,6 +151,9 @@ public enum OpCode
 
 	// --- производный clone (B8c) ---
 	CloneObject,    // нет операндов: снять объект, положить неглубокую копию (unit-поля скопированы)
+
+	// --- доступ к элементу кортежа (spec §3) ---
+	TupleGet,       // index: снять кортеж, положить элемент; индекс вне кортежа — паника
 }
 
 /// <summary>Раскладка операндов и вспомогательные проверки для <see cref="OpCode"/>.</summary>
@@ -166,7 +169,7 @@ public static class OpCodeInfo
 			or OpCode.LoadStatic or OpCode.StoreStatic
 			or OpCode.NewTuple or OpCode.MakeFunc or OpCode.LoadCapture
 			or OpCode.CallValue or OpCode.TypeOfSig or OpCode.IsType
-			or OpCode.Slice => 1,
+			or OpCode.Slice or OpCode.TupleGet => 1,
 		OpCode.PushI64 or OpCode.PushF64 or OpCode.Call
 			or OpCode.NewList or OpCode.NewArray or OpCode.NewDict
 			or OpCode.MakeClosure => 2,
@@ -179,7 +182,7 @@ public static class OpCodeInfo
 	public static bool IsJump(OpCode op) => op is OpCode.Jmp or OpCode.JmpIf or OpCode.JmpIfNot;
 
 	/// <summary>Известен ли номер опкода (защита от мусора в .kbc).</summary>
-	public static bool IsDefined(int value) => value >= 0 && value <= (int)OpCode.CloneObject;
+	public static bool IsDefined(int value) => value >= 0 && value <= (int)OpCode.TupleGet;
 
 	public static bool IsDefined(OpCode op) => IsDefined((int)op);
 }

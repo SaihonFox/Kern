@@ -39,6 +39,14 @@ public sealed partial class Parser
 		}
 		if (Current.Kind == TokenKind.Use)
 			return ParseUseStatement();
+		// `var (a, b) = tuple` — именованная форма деструктуризации (spec §3/§4):
+		// типы целей выводятся из элементов кортежа.
+		if (Current.Kind == TokenKind.Var && _position + 1 < _tokens.Count &&
+			_tokens[_position + 1].Kind == TokenKind.LeftParen)
+		{
+			Advance();
+			return ParseTupleDeclaration();
+		}
 		if (Current.Kind == TokenKind.LeftParen && IsTupleDeclaration())
 			return ParseTupleDeclaration();
 		if (Current.Kind == TokenKind.LeftBrace)
