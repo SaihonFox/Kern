@@ -168,6 +168,7 @@ public sealed partial class Binder
 	{
 		var owner = OwnerOf(receiver.Type);
 		var candidates = new List<FunctionSymbol>();
+		var fromNative = false;
 		if (owner is not null)
 		{
 			var declared = owner.Members.GetFunctions(member.Member);
@@ -184,7 +185,10 @@ public sealed partial class Binder
 			candidates.AddRange(declared.Where(function => !function.IsStatic));
 		}
 		if (candidates.Count == 0)
+		{
+			fromNative = true;
 			candidates.AddRange(NativeMembers(receiver.Type, member.Member));
+		}
 		if (candidates.Count == 0 && _moduleScope.FindExtensions(receiver.Type) is { } extensions)
 			candidates.AddRange(extensions.GetFunctions(member.Member));
 		if (candidates.Count == 0)
@@ -232,13 +236,36 @@ public sealed partial class Binder
 		}
 
 		WarnDeprecated(resolution.Function!, span);
+		var returnType = CallResultType(resolution.Function!, resolution.ReturnType);
+		if (fromNative && receiver.Type is BuiltinGenericType builtin)
+		{
+			var nativeArgumentTypes = new List<KernType>(resolution.Arguments.Count);
+			foreach (var argument in resolution.Arguments)
+				if (argument.Argument is { } callArgument)
+					nativeArgumentTypes.Add(callArgument.Type);
+
+			var substituted = BuiltinMemberSignatures.ResolveReturnType(
+				builtin,
+				member.Member,
+				nativeArgumentTypes,
+				out string? substitutionError);
+			if (substitutionError is not null)
+			{
+				Report("KRN2102", substitutionError, span);
+				return new BoundErrorExpression(span);
+			}
+
+			if (substituted is not null)
+				returnType = substituted;
+		}
+
 		// Выбор родителя $[A].foo — статическая привязка именно к реализации A: без
 		// динамического поиска по наследникам (иначе селектор мог бы «переехать»).
 		var isParentSelection = owner is not null && owner.Members.IsParentSelection(resolution.Function!);
 		return new BoundCallExpression(
 			resolution.Function!,
 			ordered,
-			CallResultType(resolution.Function!, resolution.ReturnType),
+			returnType,
 			span,
 			receiver)
 		{
