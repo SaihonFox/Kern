@@ -53,7 +53,8 @@ public sealed partial class Binder
 	{
 		if (_selfVariable is null || _selfType is null || OwnerOf(_selfType) is not { } owner)
 			return null;
-		if (owner.Members.FindField(name) is null && owner.Members.FindProperty(name) is null)
+		if (owner.Members.FindField(name) is null && owner.Members.FindProperty(name) is null &&
+			owner.Members.MemberConflictOwners(name).Count == 0)
 			return null;
 
 		return BindMemberAccessOn(AccessVariable(_selfVariable, span), ImplicitMember(name, span));
@@ -100,10 +101,31 @@ public sealed partial class Binder
 	{
 		if (_selfVariable is null || _selfType is null || OwnerOf(_selfType) is not { } owner)
 			return null;
-		if (owner.Members.FindField(name) is null && owner.Members.FindProperty(name) is null)
+		if (owner.Members.FindField(name) is null && owner.Members.FindProperty(name) is null &&
+			owner.Members.MemberConflictOwners(name).Count == 0)
 			return null;
 
 		return BindFieldAssignment(assignment, ImplicitMember(name, span));
+	}
+
+	/// <summary>
+	/// Неоднозначный член при двух и более родителях: одна ошибка KRN2103 на использование.
+	/// <c>true</c> — конфликт найден, диагностика выдана; вызывающий возвращает ошибку.
+	/// </summary>
+	private bool ReportMemberConflict(TypeSymbol owner, string name, TextSpan span)
+	{
+		var owners = owner.Members.MemberConflictOwners(name);
+		if (owners.Count == 0)
+			return false;
+
+		var list = owners.Count == 2
+			? $"'{owners[0]}' и '{owners[1]}'"
+			: string.Join(", ", owners.Select(item => $"'{item}'"));
+		Report(
+			"KRN2103",
+			$"Неоднозначный член '{name}': он объявлен в {list}; выберите родителя, например '$[{owners[0]}].{name}'",
+			span);
+		return true;
 	}
 
 	private static MemberAccessExpression ImplicitMember(string name, TextSpan span) =>

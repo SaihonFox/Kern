@@ -206,11 +206,12 @@ public sealed partial class Binder
 			? BindConstructorChain(symbol)
 			: null;
 
-		// Родитель инициализируется в корне цепочки: `[A]` = `[A()]`, `[A(x)]` — с аргументами.
-		BoundBaseConstructorCall? baseCall =
+		// Родители инициализируются в корне цепочки: `[A]` = `[A()]`, `[A(x), B(y)]` — все прямые
+		// родители в порядке объявления (slice A3a).
+		IReadOnlyList<BoundBaseConstructorCall> baseCalls =
 			symbol.Kind == FunctionKind.Constructor && chain is null
-				? BindBaseConstructor(symbol)
-				: null;
+				? BindBaseConstructors(symbol)
+				: [];
 
 		// Инициализаторы полей — до тела: порядок задан объявлением (spec §8, п.827).
 		List<BoundFieldInitializer> initializers = symbol.Kind == FunctionKind.Constructor
@@ -228,7 +229,7 @@ public sealed partial class Binder
 		{
 			Initializers = initializers,
 			Chain = chain,
-			BaseCall = baseCall,
+			BaseCalls = baseCalls,
 			BoxedSlots = _boxedByFrame[_frame]
 		};
 	}

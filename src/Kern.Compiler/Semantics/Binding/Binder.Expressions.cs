@@ -445,6 +445,9 @@ public sealed partial class Binder
 		var owner = OwnerOf(receiver.Type);
 		if (owner is not null)
 		{
+			if (ReportMemberConflict(owner, member.Member, member.Span))
+				return new BoundErrorExpression(member.Span);
+
 			var field = owner.Members.FindField(member.Member);
 			if (field is not null)
 			{

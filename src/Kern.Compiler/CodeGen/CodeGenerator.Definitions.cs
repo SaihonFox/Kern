@@ -15,6 +15,9 @@ public sealed partial class CodeGenerator
 	private readonly Dictionary<TypeSymbol, IReadOnlyList<FieldSymbol>> _instanceLayouts =
 		new(ReferenceEqualityComparer.Instance);
 
+	/// <summary>Следующий модульный слот экземплярного поля класса (см. <see cref="ClassFieldSlot"/>).</summary>
+	private int _nextClassFieldSlot;
+
 	/// <summary>Native-функция в байткоде: пустое тело, флаг Native и ключ привязки (spec §12).</summary>
 	private void DefineNative(FunctionSymbol symbol)
 	{
@@ -66,19 +69,37 @@ public sealed partial class CodeGenerator
 				if (property.BackingField is { IsStatic: true } staticBacking)
 					DefineStaticField(staticBacking);
 
-			// Раскладка экземпляра: сначала поля родителя (в его порядке), затем собственные
-			// поля и backing-поля автосвойств. Слоты родителя в его TypeDef совпадают.
-			foreach (var field in InstanceLayout(type))
+			// Раскладка экземпляра: все предки в топологическом порядке (каждый предок раньше
+			// своих потомков, без повторов), затем собственные поля и backing-поля автосвойств.
+			// У класса слоты полей модульные (см. ClassFieldSlot): тело метода родителя
+			// компилируется один раз и должно находить свои поля в любом наследнике.
+			var layout = InstanceLayout(type);
+			if (type.IsValueType)
 			{
-				var slot = definition.Fields.Count;
-				definition.Fields.Add(new FieldDef
+				// unit не наследуется: слоты плотные, по индексу в раскладке.
+				foreach (var field in layout)
 				{
-					Name = field.Name,
-					Type = TypeSigMap.From(field.Type, _module.Name),
-					Slot = slot,
-					Flags = field.IsRequired ? MemberFlags.Readonly : MemberFlags.None
-				});
-				_fieldSlots[field] = slot;
+					var slot = definition.Fields.Count;
+					definition.Fields.Add(CreateInstanceField(field, slot));
+					_fieldSlots[field] = slot;
+				}
+			}
+			else
+			{
+				var slots = new int[layout.Count];
+				var size = 0;
+				for (var index = 0; index < layout.Count; index++)
+				{
+					slots[index] = ClassFieldSlot(layout[index]);
+					if (slots[index] >= size)
+						size = slots[index] + 1;
+				}
+
+				var bySlot = new FieldDef?[size];
+				for (var index = 0; index < layout.Count; index++)
+					bySlot[slots[index]] = CreateInstanceField(layout[index], slots[index]);
+				for (var slot = 0; slot < size; slot++)
+					definition.Fields.Add(bySlot[slot] ?? CreateSlotPadding(slot));
 			}
 
 			definition.Parents = [.. type.Bases.Select(baseType => TypeSigMap.From(baseType, _module.Name))];
@@ -89,9 +110,11 @@ public sealed partial class CodeGenerator
 	}
 
 	/// <summary>
-	/// Порядок слотов экземпляра: родительская часть (в порядке её <see cref="TypeDef"/>) →
-	/// собственные поля → backing-поля собственных автосвойств. Так методы родителя,
-	/// сгенерированные с его слотами, работают и на объекте наследника.
+	/// Порядок слотов экземпляра: все предки в топологическом порядке (см.
+	/// <see cref="Inheritance.Ancestors"/>), затем собственные поля и backing-поля автосвойств.
+	/// Для одиночного наследования это прежний порядок «родитель → наследник»; при нескольких
+	/// родителях их части идут в порядке объявления, общий предок — один раз (ромб отвергается
+	/// отдельной диагностикой).
 	/// </summary>
 	private IReadOnlyList<FieldSymbol> InstanceLayout(TypeSymbol type)
 	{
@@ -99,9 +122,16 @@ public sealed partial class CodeGenerator
 			return cached;
 
 		var layout = new List<FieldSymbol>();
-		if (Inheritance.DirectBase(type) is { } baseType)
-			layout.AddRange(InstanceLayout(baseType.Symbol));
+		foreach (var ancestor in Inheritance.Ancestors(type))
+			AddOwnFields(layout, ancestor);
+		AddOwnFields(layout, type);
 
+		_instanceLayouts[type] = layout;
+		return layout;
+	}
+
+	private static void AddOwnFields(List<FieldSymbol> layout, TypeSymbol type)
+	{
 		foreach (var field in type.Members.OwnFields)
 			if (!field.IsStatic)
 				layout.Add(field);
@@ -109,10 +139,41 @@ public sealed partial class CodeGenerator
 		foreach (var property in type.Members.OwnProperties)
 			if (!property.IsStatic && property.BackingField is { } backing)
 				layout.Add(backing);
-
-		_instanceLayouts[type] = layout;
-		return layout;
 	}
+
+	private FieldDef CreateInstanceField(FieldSymbol field, int slot) => new()
+	{
+		Name = field.Name,
+		Type = TypeSigMap.From(field.Type, _module.Name),
+		Slot = slot,
+		Flags = field.IsRequired ? MemberFlags.Readonly : MemberFlags.None
+	};
+
+	/// <summary>
+	/// Модульный слот экземплярного поля класса. Методы родителей компилируются один раз, поэтому
+	/// один и тот же <see cref="FieldSymbol"/> обязан занимать один и тот же индекс в объекте
+	/// любого наследника: при нескольких независимых родителях их части не могут начинаться с 0.
+	/// Объект выделяет слоты до максимального, промежутки заполняются заглушками
+	/// (<see cref="CreateSlotPadding"/>), чтобы <c>TypeDef.Fields.Count</c> оставался размером
+	/// массива полей в VM (изменений VM не требуется).
+	/// </summary>
+	private int ClassFieldSlot(FieldSymbol field)
+	{
+		if (_fieldSlots.TryGetValue(field, out var existing))
+			return existing;
+
+		var slot = _nextClassFieldSlot++;
+		_fieldSlots[field] = slot;
+		return slot;
+	}
+
+	/// <summary>Пустой слот между полями разных родителей: держит размер массива объекта.</summary>
+	private static FieldDef CreateSlotPadding(int slot) => new()
+	{
+		Name = $"$slot{slot}",
+		Slot = slot,
+		Flags = MemberFlags.Priv | MemberFlags.Padding
+	};
 
 	/// <summary>
 	/// Функция в пуле: имя, подпись, флаги и владелец. Инициализатор типа получает

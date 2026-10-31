@@ -25,6 +25,8 @@ public enum MemberFlags : uint
 	Override = 1 << 15,
 	Abstract = 1 << 16,
 	Open = 1 << 17,
+	/// <summary>Служебный слот-заполнитель раскладки класса (не член объекта).</summary>
+	Padding = 1 << 18,
 }
 
 /// <summary>Использование атрибута: пара «имя типа атрибута + аргументы-константы».</summary>

@@ -115,8 +115,9 @@ public sealed partial class CodeGenerator
 		if (function.Symbol.Declaration is { } declaration)
 			RecordLine(declaration.Span);
 
-		// Родительская часть инициализируется до собственных инициализаторов наследника.
-		if (function.BaseCall is { } baseCall)
+		// Родительская часть инициализируется до собственных инициализаторов наследника;
+		// прямые родители вызываются в порядке объявления (slice A3a).
+		foreach (var baseCall in function.BaseCalls)
 			EmitBaseConstructorCall(baseCall);
 
 		// Поля из параметров primary-конструктора входят в шаг «поля» (п.827):

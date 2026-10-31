@@ -8,23 +8,38 @@ using Kern.Core.Diagnostics;
 namespace Kern.Compiler.Semantics.Binding;
 
 /// <summary>
-/// Вызов конструктора прямого родителя (slice A1, spec §8). В корне цепочки конструкторов
-/// наследника пролог сначала инициализирует родительскую часть (<c>[A]</c> — это <c>[A()]</c>,
-/// <c>[A(x)]</c> передаёт аргументы из параметров конструктора наследника), затем выполняются
-/// собственные инициализаторы наследника. Родитель инициализируется до наследника (spec §2).
+/// Вызовы конструкторов прямых родителей (spec §2, §8): в корне цепочки конструкторов наследника
+/// пролог вызывает все прямые родительские конструкторы в порядке объявления <c>[A, B]</c>,
+/// затем выполняет собственные инициализаторы наследника. <c>[A]</c> — это <c>[A()]</c>,
+/// <c>[A(x)]</c> передаёт выражение из заголовка типа. Родитель инициализируется до наследника.
 /// </summary>
 public sealed partial class Binder
 {
 	/// <summary>
-	/// Привязывает вызов прямого родителя для корневого конструктора. <c>null</c> — родителя
-	/// нет, у конструктора есть цепочка <c>: $(...)</c> (родителя инициализирует её корень)
-	/// или конструкторов у родителя нет.
+	/// Привязывает вызовы всех прямых родителей для корневого конструктора. Пустой список —
+	/// родителей нет, у конструктора есть цепочка <c>: $(...)</c> (родителей инициализирует её
+	/// корень), у родителей нет конструкторов или объявление отвергнуто как ромбовидное
+	/// (тогда двойной инициализации не будет даже при продолжении компиляции).
 	/// </summary>
-	private BoundBaseConstructorCall? BindBaseConstructor(FunctionSymbol constructor)
+	private IReadOnlyList<BoundBaseConstructorCall> BindBaseConstructors(FunctionSymbol constructor)
 	{
 		if (constructor.Owner is not { } owner || owner.IsStatic)
-			return null;
-		if (Inheritance.DirectBase(owner) is not { } baseType)
+			return [];
+		if (Inheritance.DiamondAncestor(owner) is not null)
+			return [];
+
+		var result = new List<BoundBaseConstructorCall>();
+		foreach (var baseType in Inheritance.DirectBases(owner))
+			if (BindBaseConstructor(constructor, baseType) is { } call)
+				result.Add(call);
+
+		return result;
+	}
+
+	/// <summary>Один прямой родитель: аргументы из его узла в заголовке, разрешение перегрузки.</summary>
+	private BoundBaseConstructorCall? BindBaseConstructor(FunctionSymbol constructor, ClassType baseType)
+	{
+		if (constructor.Owner is not { } owner)
 			return null;
 
 		var candidates = new List<FunctionSymbol>();

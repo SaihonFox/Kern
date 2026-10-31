@@ -1,17 +1,18 @@
 namespace Kern.Compiler.Semantics.Types;
 
 /// <summary>
-/// Однонаследственная цепочка типов (slice A1). Родители уже разрешены
-/// <see cref="TypeResolver"/> в <see cref="TypeSymbol.Bases"/>; здесь они подставляются
-/// аргументами приёмника и обходятся от наследника к корню. Множественное наследование
-/// (<c>[A, B]</c>) пока не поддержано: берётся первый родитель-класс, остальные остаются
-/// за следующей итерацией (см. <c>DECISIONS_NEEDED.md</c>).
+/// Наследование типов: прямые родители уже разрешены <see cref="TypeResolver"/> в
+/// <see cref="TypeSymbol.Bases"/>. Однонаследственный обход (<see cref="Chain"/>) остаётся для
+/// поиска ближайшего общего предка, а для раскладки и конструкторов используется
+/// <see cref="Ancestors"/> — топологический порядок всех предков без повторов (slice A3a).
+/// Ромбовидное наследование пока отвергается диагностикой (см. <see cref="DiamondAncestor"/>).
 /// </summary>
 public static class Inheritance
 {
 	/// <summary>
-	/// Цепочка от получателя к корню включительно. Первый элемент — сам <paramref name="receiver"/>;
-	/// повторные символы (цикл наследования) отсекаются, чтобы обход всегда завершался.
+	/// Цепочка от получателя к корню включительно по первому родителю. Первый элемент — сам
+	/// <paramref name="receiver"/>; повторные символы (цикл наследования) отсекаются, чтобы
+	/// обход всегда завершался.
 	/// </summary>
 	public static IEnumerable<ClassType> Chain(ClassType receiver)
 	{
@@ -27,8 +28,7 @@ public static class Inheritance
 
 	/// <summary>
 	/// Прямой родитель-класс типа: первый <see cref="ClassType"/> из разрешённых
-	/// <see cref="TypeSymbol.Bases"/>. Generic-параметры пока остаются в терминах
-	/// объявления родителя (<see cref="TypeParameterType"/>).
+	/// <see cref="TypeSymbol.Bases"/>. Generic-параметры остаются в терминах объявления родителя.
 	/// </summary>
 	public static ClassType? DirectBase(TypeSymbol symbol)
 	{
@@ -41,8 +41,80 @@ public static class Inheritance
 	}
 
 	/// <summary>
-	/// Цепочка символов от типа к корню: используется статическими проверками (init-свойства,
-	/// операторы, dispose), которым аргументы дженерика не нужны.
+	/// Все прямые родители-классы в порядке объявления: <c>type C()[A, B]</c> даёт <c>[A, B]</c>.
+	/// Не-class родители (unit, ошибки) пропускаются, как и раньше.
+	/// </summary>
+	public static IReadOnlyList<ClassType> DirectBases(TypeSymbol symbol)
+	{
+		ArgumentNullException.ThrowIfNull(symbol);
+		var result = new List<ClassType>(symbol.Bases.Count);
+		foreach (var baseType in symbol.Bases)
+			if (baseType is ClassType @class)
+				result.Add(@class);
+
+		return result;
+	}
+
+	/// <summary>
+	/// Все предки типа в порядке «предок раньше потомка»: прямые родители в порядке объявления,
+	/// у каждого родителя сначала его собственные предки. Повторы (ромб) отсекаются по символу:
+	/// например, <c>C()[A, B]</c> при <c>A[D]</c> и <c>B[D]</c> даёт <c>[D, A, B]</c>. Сам тип в
+	/// результат не входит.
+	/// </summary>
+	public static IReadOnlyList<TypeSymbol> Ancestors(TypeSymbol symbol)
+	{
+		ArgumentNullException.ThrowIfNull(symbol);
+		var ordered = new List<TypeSymbol>();
+		var visited = new HashSet<TypeSymbol>(ReferenceEqualityComparer.Instance) { symbol };
+		foreach (var baseType in DirectBases(symbol))
+			AddAncestors(baseType.Symbol, ordered, visited);
+
+		return ordered;
+	}
+
+	private static void AddAncestors(TypeSymbol symbol, List<TypeSymbol> ordered, HashSet<TypeSymbol> visited)
+	{
+		if (!visited.Add(symbol))
+			return;
+
+		foreach (var baseType in DirectBases(symbol))
+			AddAncestors(baseType.Symbol, ordered, visited);
+		ordered.Add(symbol);
+	}
+
+	/// <summary>
+	/// Общий предок, достижимый по двум путям (ромб), или <c>null</c>. Проверяются только ветви
+	/// прямых родителей: ромб внутри самого родителя уже отвергнут в его собственном объявлении.
+	/// Дубликат прямого родителя (<c>C[A, A]</c>) тоже считается ромбом.
+	/// </summary>
+	public static TypeSymbol? DiamondAncestor(TypeSymbol symbol)
+	{
+		ArgumentNullException.ThrowIfNull(symbol);
+		var reachable = new HashSet<TypeSymbol>(ReferenceEqualityComparer.Instance);
+		foreach (var baseType in DirectBases(symbol))
+		{
+			var branch = new HashSet<TypeSymbol>(ReferenceEqualityComparer.Instance);
+			CollectWithSelf(baseType.Symbol, branch);
+			foreach (var ancestor in branch)
+				if (!reachable.Add(ancestor))
+					return ancestor;
+		}
+
+		return null;
+	}
+
+	private static void CollectWithSelf(TypeSymbol symbol, HashSet<TypeSymbol> into)
+	{
+		if (!into.Add(symbol))
+			return;
+
+		foreach (var baseType in DirectBases(symbol))
+			CollectWithSelf(baseType.Symbol, into);
+	}
+
+	/// <summary>
+	/// Цепочка символов от типа к корню (первый родитель): используется статическими проверками
+	/// (init-свойства, операторы, dispose), которым аргументы дженерика не нужны.
 	/// </summary>
 	public static IEnumerable<TypeSymbol> SymbolChain(TypeSymbol symbol)
 	{

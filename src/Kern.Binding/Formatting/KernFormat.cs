@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using Kern.Bytecode;
 using Kern.Vm.Execution;
 using Kern.Vm.Values;
 
@@ -181,9 +182,13 @@ public static class KernFormat
 	{
 		var fields = obj.Type.Definition.Fields;
 		var builder = new StringBuilder(obj.Type.Definition.Name).Append('(');
+		var printed = 0;
 		for (var index = 0; index < obj.FieldCount; index++)
 		{
-			if (index > 0)
+			// Служебные слоты раскладки (padding) не являются членами объекта.
+			if (index < fields.Count && fields[index].Flags.HasFlag(MemberFlags.Padding))
+				continue;
+			if (printed++ > 0)
 				builder.Append(", ");
 			var name = index < fields.Count ? fields[index].Name : index.ToString(System.Globalization.CultureInfo.InvariantCulture);
 			builder.Append(name).Append('=').Append(Repr(obj.GetField(index)));

@@ -97,6 +97,12 @@ public sealed partial class DeclarationCollector
 			}
 		}
 
+		// 3. Выборы родителей проверяются после сбора членов всех типов: родитель может быть
+		// объявлен ниже по тексту (slice A3a). Неразрешённые выборы — KRN2103.
+		foreach (var type in _types.Values)
+			foreach (var problem in type.Members.ResolveParentSelections())
+				_diagnostics.Add(new Diagnostic(problem.Code, problem.Message, problem.Span));
+
 		_diagnostics.AddRange(_resolver.Diagnostics);
 		var extensions = BuildExtensions();
 		var module = new ModuleSymbol(

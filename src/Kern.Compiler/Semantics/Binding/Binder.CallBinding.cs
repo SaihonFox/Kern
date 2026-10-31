@@ -232,6 +232,9 @@ public sealed partial class Binder
 		}
 
 		WarnDeprecated(resolution.Function!, span);
+		// Выбор родителя $[A].foo — статическая привязка именно к реализации A: без
+		// динамического поиска по наследникам (иначе селектор мог бы «переехать»).
+		var isParentSelection = owner is not null && owner.Members.IsParentSelection(resolution.Function!);
 		return new BoundCallExpression(
 			resolution.Function!,
 			ordered,
@@ -239,7 +242,7 @@ public sealed partial class Binder
 			span,
 			receiver)
 		{
-			Virtual = IsVirtualCall(receiver.Type, resolution.Function!),
+			Virtual = IsVirtualCall(receiver.Type, resolution.Function!) && !isParentSelection,
 		};
 	}
 
