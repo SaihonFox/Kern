@@ -95,25 +95,42 @@ public sealed class BatchThreeTests
 	}
 
 	[Fact]
-	public void Result_labels_and_variant_synonyms_are_equivalent()
+	public void Result_labels_constrain_variant_types()
 	{
 		const string source = """
-			fun parse(str text) -> result<i32[ok], str[error]> {
-				if text == "bad" { Err("bad") } else { Ok(7) }
-			}
+			type Good(i32 code)[ok] { }
+			type Bad(str text)[error] { }
 
-			fun plain_result() -> i32 {
-				result<i32, str> value = parse("ok")
-				match value {
-					Ok(v) => v
-					Err(e) => e.len
+			fun parse(str text) -> result<Good[ok], Bad[error]> {
+				if text == "bad" {
+					Err(Bad("плохо"))
+				} else {
+					Ok(Good(7))
 				}
 			}
 
-			fun labeled_result() -> i32 {
-				result<i32[ok], str[error]> value = parse("ok")
+			fun constrained_ok() -> i32 {
+				match parse("ok") {
+					Ok(v) => v.code
+					Err(e) => 0 - 1
+				}
+			}
+
+			fun constrained_err() -> str {
+				match parse("bad") {
+					Ok(v) => "ok"
+					Err(e) => e.text
+				}
+			}
+
+			fun plain(i32 x) -> result<i32, str> {
+				if x > 0 { Ok(x) } else { Err("neg") }
+			}
+
+			fun plain_result() -> i32 {
+				result<i32, str> value = plain(5)
 				match value {
-					Ok(v) => v + 1
+					Ok(v) => v
 					Err(e) => e.len
 				}
 			}
@@ -141,11 +158,38 @@ public sealed class BatchThreeTests
 				bad.error
 			}
 			""";
-		Assert.Equal(KValue.I32(7), Run(source, "plain_result"));
-		Assert.Equal(KValue.I32(8), Run(source, "labeled_result"));
+		Assert.Equal(KValue.I32(7), Run(source, "constrained_ok"));
+		Assert.Equal(KValue.Str("плохо"), Run(source, "constrained_err"));
+		Assert.Equal(KValue.I32(5), Run(source, "plain_result"));
 		Assert.Equal(KValue.I32(5), Run(source, "ok_synonym"));
 		Assert.Equal(KValue.I32(42), Run(source, "make_ok_value"));
 		Assert.Equal(KValue.Str("беда"), Run(source, "err_message"));
+	}
+
+	[Fact]
+	public void Result_label_violations_report_their_codes()
+	{
+		var unsatisfied = CompileWithDiagnostics("""
+			fun bad() -> result<i32[ok], str[error]> {
+				Ok(1)
+			}
+			""");
+		Assert.Contains(unsatisfied.Diagnostics, diagnostic => diagnostic.Code == "KRN1008" && diagnostic.IsError);
+
+		var foreignLocation = CompileWithDiagnostics("""
+			fun main {
+				list<i32[ok]> xs = [1, 2]
+				println(xs.len)
+			}
+			""");
+		Assert.Contains(foreignLocation.Diagnostics, diagnostic => diagnostic.Code == "KRN1007" && diagnostic.IsError);
+
+		var wrongName = CompileWithDiagnostics("""
+			fun bad() -> result<i32[ok], str[retry]> {
+				Ok(1)
+			}
+			""");
+		Assert.Contains(wrongName.Diagnostics, diagnostic => diagnostic.Code == "KRN1007" && diagnostic.IsError);
 	}
 
 	[Fact]

@@ -33,6 +33,7 @@ public sealed partial class Parser
 	{
 		var name = Consume(TokenKind.Identifier, "Ожидалось имя типа");
 		var arguments = new List<TypeSyntax>();
+		var labels = new List<string?>();
 		if (IsOperator("<"))
 		{
 			Advance();
@@ -41,15 +42,9 @@ public sealed partial class Parser
 			while (!AtEnd && !IsClosingAngle())
 			{
 				arguments.Add(ParseTypeSyntax());
-				// Метка параметра union-алиаса: `result<T[ok], E[error]>` (spec §16).
-				// Метки не ограничения и на семантику не влияют — пропускаем.
-				if (Current.Kind == TokenKind.LeftBracket)
-				{
-					Advance();
-					while (!AtEnd && Current.Kind != TokenKind.RightBracket)
-						Advance();
-					Consume(TokenKind.RightBracket, "Ожидалась ] после метки generic-аргумента");
-				}
+				// Метка generic-аргумента: `result<T[ok], E[error]>` (spec §16). Семантику
+				// (где и какие метки допустимы) проверяет TypeResolver.
+				labels.Add(ParseArgumentLabel());
 				if (!Match(TokenKind.Comma))
 					break;
 				if (IsClosingAngle())
@@ -80,8 +75,28 @@ public sealed partial class Parser
 			}
 		}
 		var end = Math.Max(name.Span.End, Previous.Span.End);
-		return new NamedTypeSyntax(name.Text, arguments, nullable, singleAssignment,
+		return new NamedTypeSyntax(name.Text, arguments, labels, nullable, singleAssignment,
 			new TextSpan(name.Span.Start, end - name.Span.Start));
+	}
+
+	/// <summary>
+	/// Необязательная метка generic-аргумента <c>[ok]</c>: хранится текст первого идентификатора,
+	/// остальное до <c>]</c> пропускается для восстановления. Допустимость метки проверяет
+	/// <see cref="Semantics.Types.TypeResolver"/> (spec §16).
+	/// </summary>
+	private string? ParseArgumentLabel()
+	{
+		if (Current.Kind != TokenKind.LeftBracket)
+			return null;
+
+		Advance();
+		string? label = null;
+		if (Current.Kind == TokenKind.Identifier)
+			label = Advance().Text;
+		while (!AtEnd && Current.Kind != TokenKind.RightBracket)
+			Advance();
+		Consume(TokenKind.RightBracket, "Ожидалась ] после метки generic-аргумента");
+		return label;
 	}
 
 	private FunctionTypeSyntax ParseFunctionTypeSyntax()

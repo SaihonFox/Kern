@@ -29,6 +29,8 @@ public static class NativeSymbolBuilder
 		RegisterTypes(types, catalog, problems);
 		types.TryAdd(ResultTypes.OkName, ResultTypes.Ok);
 		types.TryAdd(ResultTypes.ErrName, ResultTypes.Err);
+		types.TryAdd(ResultTypes.OkBaseName, ResultTypes.OkMarker);
+		types.TryAdd(ResultTypes.ErrBaseName, ResultTypes.ErrMarker);
 
 		var natives = new List<FunctionSymbol>();
 		foreach (NativeFunctionDescriptor descriptor in catalog.Functions)

@@ -383,7 +383,7 @@ public sealed partial class Binder
 			case GenericCallExpression { Arguments.Count: 0 } generic
 				when generic.Target is IdentifierExpression target && IsTypeName(target.Name):
 				return _resolver.Resolve(
-					new NamedTypeSyntax(target.Name, generic.TypeArguments, false, false, generic.Span),
+					new NamedTypeSyntax(target.Name, generic.TypeArguments, [], false, false, generic.Span),
 					_typeScope);
 		}
 

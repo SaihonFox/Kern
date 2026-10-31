@@ -86,6 +86,22 @@ public static class ResultTypes
 	public static TypeSymbol Ok { get; } = CreateVariant(OkName, "T", "value");
 	public static TypeSymbol Err { get; } = CreateVariant(ErrName, "E", "error");
 
+	/// <summary>
+	/// Маркерный базовый тип <c>ok</c> (spec §16): абстрактный, без членов и generic-параметров.
+	/// Пользовательские варианты наследуют его: <c>type SomeOK[ok] { ... }</c>.
+	/// </summary>
+	public static TypeSymbol OkMarker { get; } = CreateMarker(OkBaseName);
+
+	/// <summary>Маркерный базовый тип <c>error</c> (spec §16).</summary>
+	public static TypeSymbol ErrMarker { get; } = CreateMarker(ErrBaseName);
+
+	private static TypeSymbol CreateMarker(string name) => new()
+	{
+		Name = name,
+		Kind = SymbolKind.AbstractClass,
+		IsAbstract = true
+	};
+
 	private static TypeSymbol CreateVariant(string name, string parameterName, string fieldName)
 	{
 		var parameter = parameterName == "T" ? OkParameter : ErrParameter;

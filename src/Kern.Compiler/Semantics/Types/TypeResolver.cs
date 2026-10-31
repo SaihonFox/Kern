@@ -75,6 +75,16 @@ public sealed class TypeResolver
 
 	private KernType ResolveNamedCore(NamedTypeSyntax syntax, TypeParameterScope scope)
 	{
+		// 0. Метки generic-аргументов допустимы только в аргументах result (spec §16).
+		if (syntax.Name != ResultTypes.ResultName && syntax.HasArgumentLabels)
+		{
+			var label = syntax.ArgumentLabels.First(item => item is not null);
+			return Report(
+				"KRN1007",
+				$"Метка '{label}' недопустима: метки разрешены только в аргументах result (первая — ok, вторая — error)",
+				syntax.Span);
+		}
+
 		// 1. Примитивы не перекрываются даже объявлением типа в модуле.
 		if (TypeCatalog.TryGetPrimitive(syntax.Name, out var primitive))
 			return syntax.Arguments.Count == 0 ? primitive : ReportNotGeneric(syntax);
@@ -89,16 +99,28 @@ public sealed class TypeResolver
 			if (syntax.Arguments.Count != 2)
 				return ReportArity(ResultTypes.ResultName, 2, syntax.Arguments.Count, syntax);
 
+			if (!ValidateResultLabels(syntax))
+				return ErrorType.Instance;
+
 			var resultArguments = ResolveArguments(syntax, scope);
 			if (resultArguments is null)
 				return ErrorType.Instance;
 
-			return ResultTypes.CreateType(resultArguments[0], resultArguments[1]);
+			var okArgument = CheckResultConstraint(syntax, 0, resultArguments[0]);
+			var errorArgument = CheckResultConstraint(syntax, 1, resultArguments[1]);
+			if (okArgument is null || errorArgument is null)
+				return ErrorType.Instance;
+
+			return ResultTypes.CreateType(okArgument, errorArgument);
 		}
 
-		// 2b. Базовые варианты result: ok<T> и error<E> (spec §16).
+		// 2b. Базовые варианты result: ok/error (маркеры), ok<T> и error<E> (spec §16).
 		if (syntax.Name is ResultTypes.OkBaseName or ResultTypes.ErrBaseName)
 		{
+			var marker = syntax.Name == ResultTypes.OkBaseName ? ResultTypes.OkMarker : ResultTypes.ErrMarker;
+			if (syntax.Arguments.Count == 0)
+				return new ClassType(marker, []);
+
 			if (syntax.Arguments.Count != 1)
 				return ReportArity(syntax.Name, 1, syntax.Arguments.Count, syntax);
 
@@ -267,6 +289,55 @@ public sealed class TypeResolver
 			return Report("KRN1005", "Union-тип должен содержать хотя бы одну альтернативу", syntax.Span);
 
 		return UnionType.Create(ResolveAll(syntax.Alternatives, scope));
+	}
+
+	/// <summary>
+	/// Метки <c>result</c>: первая — <c>ok</c>, вторая — <c>error</c> (spec §16). Нарушение
+	/// имени или позиции — <c>KRN1007</c>; возвращает false, чтобы разрешение остановилось.
+	/// </summary>
+	private bool ValidateResultLabels(NamedTypeSyntax syntax)
+	{
+		for (var index = 0; index < syntax.ArgumentLabels.Count; index++)
+		{
+			if (syntax.ArgumentLabels[index] is not { } label)
+				continue;
+			var expected = index switch
+			{
+				0 => ResultTypes.OkBaseName,
+				1 => ResultTypes.ErrBaseName,
+				_ => null
+			};
+			if (label == expected)
+				continue;
+
+			Report(
+				"KRN1007",
+				$"Метка '{label}' недопустима: аргументы result принимают 'ok' (первый) и 'error' (второй)",
+				syntax.Span);
+			return false;
+		}
+
+		return true;
+	}
+
+	/// <summary>
+	/// Ограничение помеченного аргумента <c>result</c>: тип должен наследовать маркер
+	/// <c>ok</c>/<c>error</c> (spec §16), иначе <c>KRN1008</c>. Возвращает null при ошибке.
+	/// </summary>
+	private KernType? CheckResultConstraint(NamedTypeSyntax syntax, int index, KernType argument)
+	{
+		if (index >= syntax.ArgumentLabels.Count || syntax.ArgumentLabels[index] is null)
+			return argument;
+
+		var marker = index == 0 ? ResultTypes.OkMarker : ResultTypes.ErrMarker;
+		if (argument is ClassType @class && Inheritance.SymbolChain(@class.Symbol).Contains(marker))
+			return argument;
+
+		Report(
+			"KRN1008",
+			$"Аргумент {index + 1} типа '{argument}' не наследует маркер '{marker.Name}'",
+			syntax.Span);
+		return null;
 	}
 
 	/// <summary>Возвращает null, если хотя бы один аргумент уже стал <see cref="ErrorType"/>.</summary>
