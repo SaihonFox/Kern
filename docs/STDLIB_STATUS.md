@@ -13,7 +13,7 @@
 | `kern.math` | базовые функции | — |
 | `kern.collections` | нативные `list`/`array`/`dict` (включая `first/last/get/set/map/filter/keys/values/get_or`), члены `str`/`char` | нет `set/queue/stack/observable`, нет `collection<T>`-протокола/адаптеров |
 | `str`/`char` (встроенные) | `len`, `upper`, `lower`, `trim*`, `contains`, `starts_with`, `ends_with`, `index_of`, `substring`, `replace`, `split`, `chars`, `lines`, `join`, `pad_left/right`, `repeat`, `to_str`, `to_i32/to_i64/to_f64/to_bool` | `str` пока не все члены из старых примеров |
-| `kern.regex` | в работе (`regex(pattern[, flags])`, `is_match/find/find_all/replace/split`) | lowering литералов `x"…"`/`fx"…"` — следующий компиляторный срез |
+| `kern.regex` | `regex(pattern[, flags])` → `regex` (panic по-русски на неверный шаблон/флаг), `try_new(pattern[, flags]) -> regex?`, члены `is_match/find/find_all/replace/split`, свойства `pattern/options` | `x"…"`/`fx"…"` lowering — следующий компиляторный срез; тип результата `match` не реализован (имя занято ключевым словом); `regex.try_new(…)` пока только как `try_new(…)` |
 
 ## Отсутствует (M7 и stage-2)
 

@@ -79,7 +79,19 @@ public sealed partial class Binder
 		}
 
 		if (VisibleType(identifier.Name) is { } type)
+		{
+			// Нативный тип без конструкторов, у которого есть одноимённая модульная функция, —
+			// это фабрика (`regex("…")`, `streamwriter("…")`): имя типа не должно её перекрывать
+			// (spec §12.9). Настоящий тип без конструктора по-прежнему сообщает KRN2103.
+			if (type.Kind == Types.SymbolKind.Native &&
+				type.Members.Constructors.Count == 0 &&
+				VisibleFunctions(identifier.Name).Any(function => function.NativeSelfType is null))
+			{
+				return BindNamedCall(identifier.Name, arguments, typeArguments, span);
+			}
+
 			return BindConstructorCall(type, arguments, typeArguments, span);
+		}
 
 		return BindNamedCall(identifier.Name, arguments, typeArguments, span);
 	}

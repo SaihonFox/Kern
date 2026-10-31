@@ -1007,7 +1007,7 @@ fun main {
 
 ### Библиотеки (раунд 5, написаны, не проверены компилятором)
 -   `loop` заменяет for/foreach/while (решение заказчика); do-while — `loop { … }: cond` (раунд 15).
--   `kern.regex`: `regex r(шаблон[, флаги "imsx"])`, `is_match/find/find_all/replace/split`, `match` (`text/start/end/groups/group`), `regex.try_new`.
+-   `kern.regex` (реализовано 2026-11-01, `src/Kern.Runtime/Regex/RegexApi.cs`): значение `regex r = regex(шаблон)` / `regex(шаблон, флаги)`; флаги — буквы `i` (без регистра), `m` (многострочный), `s` (точка = любой символ), `x` (пробелы в шаблоне игнорируются), неизвестный флаг — `panic` по-русски. Члены: `is_match(text) -> bool`, `find(text) -> str?` (первое совпадение или `nil`), `find_all(text) -> list<str>`, `replace(text, замена) -> str` (правила замены .NET, `$1` — группа), `split(text) -> list<str>`, свойства `pattern`/`options`. `try_new(шаблон[, флаги]) -> regex?` возвращает `nil` вместо паники. Литералы `x"…"`/`fx"…"` дают то же значение — следующий компиляторный срез. `match` (`text/start/end/groups/group`) пока не реализован: его имя совпадает с ключевым словом `match`, нужен отдельный тип (вопрос Q32); квалифицированная запись `regex.try_new` ждёт статических нативов на имени типа, сейчас вызывается как `try_new(…)`.
 -   `kern.csv`: `csv.parse/parse_dicts/to_str`. `kern.yaml`: `yaml.parse/to_str` (подмножество YAML для конфигов). `kern.xml`: `xml.parse/new`, узлы `xml_node` (`name/text/children/attr/child/find_all/add`).
 -   `kern.crypto`: sha1/sha256/sha512/md5, hmac_sha256, base64, random_hex, hash_password/verify_password (PBKDF2). `kern.uuid`: `uuid.new()`.
 -   `kern.http` (клиент, async): `await http.get(url)` → `result<http_reply, str>`; `post/put/delete/post_json/request`.

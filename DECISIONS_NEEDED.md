@@ -3,7 +3,7 @@
 ## Decided — owner answers (2026-10-26)
 
 Recorded as given; the corresponding code/spec work is done in its own slice, not retroactively.
-**Q1-Q16 all have an owner answer; Q17, Q18 and Q21 in the `## Open (new)` section below are the only open ones.** Language-visible ones (Q7, Q9, Q11, Q13, Q15) still owe their `docs/spec/kern.en.md` + `CHANGELOG_LANG.md` update in the slice that implements them.
+**Q1-Q16 all have an owner answer; Q17–Q18 and Q21–Q27, Q31–Q32 in the `## Open (new)` section below are the open or deferred ones.** Language-visible ones (Q7, Q9, Q11, Q13, Q15) still owe their `docs/spec/kern.en.md` + `CHANGELOG_LANG.md` update in the slice that implements them.
 
 - **Q13 → option 1:** implement copy-out/copy-back for stores into `unit` fields (`o.inner.x = 5` becomes load-copy → store → write the copy back into `o.inner`), including through locals and nested chains; a get-only link in the chain reports an error instead of dropping the write. Needs a sentence in spec §9 (value semantics) and a `CHANGELOG_LANG.md` line when implemented. Because copy-back makes statics work the same way, a mutable `#` static of `unit` type stops being a data-loss trap (see Q15a).
 - **Q15b → option 1, confirmed 2026-10-26:** `init` is writable in the instance field/property initializers of the same type, in the ctor prologue (including `$`-parameter auto-assignment) and in the ctor body — nested blocks, `if`/`match`/`loop` and chained secondary ctors included; multiple writes during construction are allowed; `{ get; init } = 5` is legal. Forbidden: static initializers, ordinary methods/properties/operators, and lambdas or local functions declared inside the ctor (so a deferred call cannot write after construction). Static initializers run once, in declaration order, in the module `<static-init>` before the entry point (consistent with §12 line 1109 "a library's static initialization runs before the program"); no `init` writes there.
@@ -158,8 +158,17 @@ Options:
 
 Recommendation: option 1 until an example needs a named literal; option 2 if the owner wants names to be independent of the expected type.
 
-## Decided — owner answers (2026-10-31, M1–M3 push)
+### Q32: name of the `kern.regex` match-result type (spec §18c says `match`)
+Spec §18c lists `kern.regex` members `match` with `text/start/end/groups/group`, but `match` is a keyword: a type named `match` cannot be written in type position (`match m = r.match(...)` parses as a match expression), and a native `[KernType("match")]` registers a symbol users can never annotate. The implemented slice (`find -> str?`, `find_all -> list<str>`) therefore has no match object.
 
+Options:
+1. Name the type `regex_match` with `text`/`start`/`end`/`len`/`groups`/`group(name|index)`, returned by `r.match(text) -> regex_match?`; users annotate `regex_match?` or use `var`. Recommended - no keyword collision, no new syntax.
+2. Keep `match` and rely on `var` (no annotations); the registered type name can leak into diagnostics and read like the keyword.
+3. Skip the match object in stage 1: only `find`/`find_all` (current behaviour). Cheapest, but positions and capture groups are lost.
+
+Recommendation: option 1 in the next `kern.regex` slice; option 3 now.
+
+## Decided — owner answers (2026-10-31, M1–M3 push)
 - **Q27:** names of tuple members come from the expected type (`(i32 x, i32 y) p = (1, 2)`); no `(x = 1, …)` literal syntax for now.
 - **Tests batching:** only language-level features count toward the batch of five; std modules and opcodes do not count, tests are written at batch boundaries.
 - **Stage-2 examples (13, 15, 19, 20, 25–28):** add **stub libraries** (native types/members with panics) so the examples compile; running them stays out of scope.

@@ -359,8 +359,22 @@ public sealed class NativeCatalog
 			return "";
 		}
 
+		// Аннотация `string?`/`T?` у ссылочного типа стирается в CLR: `?` берётся из метаданных
+		// nullable, иначе `find(...) -> str?` стал бы `str` и сравнивать его с nil было бы нельзя
+		// (spec §12.4).
+		if (!method.ReturnType.IsValueType &&
+			IsNullableReference(method.ReturnParameter) &&
+			!returnType.EndsWith('?'))
+		{
+			returnType += "?";
+		}
+
 		return returnType;
 	}
+
+	/// <summary>Возвращаемый параметр помечен как nullable (`string?`, `T?`) в метаданных сборки.</summary>
+	private static bool IsNullableReference(ParameterInfo parameter) =>
+		new NullabilityInfoContext().Create(parameter).ReadState == NullabilityState.Nullable;
 
 	private static string KernName(MethodInfo method) =>
 		method.GetCustomAttribute<KernNameAttribute>()?.Name ?? NameMapping.ToSnakeCase(method.Name);
