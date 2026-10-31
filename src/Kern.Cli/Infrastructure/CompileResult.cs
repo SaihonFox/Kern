@@ -22,6 +22,9 @@ internal sealed class CompileResult
 	/// <summary>Ошибки импорта нативов: строки без span'а.</summary>
 	public IReadOnlyList<string> NativeProblems { get; init; } = [];
 
+	/// <summary>Готовые строки диагностик проекта (путь/строка уже подставлены).</summary>
+	public IReadOnlyList<string> ProjectMessages { get; init; } = [];
+
 	public string? FailureMessage { get; init; }
 
 	public SourceText? Source { get; init; }

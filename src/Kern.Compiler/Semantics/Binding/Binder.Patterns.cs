@@ -542,7 +542,7 @@ public sealed partial class Binder
 	private bool IsTypeName(string name) =>
 		TypeCatalog.TryGetPrimitive(name, out _) ||
 		TypeCatalog.TryGetBuiltin(name, out _) ||
-		_module.FindType(name) is not null;
+		VisibleType(name) is not null;
 
 	private BoundPattern UnsupportedPattern(PatternNode pattern, string description)
 	{

@@ -1,6 +1,7 @@
 using Kern.Binding.Catalog;
 using Kern.Bytecode;
 using Kern.Compiler.CodeGen;
+using Kern.Compiler.Compilation;
 using Kern.Compiler.Native;
 using Kern.Compiler.Semantics;
 using Kern.Compiler.Semantics.Binding;
@@ -39,8 +40,59 @@ internal static class SourceCompiler
 	public static CompileResult Compile(ProjectSources project)
 	{
 		ArgumentNullException.ThrowIfNull(project);
-		var bundle = SourceBundle.Create(project.Files);
-		return CompileCore(bundle.Text, bundle.Text.Text, project.Name, bundle);
+
+		NativeCatalog catalog = NativeCatalog.Scan(typeof(CoreModule).Assembly);
+		var files = project.Files
+			.Select(file => new ProjectSourceFile(file.Path, file.Text))
+			.ToList();
+		ProjectCompileResult result = ProjectCompiler.Compile(files, project.Name, catalog);
+		var texts = new Dictionary<string, SourceText>(StringComparer.Ordinal);
+		foreach (var (path, text) in project.Files)
+			texts[path] = new SourceText(text, path);
+
+		var messages = new List<string>();
+		foreach (var diagnostic in result.Diagnostics)
+		{
+			texts.TryGetValue(diagnostic.Path, out var fileSource);
+			messages.Add(Format(fileSource, diagnostic.Diagnostic));
+		}
+
+		if (result.NativeProblems.Count > 0 || !result.Success || result.Module is null)
+		{
+			return new CompileResult
+			{
+				Sources = result.Bundle,
+				ProjectMessages = messages,
+				NativeProblems = result.NativeProblems,
+			};
+		}
+
+		var generated = new CodeGenerator().Generate(result.Module, result.Bundle);
+		foreach (var diagnostic in generated.Diagnostics)
+			messages.Add(Format(null, diagnostic));
+		if (generated.Diagnostics.Any(diagnostic => diagnostic.IsError))
+			return new CompileResult { Sources = result.Bundle, ProjectMessages = messages };
+
+		try
+		{
+			KbcModuleValidator.Validate(generated.Module);
+		}
+		catch (KbcFormatException ex)
+		{
+			return new CompileResult
+			{
+				Sources = result.Bundle,
+				ProjectMessages = messages,
+				FailureMessage = $"внутренняя ошибка компилятора: {ex.Message}",
+			};
+		}
+
+		return new CompileResult
+		{
+			Sources = result.Bundle,
+			ProjectMessages = messages,
+			Program = new CompiledProgram(generated.Module, catalog),
+		};
 	}
 
 	/// <summary>Компилирует вход команды: файл как есть или проект по соглашению.</summary>
@@ -127,6 +179,9 @@ internal static class SourceCompiler
 
 		if (result.FailureMessage is { } failure)
 			stderr.WriteLine($"ошибка: {failure}");
+
+		foreach (string message in result.ProjectMessages)
+			stderr.WriteLine(message);
 
 		foreach (Diagnostic diagnostic in result.Diagnostics)
 			stderr.WriteLine(result.Sources is { } bundle

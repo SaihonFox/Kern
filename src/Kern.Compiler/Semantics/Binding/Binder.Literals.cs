@@ -83,7 +83,7 @@ public sealed partial class Binder
 
 	private FunctionSymbol? FormatFunction(int arity)
 	{
-		foreach (FunctionSymbol function in _module.GetFunctions("format"))
+		foreach (FunctionSymbol function in VisibleFunctions("format"))
 			if (function.NativeKey is not null && function.NativeSelfType is null &&
 				function.Parameters.Count == arity)
 				return function;

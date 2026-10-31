@@ -22,10 +22,13 @@ public sealed partial class DeclarationCollector
 	private readonly Dictionary<string, ExtensionBuilder> _extensions = new(StringComparer.Ordinal);
 	private string _moduleName = "";
 
-	private DeclarationCollector(SymbolTable table)
+	private DeclarationCollector(
+		SymbolTable table,
+		IReadOnlyDictionary<DeclarationNode, TypeSymbol>? primes = null,
+		Func<string, TypeSymbol?>? external = null)
 	{
 		_table = table;
-		_resolver = new TypeResolver(table);
+		_resolver = new TypeResolver(table, knownTypes: null, fallback: external, primes: primes);
 	}
 
 	public static (ModuleSymbol Module, IReadOnlyList<Diagnostic> Diagnostics) Collect(
@@ -33,10 +36,20 @@ public sealed partial class DeclarationCollector
 		SymbolTable table,
 		string moduleName)
 	{
+		return Collect(unit, table, moduleName, primes: null, external: null);
+	}
+
+	public static (ModuleSymbol Module, IReadOnlyList<Diagnostic> Diagnostics) Collect(
+		CompilationUnit unit,
+		SymbolTable table,
+		string moduleName,
+		IReadOnlyDictionary<DeclarationNode, TypeSymbol>? primes,
+		Func<string, TypeSymbol?>? external)
+	{
 		ArgumentNullException.ThrowIfNull(unit);
 		ArgumentNullException.ThrowIfNull(table);
 		ArgumentNullException.ThrowIfNull(moduleName);
-		return new DeclarationCollector(table).Run(unit, moduleName);
+		return new DeclarationCollector(table, primes, external).Run(unit, moduleName);
 	}
 
 	private (ModuleSymbol Module, IReadOnlyList<Diagnostic> Diagnostics) Run(CompilationUnit unit, string moduleName)
@@ -91,7 +104,10 @@ public sealed partial class DeclarationCollector
 			_types,
 			FreezeFunctions(),
 			_globals,
-			extensions);
+			extensions)
+		{
+			Uses = [.. unit.Declarations.OfType<UseDeclaration>()]
+		};
 		return (module, [.. _diagnostics]);
 	}
 

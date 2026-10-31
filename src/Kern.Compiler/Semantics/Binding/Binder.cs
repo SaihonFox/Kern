@@ -1,6 +1,7 @@
 using Kern.Compiler.Semantics.Bound;
 using Kern.Compiler.Semantics.Binding.Flow;
 using Kern.Compiler.Semantics.Declarations;
+using Kern.Compiler.Semantics.Modules;
 using Kern.Compiler.Semantics.Types;
 using Kern.Compiler.Syntax;
 using Kern.Core.Diagnostics;
@@ -15,6 +16,7 @@ namespace Kern.Compiler.Semantics.Binding;
 public sealed partial class Binder
 {
 	private readonly ModuleSymbol _module;
+	private readonly ModuleScope _moduleScope;
 	private readonly TypeResolver _resolver;
 	private readonly List<Diagnostic> _diagnostics = [];
 	private BoundScope _scope = null!;
@@ -53,11 +55,17 @@ public sealed partial class Binder
 	private int _noneReadDepth;
 
 	public Binder(ModuleSymbol module, SymbolTable table)
+		: this(ModuleScope.ForModule(module), table)
 	{
-		ArgumentNullException.ThrowIfNull(module);
+	}
+
+	public Binder(ModuleScope scope, SymbolTable table)
+	{
+		ArgumentNullException.ThrowIfNull(scope);
 		ArgumentNullException.ThrowIfNull(table);
-		_module = module;
-		_resolver = new TypeResolver(table, module.Types);
+		_moduleScope = scope;
+		_module = scope.Module;
+		_resolver = new TypeResolver(table, scope.Module.Types, scope.FindType);
 	}
 
 	public IReadOnlyList<Diagnostic> Diagnostics => _diagnostics;

@@ -12,16 +12,24 @@ public sealed class TypeResolver
 {
 	private readonly SymbolTable _table;
 	private readonly IReadOnlyDictionary<string, TypeSymbol>? _knownTypes;
+	private readonly Func<string, TypeSymbol?>? _fallback;
+	private readonly IReadOnlyDictionary<DeclarationNode, TypeSymbol>? _primes;
 	private readonly Dictionary<DeclarationNode, TypeSymbol> _symbols = new(ReferenceEqualityComparer.Instance);
 	private readonly List<Diagnostic> _diagnostics = [];
 	private readonly HashSet<DeclarationNode> _basesInProgress = new(ReferenceEqualityComparer.Instance);
 	private readonly HashSet<DeclarationNode> _reportedCycles = new(ReferenceEqualityComparer.Instance);
 	private bool _cycleDetected;
 
-	public TypeResolver(SymbolTable table, IReadOnlyDictionary<string, TypeSymbol>? knownTypes = null)
+	public TypeResolver(
+		SymbolTable table,
+		IReadOnlyDictionary<string, TypeSymbol>? knownTypes = null,
+		Func<string, TypeSymbol?>? fallback = null,
+		IReadOnlyDictionary<DeclarationNode, TypeSymbol>? primes = null)
 	{
 		_table = table;
 		_knownTypes = knownTypes;
+		_fallback = fallback;
+		_primes = primes;
 	}
 
 	public IReadOnlyList<Diagnostic> Diagnostics => _diagnostics;
@@ -96,6 +104,25 @@ public sealed class TypeResolver
 			return syntax.Arguments.Count == 0
 				? new ClassType(known, [])
 				: ReportNotGeneric(syntax);
+		}
+
+		// 3b. Импортированные типы (M3-F): символ найден по области видимости модуля.
+		if (_fallback is not null && _fallback(syntax.Name) is { } imported)
+		{
+			var arguments = syntax.Arguments.Count == 0 ? [] : ResolveArguments(syntax, scope);
+			if (arguments is null && syntax.Arguments.Count > 0)
+				return ErrorType.Instance;
+
+			return imported.Kind switch
+			{
+				SymbolKind.Unit => new UnitType(imported, arguments ?? [], false),
+				SymbolKind.ImmutableUnit => new UnitType(imported, arguments ?? [], true),
+				SymbolKind.Class or SymbolKind.AbstractClass or SymbolKind.Native =>
+					new ClassType(imported, arguments ?? []),
+				SymbolKind.UnionAlias when syntax.Arguments.Count == 0 && imported.UnionAlternatives.Count > 0 =>
+					UnionType.Create(imported.UnionAlternatives),
+				_ => ReportUnknown(syntax),
+			};
 		}
 
 		// 4. Встроенные generic-типы.
@@ -230,6 +257,15 @@ public sealed class TypeResolver
 		if (TryGetKnownSymbol(declaration, declaration.Name, out var known))
 			return known;
 
+		// Предварительно созданный символ проекта (M3-F): сохраняем идентичность.
+		if (_primes is not null && _primes.TryGetValue(declaration, out var primed))
+		{
+			_symbols.Add(declaration, primed);
+			if (declaration.DeclaredUnionVariants.Count == 0)
+				PopulateBases(declaration, primed);
+			return primed;
+		}
+
 		var kind = declaration.DeclaredUnionVariants.Count > 0
 			? SymbolKind.UnionAlias
 			: declaration.IsAbstract ? SymbolKind.AbstractClass : SymbolKind.Class;
@@ -298,6 +334,12 @@ public sealed class TypeResolver
 
 		if (TryGetKnownSymbol(declaration, declaration.Name, out var known))
 			return known;
+
+		if (_primes is not null && _primes.TryGetValue(declaration, out var primed))
+		{
+			_symbols.Add(declaration, primed);
+			return primed;
+		}
 
 		var symbol = new TypeSymbol
 		{

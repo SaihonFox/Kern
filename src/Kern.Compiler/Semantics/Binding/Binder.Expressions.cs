@@ -410,7 +410,7 @@ public sealed partial class Binder
 		if (_scope.Lookup(identifier.Name) is { } variable && variable.Type is FunctionType)
 			return BindValueCall(identifier, variable, arguments, typeArguments, span);
 
-		if (_module.FindType(identifier.Name) is { } type)
+		if (VisibleType(identifier.Name) is { } type)
 			return BindConstructorCall(type, arguments, typeArguments, span);
 
 		return BindNamedCall(identifier.Name, arguments, typeArguments, span);
@@ -422,7 +422,7 @@ public sealed partial class Binder
 		IReadOnlyList<TypeSyntax> typeArguments,
 		TextSpan span)
 	{
-		var candidates = new List<FunctionSymbol>(_module.GetFunctions(name));
+		var candidates = new List<FunctionSymbol>(VisibleFunctions(name));
 		// Без квалификации внутри любого члена своего типа видны и статические методы
 		// этого типа (spec §8: `#fun` — это `static`; M3-D3b). Остальные кандидаты не
 		// выбрасываем: порядок в списке не задаёт приоритет, его решает обычный выбор
@@ -484,7 +484,7 @@ public sealed partial class Binder
 		}
 		if (candidates.Count == 0)
 			candidates.AddRange(NativeMembers(receiver.Type, member.Member));
-		if (candidates.Count == 0 && _module.FindExtensions(receiver.Type) is { } extensions)
+		if (candidates.Count == 0 && _moduleScope.FindExtensions(receiver.Type) is { } extensions)
 			candidates.AddRange(extensions.GetFunctions(member.Member));
 		if (candidates.Count == 0)
 		{
@@ -716,7 +716,7 @@ public sealed partial class Binder
 			}
 		}
 
-		if (_module.FindExtensions(receiver.Type)?.FindProperty(member.Member) is { Getter: { } extensionGetter } extensionProperty)
+		if (_moduleScope.FindExtensions(receiver.Type)?.FindProperty(member.Member) is { Getter: { } extensionGetter } extensionProperty)
 			return new BoundCallExpression(extensionGetter, [], extensionProperty.Type, member.Span, receiver);
 
 		foreach (FunctionSymbol native in NativeMembers(receiver.Type, member.Member))

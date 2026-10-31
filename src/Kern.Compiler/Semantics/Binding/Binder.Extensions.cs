@@ -45,7 +45,7 @@ public sealed partial class Binder
 		BoundExpression right,
 		TextSpan span)
 	{
-		if (_module.FindExtensions(left.Type) is { } group)
+		if (_moduleScope.FindExtensions(left.Type) is { } group)
 		{
 			foreach (var function in group.Functions)
 			{

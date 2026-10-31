@@ -22,7 +22,13 @@ public sealed partial class Binder
 	{
 		if (literal.Items.Count == 0)
 		{
-			// spec §3: пустой литерал без явного типа запрещён — вид и T не выводятся.
+			// Q21: при известном ожидаемом типе пустой литерал допустим.
+			if (hint is BuiltinGenericType { BuiltinKind: BuiltinGenericKind.Dict } dictionary)
+				return new BoundDictionaryLiteral([], dictionary, literal.Span);
+			if (hint is BuiltinGenericType { BuiltinKind: BuiltinGenericKind.List or BuiltinGenericKind.Array } collection)
+				return new BoundCollectionLiteral([], collection, literal.Span);
+
+			// spec §3: без ожидаемого типа вид и T не выводятся.
 			Report(
 				"KRN2102",
 				"Нельзя вывести тип пустого списка '[]': укажите тип элементов явно, например '<i32>[]'",

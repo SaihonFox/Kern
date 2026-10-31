@@ -41,7 +41,7 @@ M1 verdict: **🟡 complete for stage 1 except number exponents and regex litera
 | Item | Status | Evidence / gap |
 |---|---|---|
 | Type/function/global symbols, member tables | ✅ | `SymbolTable`, `DeclarationCollector` |
-| Import resolver (`use path.module[…]`) | ❌ | `use` is parsed and ignored; import names stay unknown (example audit: ~230 `KRN2103` cascades) |
+| Import resolver (`use path.module[…]`) | ✅ | M3-F (2026-10-31): module-per-file, `[items]`/`.*`, re-export, conflict/unknown diagnostics, library projects; native `kern.*` names remain global |
 | Primitives, nullable `T?`, unions, tuple types, function types, `never`, error type | ✅ | type resolver tests |
 | Builtin generics: `list/array/dict/set/collection` | ✅ | `collection<T>` upcast exists |
 | `result<T,E>` type | 🟡 | type exists (`BuiltinGenericKind.Result`), `Ok`/`Err` constructors/methods missing |

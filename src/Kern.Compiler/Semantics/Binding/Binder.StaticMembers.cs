@@ -22,7 +22,7 @@ public sealed partial class Binder
 	private TypeSymbol? TypeReceiverOf(ExpressionNode target) =>
 		target is IdentifierExpression identifier &&
 		_scope.Lookup(identifier.Name) is null &&
-		_module.FindType(identifier.Name) is { } type
+		VisibleType(identifier.Name) is { } type
 			? type
 			: null;
 

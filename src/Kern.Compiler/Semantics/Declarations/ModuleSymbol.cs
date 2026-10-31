@@ -1,4 +1,5 @@
 using Kern.Compiler.Semantics.Types;
+using Kern.Compiler.Syntax;
 
 namespace Kern.Compiler.Semantics.Declarations;
 
@@ -33,4 +34,7 @@ public sealed record ModuleSymbol(
 	/// уже добавлены в <see cref="Functions"/>, члены встроенных типов ищутся binder'ом здесь.
 	/// </summary>
 	public IReadOnlyList<FunctionSymbol> NativeFunctions { get; init; } = [];
+
+	/// <summary>Директивы <c>use</c> модуля в порядке исходника (M3-F).</summary>
+	public IReadOnlyList<UseDeclaration> Uses { get; init; } = [];
 }
