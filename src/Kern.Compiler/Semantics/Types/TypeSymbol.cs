@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using Kern.Bytecode;
 using Kern.Compiler.Semantics.Declarations;
 using Kern.Compiler.Syntax;
 
@@ -45,6 +46,12 @@ public sealed record TypeSymbol
 	public bool IsOpen { get; internal set; }
 
 	public bool IsStatic { get; internal set; }
+
+	/// <summary>
+	/// Атрибуты объявления (spec §7) в байткодовой форме: сборщик объявлений заполняет
+	/// список из <see cref="AttributeNode"/>, codegen переносит его в <c>TypeDef</c>.
+	/// </summary>
+	public IReadOnlyList<AttributeUse> Attributes { get; internal set; } = [];
 
 	/// <summary>Unit-типы имеют value-семантику; `unit!` дополнительно неизменяем (spec §9).</summary>
 	public bool IsValueType => Kind is SymbolKind.Unit or SymbolKind.ImmutableUnit;

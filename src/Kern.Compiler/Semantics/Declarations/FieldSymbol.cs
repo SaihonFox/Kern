@@ -1,3 +1,4 @@
+using Kern.Bytecode;
 using Kern.Compiler.Semantics.Types;
 using Kern.Compiler.Syntax;
 
@@ -31,4 +32,7 @@ public sealed record FieldSymbol(
 	public string? ParentSelectorType { get; init; }
 
 	public SyntaxNode? Declaration { get; init; }
+
+	/// <summary>Атрибуты поля в байткодовой форме; codegen пишет их в <c>FieldDef</c>.</summary>
+	public IReadOnlyList<AttributeUse> Attributes { get; init; } = [];
 }

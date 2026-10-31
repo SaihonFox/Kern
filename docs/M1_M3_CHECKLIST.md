@@ -74,7 +74,7 @@ M2 verdict: **🟡 imports, `result` and generic ctor inference are done; native
 | Properties (auto/get/set/init/computed) | ✅ | examples 06, init/`init` tests |
 | Extension functions/properties/operators | 🟡 | operator/extension basics exist; audit pending |
 | Constructors: primary, secondary, chains, generic ctor inference | 🟡 | chains done; `Box(5) → Box<i32>` done in Batch 2; parent ctor call added in A1 (2026-10-31) |
-| Attributes bound to symbols (not only warnings) | ❌ | parsed + `deprecated`/`must_use` diagnostics; not stored on `MemberTable`/symbols |
+| Attributes bound to symbols (not only warnings) | ✅ | 2026-11-01: `TypeSymbol`/`FunctionSymbol`/`FieldSymbol`/`PropertySymbol.Attributes`; `TypeDef`/`FunctionDef`/`FieldDef` emission + `.kbc` round-trip; disassembler prints type/function `attr`; grouped `#[A, B]`; `deprecated`/`must_use` read symbol data. Residual: `PropertyDef` is not emitted (property attrs live on accessors), module/global attrs have no slot |
 | Compile-time reflection stubs (`name_of<T>`, `typeof<T>`) | ❌ | M3 item, not started (examples 24) |
 | `use`/dispose | ✅ | Batch 0 + M5 slice; native `dispose` blocked by `IsStatic` (KNOWN_ISSUES) |
 

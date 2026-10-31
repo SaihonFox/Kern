@@ -114,15 +114,15 @@ public sealed partial class Parser
 				declarations.Add(ParseUse());
 			}
 			else if (Current.Kind == TokenKind.Op)
-				declarations.Add(ParseExtensionOperator(
+				declarations.Add(ParseExtensionOperator(attributes,
 					BuildModifiers(modifiers, ModifierTarget.Extension, Accessibility.Public)));
 			else if (Current.Kind == TokenKind.Identifier && LooksLikeExtensionProperty())
-				declarations.Add(ParseExtensionProperty(
+				declarations.Add(ParseExtensionProperty(attributes,
 					BuildModifiers(modifiers, ModifierTarget.Extension, Accessibility.Public)));
 			else if (Current.Kind == TokenKind.Operator && Current.Text == "!" ||
 				Current.Kind == TokenKind.Var ||
 				Current.Kind == TokenKind.Identifier && LooksLikeGlobalField())
-				declarations.Add(ParseGlobalField(
+				declarations.Add(ParseGlobalField(attributes,
 					BuildModifiers(modifiers, ModifierTarget.GlobalField, Accessibility.Public)));
 			else
 			{
@@ -135,7 +135,9 @@ public sealed partial class Parser
 		return new CompilationUnit(declarations, new TextSpan(start, Current.Span.End - start)) { Project = project };
 	}
 
-	private ExtensionOperatorDeclaration ParseExtensionOperator(DeclarationModifiers modifiers)
+	private ExtensionOperatorDeclaration ParseExtensionOperator(
+		IReadOnlyList<AttributeNode> attributes,
+		DeclarationModifiers modifiers)
 	{
 		var start = Consume(TokenKind.Op, "Ожидалось ключевое слово op").Span.Start;
 		var receiver = ParseTypeSyntax();
@@ -150,7 +152,8 @@ public sealed partial class Parser
 		}
 		SyntaxNode? body = Current.Kind == TokenKind.LeftBrace ? ParseBlock() : ParseFunctionBody();
 		return new ExtensionOperatorDeclaration(receiver, op.Text, parameters, returnType, body,
-			new TextSpan(start, (body?.Span.End ?? Previous.Span.End) - start), modifiers.Accessibility);
+			new TextSpan(start, (body?.Span.End ?? Previous.Span.End) - start), modifiers.Accessibility,
+			Attributes: attributes);
 	}
 
 	private bool LooksLikeGlobalField()
@@ -175,7 +178,9 @@ public sealed partial class Parser
 		return index < _tokens.Count && _tokens[index].Kind == TokenKind.Identifier;
 	}
 
-	private GlobalFieldDeclaration ParseGlobalField(DeclarationModifiers modifiers)
+	private GlobalFieldDeclaration ParseGlobalField(
+		IReadOnlyList<AttributeNode> attributes,
+		DeclarationModifiers modifiers)
 	{
 		var start = Current.Span.Start;
 		var isRequired = Current.Kind == TokenKind.Operator && Current.Text == "!";
@@ -201,7 +206,8 @@ public sealed partial class Parser
 		if (isInferred && initializer is null)
 			Report("PAR010", "Объявление var! требует начального значения");
 		return new GlobalFieldDeclaration(type, name.Text, isRequired, initializer,
-			new TextSpan(start, (initializer?.Span.End ?? name.Span.End) - start), isInferred, modifiers.Accessibility);
+			new TextSpan(start, (initializer?.Span.End ?? name.Span.End) - start), isInferred, modifiers.Accessibility,
+			Attributes: attributes);
 	}
 
 	private bool LooksLikeExtensionProperty() =>
@@ -210,7 +216,9 @@ public sealed partial class Parser
 		_tokens[_position + 2].Kind == TokenKind.Dot &&
 		_tokens[_position + 3].Kind == TokenKind.Identifier;
 
-	private ExtensionPropertyDeclaration ParseExtensionProperty(DeclarationModifiers modifiers)
+	private ExtensionPropertyDeclaration ParseExtensionProperty(
+		IReadOnlyList<AttributeNode> attributes,
+		DeclarationModifiers modifiers)
 	{
 		var start = Current.Span.Start;
 		var propertyType = ParseTypeSyntax();
@@ -219,7 +227,7 @@ public sealed partial class Parser
 		var name = Consume(TokenKind.Identifier, "Ожидалось имя extension property");
 		var body = ParseExpression();
 		return new ExtensionPropertyDeclaration(receiver, name.Text, propertyType, body,
-			new TextSpan(start, body.Span.End - start), modifiers.Accessibility);
+			new TextSpan(start, body.Span.End - start), modifiers.Accessibility, Attributes: attributes);
 	}
 
 	private IReadOnlyList<AttributeNode> ParseAttributes()
@@ -227,21 +235,30 @@ public sealed partial class Parser
 		var attributes = new List<AttributeNode>();
 		while (Current.Kind == TokenKind.Hash && _position + 1 < _tokens.Count && _tokens[_position + 1].Kind == TokenKind.LeftBracket)
 		{
-			var start = Advance().Span.Start;
+			var groupStart = Advance().Span.Start;
 			Consume(TokenKind.LeftBracket, "Ожидалась открывающая скобка атрибута");
-			var name = Consume(TokenKind.Identifier, "Ожидалось имя атрибута");
-			var arguments = new List<string>();
-			if (Match(TokenKind.LeftParen))
+			var first = true;
+			while (true)
 			{
-				while (!AtEnd && Current.Kind != TokenKind.RightParen)
+				var itemStart = first ? groupStart : Current.Span.Start;
+				first = false;
+				var name = Consume(TokenKind.Identifier, "Ожидалось имя атрибута");
+				var arguments = new List<string>();
+				if (Match(TokenKind.LeftParen))
 				{
-					arguments.Add(Advance().Text);
-					if (!Match(TokenKind.Comma)) break;
+					while (!AtEnd && Current.Kind != TokenKind.RightParen)
+					{
+						arguments.Add(Advance().Text);
+						if (!Match(TokenKind.Comma)) break;
+					}
+					Consume(TokenKind.RightParen, "Ожидалась закрывающая скобка атрибута");
 				}
-				Consume(TokenKind.RightParen, "Ожидалась закрывающая скобка атрибута");
+				var itemEnd = Previous.Span.End;
+				attributes.Add(new AttributeNode(name.Text, arguments, new TextSpan(itemStart, itemEnd - itemStart)));
+				if (!Match(TokenKind.Comma))
+					break;
 			}
-			var close = Consume(TokenKind.RightBracket, "Ожидалась закрывающая скобка атрибута");
-			attributes.Add(new AttributeNode(name.Text, arguments, new TextSpan(start, close.Span.End - start)));
+			Consume(TokenKind.RightBracket, "Ожидалась закрывающая скобка атрибута");
 		}
 		return attributes;
 	}

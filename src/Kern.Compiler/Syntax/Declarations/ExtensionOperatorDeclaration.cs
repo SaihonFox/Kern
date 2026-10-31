@@ -10,4 +10,8 @@ public sealed record ExtensionOperatorDeclaration(
 	TypeSyntax? ReturnType,
 	SyntaxNode? Body,
 	TextSpan Span,
-	Accessibility Accessibility = Accessibility.Public) : DeclarationNode(Span);
+	Accessibility Accessibility = Accessibility.Public,
+	IReadOnlyList<AttributeNode>? Attributes = null) : DeclarationNode(Span)
+{
+	public IReadOnlyList<AttributeNode> DeclaredAttributes { get; } = Attributes ?? [];
+}

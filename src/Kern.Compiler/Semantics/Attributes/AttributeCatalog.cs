@@ -1,3 +1,4 @@
+using Kern.Bytecode;
 using Kern.Compiler.Syntax;
 
 namespace Kern.Compiler.Semantics.Attributes;
@@ -61,4 +62,21 @@ public static class AttributeCatalog
 		FunctionDeclaration function => Find(function.DeclaredAttributes, name),
 		_ => null
 	};
+
+	/// <summary>Есть ли атрибут в байткодовом списке символа (spec §7).</summary>
+	public static bool Has(IReadOnlyList<AttributeUse>? attributes, string name) =>
+		Find(attributes, name) is not null;
+
+	/// <summary>Первый атрибут символа с данным именем или null.</summary>
+	public static AttributeUse? Find(IReadOnlyList<AttributeUse>? attributes, string name)
+	{
+		if (attributes is null)
+			return null;
+		foreach (var attribute in attributes)
+		{
+			if (string.Equals(attribute.Name, name, StringComparison.Ordinal))
+				return attribute;
+		}
+		return null;
+	}
 }

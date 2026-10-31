@@ -1,3 +1,4 @@
+using Kern.Bytecode;
 using Kern.Compiler.Semantics.Types;
 using Kern.Compiler.Syntax;
 
@@ -30,6 +31,12 @@ public sealed record PropertySymbol(
 	public bool IsExtension { get; init; }
 
 	public KernType? ReceiverType { get; init; }
+
+	/// <summary>
+	/// Атрибуты свойства; копируются в accessor-функции, потому что <c>PropertyDef</c>
+	/// компилятор пока не выпускает (см. KNOWN_ISSUES).
+	/// </summary>
+	public IReadOnlyList<AttributeUse> Attributes { get; init; } = [];
 
 	public bool CanRead => Getter is not null;
 

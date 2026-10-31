@@ -58,6 +58,7 @@ public sealed partial class CodeGenerator
 				},
 				GenericParams = [.. type.GenericParameterNames]
 			};
+			definition.Attributes = [.. type.Attributes];
 
 			// Собственные статические поля и статические backing-поля живут в модульном пуле,
 			// унаследованные статические члены не наследуются (spec §8).
@@ -146,7 +147,8 @@ public sealed partial class CodeGenerator
 		Name = field.Name,
 		Type = TypeSigMap.From(field.Type, _module.Name),
 		Slot = slot,
-		Flags = field.IsRequired ? MemberFlags.Readonly : MemberFlags.None
+		Flags = field.IsRequired ? MemberFlags.Readonly : MemberFlags.None,
+		Attributes = [.. field.Attributes]
 	};
 
 	/// <summary>
@@ -192,7 +194,8 @@ public sealed partial class CodeGenerator
 			ReturnType = TypeSigMap.From(function.ReturnType, _module.Name),
 			LocalCount = Math.Max(function.LocalCount, function.Parameters.Count),
 			MaxStack = 256,
-			Flags = function.Symbol.Owner is null ? MemberFlags.Static : MemberFlags.None
+			Flags = function.Symbol.Owner is null ? MemberFlags.Static : MemberFlags.None,
+			Attributes = [.. function.Symbol.Attributes]
 		};
 
 		if (function.Symbol.Kind == FunctionKind.Constructor)

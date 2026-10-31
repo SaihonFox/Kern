@@ -1,3 +1,4 @@
+using Kern.Compiler.Semantics.Attributes;
 using Kern.Compiler.Semantics.Types;
 using Kern.Compiler.Syntax;
 using Kern.Core.Diagnostics;
@@ -138,7 +139,8 @@ public sealed partial class DeclarationCollector
 			false)
 		{
 			Owner = owner,
-			Declaration = node
+			Declaration = node,
+			Attributes = AttributeValues.Build(node.DeclaredAttributes)
 		};
 
 	private PropertySymbol CollectProperty(PropertyMemberNode node, TypeSymbol owner, TypeParameterScope scope)
@@ -159,7 +161,8 @@ public sealed partial class DeclarationCollector
 				IsStatic = node.IsStatic,
 				IsOverride = node.IsOverride,
 				Body = node.ExpressionBody,
-				Declaration = node
+				Declaration = node,
+				Attributes = AttributeValues.Build(node.DeclaredAttributes)
 			};
 		}
 
@@ -188,7 +191,8 @@ public sealed partial class DeclarationCollector
 			node.Initializer)
 		{
 			Owner = owner,
-			Declaration = node
+			Declaration = node,
+			Attributes = AttributeValues.Build(node.DeclaredAttributes)
 		};
 	}
 
@@ -246,7 +250,8 @@ public sealed partial class DeclarationCollector
 			IsStatic = property.IsStatic,
 			IsOverride = property.IsOverride,
 			Body = accessor.Body,
-			Declaration = property
+			Declaration = property,
+			Attributes = AttributeValues.Build(property.DeclaredAttributes)
 		};
 	}
 
@@ -275,7 +280,8 @@ public sealed partial class DeclarationCollector
 			IsOpen = declaration.IsAbstract,
 			IsOverride = declaration.IsOverride,
 			Body = declaration.Body,
-			Declaration = declaration
+			Declaration = declaration,
+			Attributes = AttributeValues.Build(declaration.DeclaredAttributes)
 		};
 	}
 
@@ -302,7 +308,8 @@ public sealed partial class DeclarationCollector
 			IsOpen = declaration.IsAbstract,
 			IsOverride = declaration.IsOverride,
 			Body = declaration.Body,
-			Declaration = declaration
+			Declaration = declaration,
+			Attributes = AttributeValues.Build(declaration.DeclaredAttributes)
 		};
 
 		if (!_functions.TryGetValue(declaration.Name, out var group))
@@ -326,7 +333,8 @@ public sealed partial class DeclarationCollector
 			IsOverride = declaration.IsOverride,
 			Chain = declaration.Chain,
 			Body = declaration.Body,
-			Declaration = declaration
+			Declaration = declaration,
+			Attributes = AttributeValues.Build(declaration.DeclaredAttributes)
 		};
 	}
 
@@ -361,7 +369,8 @@ public sealed partial class DeclarationCollector
 			IsOverride = declaration.IsOverride,
 			OpSymbol = declaration.Operator,
 			Body = declaration.Body,
-			Declaration = declaration
+			Declaration = declaration,
+			Attributes = AttributeValues.Build(declaration.DeclaredAttributes)
 		};
 
 	private FunctionSymbol CollectParentMethodSelection(
@@ -376,7 +385,8 @@ public sealed partial class DeclarationCollector
 			Accessibility = declaration.Accessibility,
 			IsOverride = declaration.IsOverride,
 			ParentSelector = declaration.ParentType,
-			Declaration = declaration
+			Declaration = declaration,
+			Attributes = AttributeValues.Build(declaration.DeclaredAttributes)
 		};
 
 	private FieldSymbol CollectParentFieldSelection(
@@ -395,7 +405,8 @@ public sealed partial class DeclarationCollector
 			Owner = owner,
 			ParentSelector = declaration.ParentType,
 			ParentSelectorType = declaration.ParentType,
-			Declaration = declaration
+			Declaration = declaration,
+			Attributes = AttributeValues.Build(declaration.DeclaredAttributes)
 		};
 
 	private List<ParameterSymbol> ResolveParameters(

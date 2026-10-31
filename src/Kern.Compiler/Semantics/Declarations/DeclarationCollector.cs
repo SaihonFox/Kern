@@ -1,3 +1,4 @@
+using Kern.Compiler.Semantics.Attributes;
 using Kern.Compiler.Semantics.Types;
 using Kern.Compiler.Syntax;
 using Kern.Core.Diagnostics;
@@ -131,6 +132,7 @@ public sealed partial class DeclarationCollector
 		symbol.IsAbstract = declaration.IsAbstract;
 		symbol.IsOpen = declaration.IsOpen;
 		symbol.IsStatic = declaration.IsStatic;
+		symbol.Attributes = AttributeValues.Build(declaration.DeclaredAttributes);
 		var scope = BuildTypeScope(symbol, declaration.GenericParameters, $"типа '{declaration.Name}'");
 
 		if (declaration.DeclaredUnionVariants.Count > 0)
@@ -156,6 +158,7 @@ public sealed partial class DeclarationCollector
 		symbol.IsAbstract = false;
 		symbol.IsOpen = false;
 		symbol.IsStatic = false;
+		symbol.Attributes = AttributeValues.Build(declaration.DeclaredAttributes);
 		BuildTypeScope(symbol, declaration.GenericParameters, $"unit-типа '{declaration.Name}'");
 		RegisterType(declaration, symbol);
 	}
@@ -192,7 +195,8 @@ public sealed partial class DeclarationCollector
 			declaration.Initializer,
 			declaration.IsRequired)
 		{
-			Declaration = declaration
+			Declaration = declaration,
+			Attributes = AttributeValues.Build(declaration.DeclaredAttributes)
 		});
 	}
 }

@@ -1,3 +1,4 @@
+using Kern.Bytecode;
 using Kern.Compiler.Semantics.Types;
 using Kern.Compiler.Syntax;
 
@@ -76,6 +77,9 @@ public sealed class FunctionSymbol(string name, FunctionKind kind)
 	public string? ParentSelector { get; init; }
 
 	public SyntaxNode? Declaration { get; init; }
+
+	/// <summary>Атрибуты функции/метода/оператора/accessor'а в байткодовой форме (spec §7).</summary>
+	public IReadOnlyList<AttributeUse> Attributes { get; init; } = [];
 
 	public int GenericArity => GenericParameters.Count;
 

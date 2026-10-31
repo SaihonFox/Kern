@@ -1,3 +1,4 @@
+using Kern.Compiler.Semantics.Attributes;
 using Kern.Compiler.Semantics.Types;
 using Kern.Compiler.Syntax;
 using Kern.Core.Diagnostics;
@@ -34,7 +35,8 @@ public sealed partial class DeclarationCollector
 			IsAbstract = declaration.IsAbstract,
 			IsOpen = declaration.IsAbstract,
 			Body = declaration.Body,
-			Declaration = declaration
+			Declaration = declaration,
+			Attributes = AttributeValues.Build(declaration.DeclaredAttributes)
 		};
 		AddExtension(receiver, function);
 	}
@@ -52,7 +54,8 @@ public sealed partial class DeclarationCollector
 			ReceiverType = receiver,
 			Accessibility = declaration.Accessibility,
 			Body = declaration.Body,
-			Declaration = declaration
+			Declaration = declaration,
+			Attributes = AttributeValues.Build(declaration.DeclaredAttributes)
 		};
 		var property = new PropertySymbol(
 			declaration.Name,
@@ -71,7 +74,8 @@ public sealed partial class DeclarationCollector
 		{
 			IsExtension = true,
 			ReceiverType = receiver,
-			Declaration = declaration
+			Declaration = declaration,
+			Attributes = AttributeValues.Build(declaration.DeclaredAttributes)
 		};
 		AddExtension(receiver, property);
 	}
@@ -90,7 +94,8 @@ public sealed partial class DeclarationCollector
 			Accessibility = declaration.Accessibility,
 			OpSymbol = declaration.Operator,
 			Body = declaration.Body,
-			Declaration = declaration
+			Declaration = declaration,
+			Attributes = AttributeValues.Build(declaration.DeclaredAttributes)
 		};
 		AddExtension(receiver, function);
 	}
@@ -119,7 +124,8 @@ public sealed partial class DeclarationCollector
 			IsOverride = declaration.IsOverride,
 			OpSymbol = symbol,
 			Body = declaration.Body,
-			Declaration = declaration
+			Declaration = declaration,
+			Attributes = AttributeValues.Build(declaration.DeclaredAttributes)
 		};
 		AddExtension(receiver, function);
 	}

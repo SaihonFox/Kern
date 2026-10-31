@@ -38,6 +38,33 @@ public sealed partial class DeclarationCollector
 				ReportUnknownAttributes(function.DeclaredAttributes);
 				ValidateFunctionDerives(function);
 				break;
+			case FieldMemberNode field:
+				ReportUnknownAttributes(field.DeclaredAttributes);
+				break;
+			case PropertyMemberNode property:
+				ReportUnknownAttributes(property.DeclaredAttributes);
+				break;
+			case OperatorMemberNode @operator:
+				ReportUnknownAttributes(@operator.DeclaredAttributes);
+				break;
+			case ConstructorMemberNode constructor:
+				ReportUnknownAttributes(constructor.DeclaredAttributes);
+				break;
+			case ParentMethodSelectionNode selection:
+				ReportUnknownAttributes(selection.DeclaredAttributes);
+				break;
+			case ParentFieldSelectionNode fieldSelection:
+				ReportUnknownAttributes(fieldSelection.DeclaredAttributes);
+				break;
+			case GlobalFieldDeclaration global:
+				ReportUnknownAttributes(global.DeclaredAttributes);
+				break;
+			case ExtensionOperatorDeclaration extensionOperator:
+				ReportUnknownAttributes(extensionOperator.DeclaredAttributes);
+				break;
+			case ExtensionPropertyDeclaration extensionProperty:
+				ReportUnknownAttributes(extensionProperty.DeclaredAttributes);
+				break;
 		}
 	}
 

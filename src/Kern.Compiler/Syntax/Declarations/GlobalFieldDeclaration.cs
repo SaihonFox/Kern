@@ -9,4 +9,8 @@ public sealed record GlobalFieldDeclaration(
 	ExpressionNode? Initializer,
 	TextSpan Span,
 	bool IsInferred = false,
-	Accessibility Accessibility = Accessibility.Public) : DeclarationNode(Span);
+	Accessibility Accessibility = Accessibility.Public,
+	IReadOnlyList<AttributeNode>? Attributes = null) : DeclarationNode(Span)
+{
+	public IReadOnlyList<AttributeNode> DeclaredAttributes { get; } = Attributes ?? [];
+}

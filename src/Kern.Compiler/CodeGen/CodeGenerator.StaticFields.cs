@@ -24,7 +24,8 @@ public sealed partial class CodeGenerator
 			Name = field.Name,
 			Type = TypeSigMap.From(field.Type, _module.Name),
 			Slot = slot,
-			Flags = MemberFlags.Static | (field.IsRequired ? MemberFlags.Readonly : MemberFlags.None)
+			Flags = MemberFlags.Static | (field.IsRequired ? MemberFlags.Readonly : MemberFlags.None),
+			Attributes = [.. field.Attributes]
 		});
 		_staticSlots[field] = slot;
 	}

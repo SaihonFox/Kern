@@ -12,8 +12,11 @@ public sealed record PropertyMemberNode(
 	TextSpan Span,
 	bool IsStatic = false,
 	Accessibility Accessibility = Accessibility.Private,
-	bool IsOverride = false) : SyntaxNode(Span), ITypeMember
+	bool IsOverride = false,
+	IReadOnlyList<AttributeNode>? Attributes = null) : SyntaxNode(Span), ITypeMember
 {
+	public IReadOnlyList<AttributeNode> DeclaredAttributes { get; } = Attributes ?? [];
+
 	/// <summary>
 	/// Автосвойство: все accessor'ы без тела и нет выражения-тела
 	/// (<c>i32 val { get; set }</c>, spec §16).

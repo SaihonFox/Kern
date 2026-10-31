@@ -9,4 +9,8 @@ public sealed record ParentFieldSelectionNode(
 	string Name,
 	TextSpan Span,
 	Accessibility Accessibility = Accessibility.Private,
-	bool IsOverride = false) : SyntaxNode(Span), ITypeMember;
+	bool IsOverride = false,
+	IReadOnlyList<AttributeNode>? Attributes = null) : SyntaxNode(Span), ITypeMember
+{
+	public IReadOnlyList<AttributeNode> DeclaredAttributes { get; } = Attributes ?? [];
+}

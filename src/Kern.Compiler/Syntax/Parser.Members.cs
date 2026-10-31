@@ -200,15 +200,15 @@ public sealed partial class Parser
 			var attributes = ParseAttributes();
 			var modifiers = ParseModifierTokens();
 			if (Current.Kind == TokenKind.Fun && _position + 1 < _tokens.Count && _tokens[_position + 1].Kind == TokenKind.Dollar)
-				members.Add(ParseParentMethodSelection(modifiers, Current.Span.Start));
+				members.Add(ParseParentMethodSelection(modifiers, Current.Span.Start, attributes));
 			else if (Current.Kind == TokenKind.Fun)
 				members.Add(ParseFunction(attributes, BuildModifiers(modifiers, ModifierTarget.MemberFunction, Accessibility.Private)));
 			else if (Current.Kind == TokenKind.Type)
 				members.Add(ParseType(attributes, BuildModifiers(modifiers, ModifierTarget.NestedType, Accessibility.Private)));
 			else if (Current.Kind == TokenKind.Op)
-				members.Add(ParseOperatorMember(modifiers));
+				members.Add(ParseOperatorMember(modifiers, attributes));
 			else if (Current.Kind == TokenKind.Ctor)
-				members.Add(ParseConstructor(modifiers));
+				members.Add(ParseConstructor(modifiers, attributes));
 			else if (modifiers.Count > 0 &&
 				Current.Kind is not (TokenKind.Identifier or TokenKind.LeftParen) &&
 				!(Current.Kind == TokenKind.Operator && Current.Text == "!"))
@@ -217,7 +217,7 @@ public sealed partial class Parser
 				Advance();
 			}
 			else
-				members.Add(ParseFieldOrProperty(modifiers));
+				members.Add(ParseFieldOrProperty(modifiers, attributes));
 			Match(TokenKind.Semicolon);
 			if (_position == before) Advance();
 		}
@@ -225,7 +225,10 @@ public sealed partial class Parser
 		return members;
 	}
 
-	private ParentMethodSelectionNode ParseParentMethodSelection(IReadOnlyList<ModifierToken> modifierTokens, int start)
+	private ParentMethodSelectionNode ParseParentMethodSelection(
+		IReadOnlyList<ModifierToken> modifierTokens,
+		int start,
+		IReadOnlyList<AttributeNode> attributes)
 	{
 		var modifiers = BuildModifiers(modifierTokens, ModifierTarget.ParentSelection, Accessibility.Private);
 		Consume(TokenKind.Fun, "Ожидалось ключевое слово fun");
@@ -239,7 +242,8 @@ public sealed partial class Parser
 			returnType = ParseTypeSyntax();
 		}
 		return new ParentMethodSelectionNode(parentType, name.Text, parameters, returnType,
-			new TextSpan(start, Previous.Span.End - start), modifiers.Accessibility, modifiers.IsOverride);
+			new TextSpan(start, Previous.Span.End - start), modifiers.Accessibility, modifiers.IsOverride,
+			Attributes: attributes);
 	}
 
 	private string ParseParentSelectionPrefix()
@@ -252,7 +256,9 @@ public sealed partial class Parser
 		return parentType;
 	}
 
-	private SyntaxNode ParseFieldOrProperty(IReadOnlyList<ModifierToken> modifierTokens)
+	private SyntaxNode ParseFieldOrProperty(
+		IReadOnlyList<ModifierToken> modifierTokens,
+		IReadOnlyList<AttributeNode> attributes)
 	{
 		var start = Current.Span.Start;
 		var required = Current.Kind == TokenKind.Operator && Current.Text == "!";
@@ -265,7 +271,7 @@ public sealed partial class Parser
 			var parentModifiers = BuildModifiers(modifierTokens, ModifierTarget.ParentSelection, Accessibility.Private);
 			return new ParentFieldSelectionNode(type, parentType, selectedName.Text,
 				new TextSpan(start, selectedName.Span.End - start),
-				parentModifiers.Accessibility, parentModifiers.IsOverride);
+				parentModifiers.Accessibility, parentModifiers.IsOverride, Attributes: attributes);
 		}
 		var name = Consume(TokenKind.Identifier, "Ожидалось имя поля");
 		if (Current.Kind == TokenKind.LeftBrace)
@@ -277,7 +283,8 @@ public sealed partial class Parser
 			ExpressionNode? initializer = Match(TokenKind.Equals) ? ParseExpression() : null;
 			var end = initializer?.Span.End ?? close.Span.End;
 			return new PropertyMemberNode(type, name.Text, accessors, null, initializer,
-				new TextSpan(start, end - start), modifiers.IsStatic, modifiers.Accessibility, modifiers.IsOverride);
+				new TextSpan(start, end - start), modifiers.IsStatic, modifiers.Accessibility, modifiers.IsOverride,
+				Attributes: attributes);
 		}
 		if (Current.Kind == TokenKind.Operator && Current.Text == "=>")
 		{
@@ -286,13 +293,13 @@ public sealed partial class Parser
 			var expression = ParseExpression();
 			return new PropertyMemberNode(type, name.Text, [], expression, null,
 				new TextSpan(start, expression.Span.End - start),
-				modifiers.IsStatic, modifiers.Accessibility, modifiers.IsOverride);
+				modifiers.IsStatic, modifiers.Accessibility, modifiers.IsOverride, Attributes: attributes);
 		}
 		var fieldModifiers = BuildModifiers(modifierTokens, ModifierTarget.Member, Accessibility.Private);
 		ExpressionNode? fieldInitializer = Match(TokenKind.Equals) ? ParseExpression() : null;
 		return new FieldMemberNode(type, name.Text, required, fieldInitializer,
 			new TextSpan(start, (fieldInitializer?.Span.End ?? name.Span.End) - start),
-			fieldModifiers.IsStatic, fieldModifiers.Accessibility, fieldModifiers.IsOverride);
+			fieldModifiers.IsStatic, fieldModifiers.Accessibility, fieldModifiers.IsOverride, Attributes: attributes);
 	}
 
 	private IReadOnlyList<PropertyAccessorNode> ParsePropertyAccessors()
@@ -380,7 +387,9 @@ public sealed partial class Parser
 		return next.Kind == TokenKind.Identifier && next.Text is "get" or "set" or "init";
 	}
 
-	private ConstructorMemberNode ParseConstructor(IReadOnlyList<ModifierToken> modifierTokens)
+	private ConstructorMemberNode ParseConstructor(
+		IReadOnlyList<ModifierToken> modifierTokens,
+		IReadOnlyList<AttributeNode> attributes)
 	{
 		var modifiers = BuildModifiers(modifierTokens, ModifierTarget.Constructor, Accessibility.Private);
 		var start = Consume(TokenKind.Ctor, "Ожидалось ключевое слово ctor").Span.Start;
@@ -391,7 +400,7 @@ public sealed partial class Parser
 		SyntaxNode? body = Current.Kind == TokenKind.LeftBrace ? ParseBlock() : null;
 		return new ConstructorMemberNode(parameters, chain, body,
 			new TextSpan(start, (body?.Span.End ?? Previous.Span.End) - start),
-			modifiers.Accessibility, modifiers.IsOverride);
+			modifiers.Accessibility, modifiers.IsOverride, Attributes: attributes);
 	}
 
 	/// <summary>Цепочка конструкторов: только <c>: $(args)</c> (spec §16).</summary>
@@ -429,7 +438,9 @@ public sealed partial class Parser
 			Advance();
 	}
 
-	private OperatorMemberNode ParseOperatorMember(IReadOnlyList<ModifierToken> modifierTokens)
+	private OperatorMemberNode ParseOperatorMember(
+		IReadOnlyList<ModifierToken> modifierTokens,
+		IReadOnlyList<AttributeNode> attributes)
 	{
 		var modifiers = BuildModifiers(modifierTokens, ModifierTarget.Operator, Accessibility.Private);
 		var start = Consume(TokenKind.Op, "Ожидалось ключевое слово op").Span.Start;
@@ -455,7 +466,7 @@ public sealed partial class Parser
 			: null;
 		return new OperatorMemberNode(owner is null ? operatorName : $"{owner}.{operatorName}", parameters, returnType, body,
 			new TextSpan(start, (body?.Span.End ?? Previous.Span.End) - start),
-			modifiers.Accessibility, modifiers.IsOverride);
+			modifiers.Accessibility, modifiers.IsOverride, Attributes: attributes);
 	}
 
 	/// <summary>

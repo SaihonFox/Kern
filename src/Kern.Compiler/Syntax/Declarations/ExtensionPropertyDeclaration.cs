@@ -9,4 +9,8 @@ public sealed record ExtensionPropertyDeclaration(
 	TypeSyntax PropertyType,
 	ExpressionNode Body,
 	TextSpan Span,
-	Accessibility Accessibility = Accessibility.Public) : DeclarationNode(Span);
+	Accessibility Accessibility = Accessibility.Public,
+	IReadOnlyList<AttributeNode>? Attributes = null) : DeclarationNode(Span)
+{
+	public IReadOnlyList<AttributeNode> DeclaredAttributes { get; } = Attributes ?? [];
+}
