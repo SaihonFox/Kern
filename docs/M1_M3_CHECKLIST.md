@@ -63,8 +63,8 @@ M2 verdict: **🟡 imports, generic ctor inference, `result` constructors and na
 | Multi-assignment/swap, `use`/dispose, constant conversions | ✅ | Batch 0 |
 | Destructuring (list/array, `..rest`, `_`) | ✅ | Batch 1; example 02 line 38 |
 | Tuples: literals, named tuples, item access, tuple destructuring | ✅ | Batch 1: `BoundTupleExpression`/`TupleGet`, `p.x`, `(i32 a, str b) = pair`, `var (a, b)`; example 02 checks and runs |
-| Lambdas as values, captures | ❌ | parsed only; `MakeClosure` opcode unused by compiler |
-| Local functions (hoisting, recursion) | ❌ | parsed only (`KRN2109`) |
+| Lambdas as values, captures | ✅ | Batch 1.5: `BoundLambdaExpression`, `MakeClosure`/`CallValue`, capture by value; mutable capture (cells) still `KRN2109` |
+| Local functions (hoisting, recursion) | 🟡 | hoisting + by-value captures work (example 05 `helper`); mutual/self recursion not supported yet (name is not declared while binding the body) |
 | `await` as an expression | ❌ | parsed only; `KRN2101` |
 | Flow analysis: definite assignment, smart casts, `never`, unreachable | ✅ | flow tests (archived) + `02_types` flow parts |
 | `match`: literals, types, unions, ranges, or-patterns, lists, structural, guards, coverage | ✅ | B4 slices; or-pattern bindings still `KRN2114` |
