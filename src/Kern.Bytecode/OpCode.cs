@@ -154,6 +154,9 @@ public enum OpCode
 
 	// --- доступ к элементу кортежа (spec §3) ---
 	TupleGet,       // index: снять кортеж, положить элемент; индекс вне кортежа — паника
+
+	// --- повтор строки/символа (spec §3: `3 * "Ha"`) ---
+	Repeat,         // нет операндов: [значение, i64] -> повторённое значение (str/char)
 }
 
 /// <summary>Раскладка операндов и вспомогательные проверки для <see cref="OpCode"/>.</summary>
@@ -182,7 +185,7 @@ public static class OpCodeInfo
 	public static bool IsJump(OpCode op) => op is OpCode.Jmp or OpCode.JmpIf or OpCode.JmpIfNot;
 
 	/// <summary>Известен ли номер опкода (защита от мусора в .kbc).</summary>
-	public static bool IsDefined(int value) => value >= 0 && value <= (int)OpCode.TupleGet;
+	public static bool IsDefined(int value) => value >= 0 && value <= (int)OpCode.Repeat;
 
 	public static bool IsDefined(OpCode op) => IsDefined((int)op);
 }

@@ -152,6 +152,13 @@ public sealed partial class Binder
 		if (IsError(left.Type) || IsError(right.Type))
 			return new BoundErrorExpression(span);
 
+		// Пользовательские/расширяющие операторы (spec §12) — до встроенных, если объявлены.
+		if (symbol is not ("&&" or "||" or "==" or "!=" or "<" or ">" or "<=" or ">=" or "?:" or "in" or "!in") &&
+			TryBindUserOperator(symbol, left, right, span) is { } userOperator)
+		{
+			return userOperator;
+		}
+
 		switch (symbol)
 		{
 			case "&&":
@@ -269,18 +276,6 @@ public sealed partial class Binder
 		return Incompatible(symbol, left, right, span);
 	}
 
-	private BoundExpression? TryRepeat(BoundExpression left, BoundExpression right, TextSpan span)
-	{
-		if (IsRepeatable(left.Type) && IsInteger(right.Type))
-			return new BoundBinaryExpression(left, "*", ConvertWithConversion(right, PrimitiveType.I64, span), RepeatResult(left.Type), span);
-		if (IsInteger(left.Type) && IsRepeatable(right.Type))
-			return new BoundBinaryExpression(ConvertWithConversion(left, PrimitiveType.I64, span), "*", right, RepeatResult(right.Type), span);
-		return null;
-	}
-
-	private static KernType RepeatResult(KernType type) =>
-		type.Equals(PrimitiveType.Char) ? PrimitiveType.Str : type;
-
 	private static bool TryListConcat(BoundExpression left, BoundExpression right, out KernType type)
 	{
 		type = null!;
@@ -294,10 +289,6 @@ public sealed partial class Binder
 		type = left.Type;
 		return true;
 	}
-
-	private static bool IsRepeatable(KernType type) =>
-		type.Equals(PrimitiveType.Str) || type.Equals(PrimitiveType.Char) ||
-		type is BuiltinGenericType { BuiltinKind: BuiltinGenericKind.List };
 
 	private static bool IsInteger(KernType type) =>
 		type is PrimitiveType primitive && NumericInfo.TryGet(primitive.Primitive, out var info) && info.IsInteger;
@@ -534,6 +525,8 @@ public sealed partial class Binder
 		}
 		if (candidates.Count == 0)
 			candidates.AddRange(NativeMembers(receiver.Type, member.Member));
+		if (candidates.Count == 0 && _module.FindExtensions(receiver.Type) is { } extensions)
+			candidates.AddRange(extensions.GetFunctions(member.Member));
 		if (candidates.Count == 0)
 		{
 			// B6b1/B8a/B8c: протоколы hash/compare/clone идут после обычных и нативных членов, но до KRN2103.
@@ -564,8 +557,14 @@ public sealed partial class Binder
 		{
 			if (argument.Argument is null)
 			{
-				Report("KRN2108", $"Значения по умолчанию пока не поддержаны binder'ом: параметр '{argument.Parameter.Name}'", span);
-				return new BoundErrorExpression(span);
+				if (BindDefaultArgument(argument.Parameter, span) is not { } defaultValue)
+				{
+					Report("KRN2108", $"У параметра '{argument.Parameter.Name}' нет значения по умолчанию", span);
+					return new BoundErrorExpression(span);
+				}
+
+				ordered.Add(defaultValue);
+				continue;
 			}
 
 			var expression = byCallArgument[argument.Argument];
@@ -613,8 +612,14 @@ public sealed partial class Binder
 		{
 			if (argument.Argument is null)
 			{
-				Report("KRN2108", $"Значения по умолчанию пока не поддержаны binder'ом: параметр '{argument.Parameter.Name}'", span);
-				return new BoundErrorExpression(span);
+				if (BindDefaultArgument(argument.Parameter, span) is not { } defaultValue)
+				{
+					Report("KRN2108", $"У параметра '{argument.Parameter.Name}' нет значения по умолчанию", span);
+					return new BoundErrorExpression(span);
+				}
+
+				ordered.Add(defaultValue);
+				continue;
 			}
 
 			var expression = byCallArgument[argument.Argument];
@@ -713,6 +718,9 @@ public sealed partial class Binder
 					return new BoundCallExpression(getter, [], property.Type, member.Span, receiver);
 			}
 		}
+
+		if (_module.FindExtensions(receiver.Type)?.FindProperty(member.Member) is { Getter: { } extensionGetter } extensionProperty)
+			return new BoundCallExpression(extensionGetter, [], extensionProperty.Type, member.Span, receiver);
 
 		foreach (FunctionSymbol native in NativeMembers(receiver.Type, member.Member))
 		{

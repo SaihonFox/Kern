@@ -20,6 +20,9 @@ public sealed partial class CodeGenerator
 		_ => true
 	};
 
+	/// <summary>Тип <c>void</c>.</summary>
+	private static bool IsVoid(KernType type) => type is PrimitiveType { Primitive: PrimitiveKind.Void };
+
 	/// <summary>Копирование значения <c>unit</c> при присваивании/передаче (spec §9).</summary>
 	private void EmitCopyIfUnit(KernType type)
 	{

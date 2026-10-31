@@ -1,0 +1,95 @@
+using Kern.Compiler.Semantics.Bound;
+using Kern.Compiler.Semantics.Declarations;
+using Kern.Compiler.Semantics.Types;
+using Kern.Compiler.Semantics.Types.Conversions;
+using Kern.Core.Diagnostics;
+
+namespace Kern.Compiler.Semantics.Binding;
+
+/// <summary>
+/// Расширения типов (spec §10): <c>fun str.shout()</c>, <c>fun i32.double</c>,
+/// <c>op i32.*(Point)</c>. Группы собирает <see cref="DeclarationCollector"/>, а байндер
+/// подключает их к вызовам/доступу/операторам после обычных и нативных членов.
+/// </summary>
+public sealed partial class Binder
+{
+	/// <summary>Привязка тел расширений (без неё у функций нет байткода).</summary>
+	private void BindExtensions(List<BoundFunction> functions)
+	{
+		foreach (var group in _module.Extensions.Values)
+		{
+			foreach (var function in group.Functions)
+				if (function.Body is not null)
+					functions.Add(BindFunction(function));
+
+			foreach (var property in group.Properties)
+			{
+				if (property.Getter is { Body: not null } getter)
+					functions.Add(BindFunction(getter));
+				if (property.Setter is { Body: not null } setter)
+					functions.Add(BindFunction(setter));
+				if (property.Init is { Body: not null } init)
+					functions.Add(BindFunction(init));
+			}
+		}
+	}
+
+	/// <summary>
+	/// Пользовательский или расширяющий оператор для пары операндов (spec §12). Ищется
+	/// сначала среди расширений левого типа (включая <c>op i32.*(Point)</c>), затем среди
+	/// объявленных операторов типа. <c>null</c> — оператор не найден, решает встроенный путь.
+	/// </summary>
+	private BoundExpression? TryBindUserOperator(
+		string symbol,
+		BoundExpression left,
+		BoundExpression right,
+		TextSpan span)
+	{
+		if (_module.FindExtensions(left.Type) is { } group)
+		{
+			foreach (var function in group.Functions)
+			{
+				if (!IsUnaryOrBinaryOperator(function, symbol, arity: 1))
+					continue;
+				if (TryBindOperatorCall(function, left, right, span) is { } call)
+					return call;
+			}
+		}
+
+		var owner = OwnerOf(left.Type);
+		if (owner is not null)
+		{
+			foreach (var function in owner.Members.Operators)
+			{
+				if (!IsUnaryOrBinaryOperator(function, symbol, arity: 1))
+					continue;
+				if (TryBindOperatorCall(function, left, right, span) is { } call)
+					return call;
+			}
+		}
+
+		return null;
+	}
+
+	private static bool IsUnaryOrBinaryOperator(FunctionSymbol function, string symbol, int arity) =>
+		function.Kind == FunctionKind.Operator &&
+		function.OpSymbol == symbol &&
+		function.Parameters.Count == arity;
+
+	private BoundExpression? TryBindOperatorCall(
+		FunctionSymbol function,
+		BoundExpression receiver,
+		BoundExpression argument,
+		TextSpan span)
+	{
+		if (function.ReturnType is null)
+			return null;
+
+		var target = function.Parameters[0].Type;
+		if (!Conversions.TryClassify(argument.Type, target, out var conversion))
+			return null;
+
+		var converted = ConvertWithConversion(argument, target, conversion, argument.Span);
+		return new BoundCallExpression(function, [converted], function.ReturnType, span, receiver);
+	}
+}

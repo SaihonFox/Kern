@@ -498,6 +498,29 @@ public static class KValueMath
 		return Math.Sign(a.FieldCount.CompareTo(b.FieldCount));
 	}
 
+	/// <summary>
+	/// Повтор строки/символа для <c>n * s</c>/<c>s * n</c> (spec §3): один операнд — <c>i64</c>
+	/// с числом повторений, второй — <c>str</c> или <c>char</c> (результат всегда <c>str</c>).
+	/// </summary>
+	public static KValue Repeat(KValue a, KValue b)
+	{
+		KValue count = a.Kind == ValueKind.I64 ? a : b;
+		KValue value = a.Kind == ValueKind.I64 ? b : a;
+		if (count.Kind != ValueKind.I64)
+			throw new KernPanic($"повтор: ожидалось целое число повторений, получено {count.TypeName}");
+		long times = count.AsI64;
+		if (times < 0)
+			throw new KernPanic("повтор: отрицательное число повторений");
+		if (times > 1_000_000)
+			throw new KernPanic("повтор: слишком много повторений");
+		return value.Kind switch
+		{
+			ValueKind.Str => KValue.Str(string.Concat(Enumerable.Repeat(value.AsStr, (int)times))),
+			ValueKind.Char => KValue.Str(string.Concat(Enumerable.Repeat(value.AsChar.ToString(), (int)times))),
+			_ => throw new KernPanic($"повтор не поддерживается для {value.TypeName}"),
+		};
+	}
+
 	public static bool LessThan(KValue a, KValue b) => Relational(a, b, RelOp.Lt);
 
 	public static bool LessOrEqual(KValue a, KValue b) => Relational(a, b, RelOp.Le);

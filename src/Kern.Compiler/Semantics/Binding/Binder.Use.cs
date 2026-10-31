@@ -66,7 +66,7 @@ public sealed partial class Binder
 		}
 
 		foreach (var function in NativeMembers(type, "dispose"))
-			if (!function.IsStatic && function.Parameters.Count == 0)
+			if (function.Parameters.Count == 0)
 				return function;
 
 		return null;

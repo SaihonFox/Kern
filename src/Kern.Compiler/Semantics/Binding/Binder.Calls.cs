@@ -49,8 +49,14 @@ public sealed partial class Binder
 		{
 			if (argument.Argument is null)
 			{
-				Report("KRN2108", $"Значения по умолчанию пока не поддержаны binder'ом: параметр '{argument.Parameter.Name}'", span);
-				return new BoundErrorExpression(span);
+				if (BindDefaultArgument(argument.Parameter, span) is not { } defaultValue)
+				{
+					Report("KRN2108", $"У параметра '{argument.Parameter.Name}' нет значения по умолчанию", span);
+					return new BoundErrorExpression(span);
+				}
+
+				ordered.Add(defaultValue);
+				continue;
 			}
 
 			var expression = byCallArgument[argument.Argument];

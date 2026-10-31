@@ -12,6 +12,13 @@ toward the five-feature test batch; stage-2 examples get **stub libraries** so t
 expression and `dict`/`str` iteration are in M1–M3; tuples need structural `==`, hash and
 `compare`; auto-push after green batches; `archive/legacy-tests` stays.
 
+**Landed after the decisions (2026-10-31):** lambdas with by-value captures; extension functions,
+properties and operators; parameter default values; the repeat operator (`Repeat` opcode);
+`main() -> i32` exit codes; native type registration (`SymbolKind.Native`). Still open from the
+checklist: mutable captures (cells), local functions, tuple `==`/hash in the binder, loop-as-
+expression, `dict`/`str` iteration, imports, `result`/`Ok`/`Err`, inheritance audit, attribute
+binding, reflection stubs, stage-2 stubs.
+
 ## M1 — Lexer, parser, AST, diagnostics
 
 | Item | Status | Evidence / gap |

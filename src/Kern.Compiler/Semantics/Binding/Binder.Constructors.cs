@@ -117,11 +117,17 @@ public sealed partial class Binder
 		{
 			if (argument.Argument is null)
 			{
-				Report(
-					"KRN2108",
-					$"Значения по умолчанию пока не поддержаны binder'ом: параметр '{argument.Parameter.Name}'",
-					chain.Span);
-				return null;
+				if (BindDefaultArgument(argument.Parameter, chain.Span) is not { } defaultValue)
+				{
+					Report(
+						"KRN2108",
+						$"У параметра '{argument.Parameter.Name}' нет значения по умолчанию",
+						chain.Span);
+					return null;
+				}
+
+				ordered.Add(defaultValue);
+				continue;
 			}
 
 			var expression = byCallArgument[argument.Argument];

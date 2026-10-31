@@ -1,0 +1,14 @@
+fun str.shout() -> str {
+	$ + "!"
+}
+
+unit Point(i32 x, i32 y)
+
+op i32.*(Point p) -> Point {
+	Point($ * p.x, $ * p.y)
+}
+
+fun main {
+	println("hey".shout())
+	println((2 * Point(1, 2)).y)
+}

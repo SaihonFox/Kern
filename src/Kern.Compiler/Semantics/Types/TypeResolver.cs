@@ -87,6 +87,17 @@ public sealed class TypeResolver
 			}
 		}
 
+		// 3a. Нативные типы каталога (spec §12.9): у такого символа нет объявления в исходнике,
+		// поэтому таблица символов его не видит, а имя всё равно должно быть допустимо в аннотациях.
+		if (_knownTypes is not null &&
+			_knownTypes.TryGetValue(syntax.Name, out var known) &&
+			known.Kind == SymbolKind.Native)
+		{
+			return syntax.Arguments.Count == 0
+				? new ClassType(known, [])
+				: ReportNotGeneric(syntax);
+		}
+
 		// 4. Встроенные generic-типы.
 		if (TypeCatalog.TryGetBuiltin(syntax.Name, out var builtin))
 		{

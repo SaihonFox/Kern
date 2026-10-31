@@ -183,6 +183,15 @@ public sealed partial class Interpreter
 							break;
 						}
 
+					// ---------- повтор строки/символа (spec §3) ----------
+					case OpCode.Repeat:
+						{
+							KValue right = stack.Pop();
+							KValue left = stack.Pop();
+							stack.Push(KValueMath.Repeat(left, right));
+							break;
+						}
+
 					// ---------- преобразования ----------
 					case OpCode.ConvI8 or OpCode.ConvI16 or OpCode.ConvI32 or OpCode.ConvI64
 						or OpCode.ConvU8 or OpCode.ConvU16 or OpCode.ConvU32 or OpCode.ConvU64

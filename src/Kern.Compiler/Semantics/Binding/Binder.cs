@@ -80,6 +80,9 @@ public sealed partial class Binder
 			functions.Add(BindFunction(symbol));
 		}
 
+		// spec §10: расширения типов (функции, свойства, пользовательские операторы).
+		BindExtensions(functions);
+
 		foreach (var type in _module.Types.Values)
 		{
 			foreach (var group in type.Members.Functions.Values)
@@ -152,10 +155,11 @@ public sealed partial class Binder
 
 		_scope = new BoundScope(parent: null);
 		var parameters = new List<BoundParameter>();
-		if (symbol.Owner is { } owner && !symbol.IsStatic)
+		if ((symbol.Owner is { } owner && !symbol.IsStatic) ||
+			(symbol.Owner is null && symbol.ReceiverType is not null && !symbol.IsStatic))
 		{
-			_selfType = InstanceType(owner);
-			_selfVariable = new BoundVariable("$", _selfType, _nextSlot++, isSingleAssignment: true)
+			_selfType = symbol.Owner is { } ownerType ? InstanceType(ownerType) : symbol.ReceiverType;
+			_selfVariable = new BoundVariable("$", _selfType!, _nextSlot++, isSingleAssignment: true)
 			{
 				IsParameter = true,
 				Frame = _frame
@@ -163,7 +167,7 @@ public sealed partial class Binder
 			_scope.TryDeclare(_selfVariable);
 			_flow.MarkAssigned(_selfVariable.Slot);
 			parameters.Add(new BoundParameter(
-				new ParameterSymbol("$", _selfType, null, false, false, default),
+				new ParameterSymbol("$", _selfType!, null, false, false, default),
 				_selfVariable.Slot));
 		}
 

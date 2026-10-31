@@ -413,9 +413,17 @@ public sealed partial class CodeGenerator
 
 	private void EmitBinary(BoundBinaryExpression binary)
 	{
-		if (binary.Operator == "&&")
+		// `n * "abc"` / `'-' * 3`: результат str, повтор делает VM (spec §3).
+		if (binary.Operator == "*" && binary.Type is PrimitiveType { Primitive: PrimitiveKind.Str })
 		{
 			EmitExpression(binary.Left);
+			EmitExpression(binary.Right);
+			Emit(OpCode.Repeat);
+			return;
+		}
+
+		if (binary.Operator == "&&")
+		{			EmitExpression(binary.Left);
 			var falseJump = EmitJump(OpCode.JmpIfNot);
 			EmitExpression(binary.Right);
 			var endJump = EmitJump(OpCode.Jmp);
@@ -700,8 +708,6 @@ public sealed partial class CodeGenerator
 			case PrimitiveKind.Bool: Emit(OpCode.ConvBool); break;
 		}
 	}
-
-	private static bool IsVoid(KernType type) => type is PrimitiveType { Primitive: PrimitiveKind.Void };
 
 	/// <summary>
 	/// Запоминает строку начала оператора для текущего смещения. Пишутся только смены строки
