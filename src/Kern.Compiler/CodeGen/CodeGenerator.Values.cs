@@ -28,6 +28,24 @@ public sealed partial class CodeGenerator
 	}
 
 	/// <summary>
+	/// Проверка истинности значения (spec §3): <c>nil</c>/<c>none</c> — ложь, остальное — истина.
+	/// <c>(v == nil) || (v == none)</c>; Swap сохраняет v для второй проверки.
+	/// </summary>
+	private void EmitTruthiness(BoundTruthinessExpression expression)
+	{
+		EmitExpression(expression.Operand);
+		Emit(OpCode.Dup);
+		Emit(OpCode.PushNil);
+		Emit(OpCode.Eq);
+		Emit(OpCode.Swap);
+		Emit(OpCode.PushNone);
+		Emit(OpCode.Eq);
+		Emit(OpCode.Or);
+		if (!expression.Negated)
+			Emit(OpCode.Not);
+	}
+
+	/// <summary>
 	/// <c>obj?.member</c>: приёмник один раз в слот, проверка на <c>nil</c>, затем обычный
 	/// доступ из слота; в ветви <c>nil</c> на стек кладётся <c>nil</c>.
 	/// </summary>

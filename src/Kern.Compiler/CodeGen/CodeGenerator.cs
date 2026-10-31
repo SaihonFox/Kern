@@ -325,6 +325,19 @@ public sealed partial class CodeGenerator
 				EmitCall(call);
 				break;
 
+			// Лямбды и функции-значения (spec §6).
+			case BoundLambdaExpression lambda:
+				EmitLambda(lambda);
+				break;
+
+			case BoundCaptureExpression capture:
+				Emit(OpCode.LoadCapture, capture.Index);
+				break;
+
+			case BoundValueCallExpression valueCall:
+				EmitValueCall(valueCall);
+				break;
+
 			case BoundFieldExpression field:
 				if (field.Field.IsStatic)
 				{
@@ -396,21 +409,6 @@ public sealed partial class CodeGenerator
 				Emit(OpCode.PushVoid);
 				break;
 		}
-	}
-
-	private void EmitTruthiness(BoundTruthinessExpression expression)
-	{
-		EmitExpression(expression.Operand);
-		// (v == nil) || (v == none): отсутствие значения. Swap сохраняет v для второй проверки.
-		Emit(OpCode.Dup);
-		Emit(OpCode.PushNil);
-		Emit(OpCode.Eq);
-		Emit(OpCode.Swap);
-		Emit(OpCode.PushNone);
-		Emit(OpCode.Eq);
-		Emit(OpCode.Or);
-		if (!expression.Negated)
-			Emit(OpCode.Not);
 	}
 
 	private void EmitBinary(BoundBinaryExpression binary)

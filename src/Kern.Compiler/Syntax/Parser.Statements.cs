@@ -51,7 +51,7 @@ public sealed partial class Parser
 			return ParseTupleDeclaration();
 		if (Current.Kind == TokenKind.LeftBrace)
 			return ParseBlock();
-		if (Current.Kind == TokenKind.Var || IsTypedLocalDeclaration())
+		if (Current.Kind == TokenKind.Var || IsTypedLocalDeclaration() || IsFunctionTypedLocalDeclaration())
 			return ParseLocalDeclaration();
 		if (Current.Kind == TokenKind.Loop || Current.Kind == TokenKind.Async &&
 			_position + 1 < _tokens.Count && _tokens[_position + 1].Kind == TokenKind.Loop)
@@ -284,6 +284,36 @@ public sealed partial class Parser
 		return _tokens[index].Kind == TokenKind.Identifier &&
 			(index + 1 >= _tokens.Count || _tokens[index + 1].Kind is TokenKind.Equals or TokenKind.Comma or TokenKind.RightParen or TokenKind.Semicolon ||
 			HasNewlineBetween(_tokens[index].Span.End, _tokens[index + 1].Span.Start));
+	}
+
+	/// <summary>
+	/// Локальная переменная с функциональным типом: <c>fun(i32) -&gt; i32 f = …</c>.
+	/// Отличие от лямбды-выражения — имя и <c>=</c>/<c>,</c> после <c>-&gt; R</c>, поэтому
+	/// разбор типа идёт с откатом (диагностики пробного разбора отбрасываются).
+	/// </summary>
+	private bool IsFunctionTypedLocalDeclaration()
+	{
+		if (Current.Kind != TokenKind.Fun)
+			return false;
+
+		var savedPosition = _position;
+		var diagnosticsCount = _diagnostics.Count;
+		try
+		{
+			if (ParseTypeSyntax() is not FunctionTypeSyntax)
+				return false;
+			if (Current.Kind != TokenKind.Identifier)
+				return false;
+			var index = _position + 1;
+			return index >= _tokens.Count ||
+				_tokens[index].Kind is TokenKind.Equals or TokenKind.Comma or TokenKind.Semicolon ||
+				HasNewlineBetween(_tokens[index - 1].Span.End, _tokens[index].Span.Start);
+		}
+		finally
+		{
+			_position = savedPosition;
+			DiscardDiagnosticsSince(diagnosticsCount);
+		}
 	}
 
 	private LocalDeclarationStatement ParseLocalDeclaration()

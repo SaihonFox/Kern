@@ -494,7 +494,7 @@ public sealed partial class Binder
 		TextSpan span,
 		List<BoundPatternBinding> bindings)
 	{
-		var variable = new BoundVariable(name, type, _nextSlot++, isSingleAssignment: true);
+		var variable = new BoundVariable(name, type, _nextSlot++, isSingleAssignment: true) { Frame = _frame };
 		if (!_scope.TryDeclare(variable))
 			Report("KRN2106", $"Переменная '{name}' уже объявлена в этом паттерне", span);
 

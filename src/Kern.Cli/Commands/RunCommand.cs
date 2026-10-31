@@ -47,8 +47,9 @@ internal static class RunCommand
 			KValue[] mainArguments = entryPoint.ParamCount == 1
 				? [KValue.Obj(new KList(interpreter.Types.Prim(PrimKind.Str), programArguments.Select(KValue.Str)))]
 				: [];
-			WaitForTask(interpreter, interpreter.Run(entry, mainArguments));
-			return 0;
+			KValue mainResult = WaitForTask(interpreter, interpreter.Run(entry, mainArguments));
+			// `main() -> i32` задаёт код выхода; void-main и прочие значения — 0.
+			return mainResult.Kind == ValueKind.I32 ? mainResult.AsI32 : 0;
 		}
 		catch (KernPanic panic)
 		{
@@ -61,10 +62,10 @@ internal static class RunCommand
 	/// Если <c>main</c> асинхронный, <see cref="Interpreter.Run"/> вернул <c>task&lt;T&gt;</c>:
 	/// крутим планировщик в текущем потоке, как это делает сам интерпретатор на <c>await</c>.
 	/// </summary>
-	private static void WaitForTask(Interpreter interpreter, KValue value)
+	private static KValue WaitForTask(Interpreter interpreter, KValue value)
 	{
 		if (value.Kind != ValueKind.Ref || value.Ref is not KTask task)
-			return;
+			return value;
 
 		long startTicks = Environment.TickCount64;
 		while (!task.IsCompleted)
@@ -85,5 +86,7 @@ internal static class RunCommand
 			throw error;
 		if (task.Status == KTaskStatus.Canceled)
 			throw new KernPanic("задача main отменена");
+
+		return task.Result;
 	}
 }

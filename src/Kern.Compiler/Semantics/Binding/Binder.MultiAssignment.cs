@@ -67,6 +67,16 @@ public sealed partial class Binder
 				return new BoundBlock([], null, FallsThrough: true, assignment.Span);
 			}
 
+			// Запись в захваченную переменную: см. BindAssignment (захват по значению).
+			if (variable.Frame != _frame)
+			{
+				Report(
+					"KRN2109",
+					$"Запись в захваченную переменную '{variable.Name}' не поддерживается: замыкание хранит копию значения",
+					target.Span);
+				return new BoundBlock([], null, FallsThrough: true, assignment.Span);
+			}
+
 			BoundVariable temporary = buffer[index];
 			var value = Convert(
 				new BoundVariableExpression(temporary.Name, temporary.Slot, temporary.Type, target.Span),

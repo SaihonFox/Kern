@@ -73,6 +73,7 @@ public sealed partial class Binder
 		CollectionExpression collection => BindCollectionLiteral(collection, hint),
 		TypedCollectionExpression typed => BindTypedCollectionLiteral(typed, hint),
 		DictionaryExpression dictionary => BindDictionaryLiteral(dictionary, hint),
+		LambdaExpression lambda => BindLambda(lambda, hint),
 		_ => UnsupportedExpression(expression)
 	};
 
@@ -108,11 +109,7 @@ public sealed partial class Binder
 			return new BoundErrorExpression(identifier.Span);
 		}
 
-		if (_flow.Reachable && _noneReadDepth == 0 && !_flow.IsAssigned(variable.Slot) &&
-			(variable.IsSingleAssignment || variable.Type is not NullableType))
-			Report("KRN2105", $"Переменная '{identifier.Name}' используется до присваивания", identifier.Span);
-
-		return new BoundVariableExpression(variable.Name, variable.Slot, CurrentTypeOf(variable), identifier.Span);
+		return AccessVariable(variable, identifier.Span);
 	}
 
 	private BoundExpression BindUnary(UnaryExpression unary)
@@ -451,9 +448,17 @@ public sealed partial class Binder
 
 		if (target is not IdentifierExpression identifier)
 		{
+			// Немедленный вызов лямбды (fun(...) ...)(...) или значения в скобках.
+			if (target is ParenthesizedExpression or LambdaExpression or SelfExpression)
+				return BindValueCall(target, null, arguments, typeArguments, span);
+
 			Report("KRN2109", "Такая цель вызова пока не поддерживается (M3-D)", span);
 			return new BoundErrorExpression(span);
 		}
+
+		// Локальная или захваченная переменная функционального типа важнее одноимённой функции.
+		if (_scope.Lookup(identifier.Name) is { } variable && variable.Type is FunctionType)
+			return BindValueCall(identifier, variable, arguments, typeArguments, span);
 
 		if (_module.FindType(identifier.Name) is { } type)
 			return BindConstructorCall(type, arguments, typeArguments, span);
@@ -652,7 +657,8 @@ public sealed partial class Binder
 			return new BoundErrorExpression(self.Span);
 		}
 
-		return new BoundVariableExpression("$", _selfVariable.Slot, _selfVariable.Type, self.Span);
+		// `$` в лямбде — обычный захват значения приёмника (VM захватывает по значению).
+		return AccessVariable(_selfVariable, self.Span);
 	}
 
 	private BoundExpression BindMemberAccess(MemberAccessExpression member)

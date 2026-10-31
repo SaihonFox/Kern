@@ -235,6 +235,8 @@ public static class KValueMath
 		{
 			if (a.Ref is KObject left && b.Ref is KObject right && left.IsUnit && right.IsUnit)
 				return UnitsEqual(left, right);
+			if (a.Ref is KTuple tupleA && b.Ref is KTuple tupleB)
+				return TuplesStructuralEquals(tupleA, tupleB);
 			return ReferenceEquals(a.Ref, b.Ref);
 		}
 
@@ -260,6 +262,15 @@ public static class KValueMath
 			return hash.ToHashCode();
 		}
 
+		if (value.Kind == ValueKind.Ref && value.Ref is KTuple tuple)
+		{
+			HashCode hash = new();
+			hash.Add(tuple.Count);
+			for (int i = 0; i < tuple.Count; i++)
+				hash.Add(StructuralHash(tuple[i]));
+			return hash.ToHashCode();
+		}
+
 		return HashCode.Combine(value.Kind, value.Bits, value.Ref);
 	}
 
@@ -274,6 +285,9 @@ public static class KValueMath
 	{
 		if (value.Kind == ValueKind.Ref && value.Ref is KObject obj && obj.IsUnit)
 			return ObjectFieldsHash64(obj);
+
+		if (value.Kind == ValueKind.Ref && value.Ref is KTuple tuple)
+			return TupleFieldsHash64(tuple);
 
 		if (value.Kind == ValueKind.Ref)
 			return unchecked((ulong)RuntimeHelpers.GetHashCode(value.Ref));
@@ -342,6 +356,50 @@ public static class KValueMath
 		return true;
 	}
 
+	// ---------- кортежи (структурные == / hash / compare) ----------
+
+	/// <summary>Структурное равенство кортежей для <c>==</c> (межвидовые числа — как в <see cref="AreEqual"/>).</summary>
+	private static bool TuplesEqual(KTuple a, KTuple b)
+	{
+		if (a.Count != b.Count) return false;
+		for (int i = 0; i < a.Count; i++)
+		{
+			if (!AreEqual(a[i], b[i])) return false;
+		}
+		return true;
+	}
+
+	/// <summary>Структурное равенство кортежей для хэш-контракта (точные виды, рекурсивно).</summary>
+	private static bool TuplesStructuralEquals(KTuple a, KTuple b)
+	{
+		if (a.Count != b.Count) return false;
+		for (int i = 0; i < a.Count; i++)
+		{
+			if (!StructuralEquals(a[i], b[i])) return false;
+		}
+		return true;
+	}
+
+	private static ulong TupleFieldsHash64(KTuple tuple)
+	{
+		ulong hash = Mix(HashSeed, (ulong)tuple.Count);
+		for (int i = 0; i < tuple.Count; i++)
+			hash = Mix(hash, StructuralHash64(tuple[i]));
+		return hash;
+	}
+
+	/// <summary>Лексикографическое сравнение элементов, затем длины; результат -1/0/1.</summary>
+	private static int TuplesCompare(KTuple a, KTuple b)
+	{
+		int shared = Math.Min(a.Count, b.Count);
+		for (int i = 0; i < shared; i++)
+		{
+			int byItem = StructuralCompare(a[i], b[i]);
+			if (byItem != 0) return byItem;
+		}
+		return Math.Sign(a.Count.CompareTo(b.Count));
+	}
+
 	/// <summary>
 	/// Один и тот же reified-тип: интернированные экземпляры совпадают по ссылке, иначе
 	/// сравниваем полное имя и канонические тексты аргументов (фабрики могут быть разными).
@@ -365,6 +423,10 @@ public static class KValueMath
 		if (a.Kind == ValueKind.Ref && b.Kind == ValueKind.Ref
 			&& a.Ref is KObject { IsUnit: true } && b.Ref is KObject { IsUnit: true })
 			return StructuralEquals(a, b);
+
+		if (a.Kind == ValueKind.Ref && b.Kind == ValueKind.Ref
+			&& a.Ref is KTuple tupleA && b.Ref is KTuple tupleB)
+			return TuplesEqual(tupleA, tupleB);
 
 		if (a.IsNumber && b.IsNumber) return CompareNumbers(a, b) == 0;
 		if (a.Kind != b.Kind) return false;
@@ -392,6 +454,8 @@ public static class KValueMath
 		{
 			if (a.Ref is KObject left && b.Ref is KObject right && left.IsUnit && right.IsUnit)
 				return ObjectFieldsCompare(left, right);
+			if (a.Ref is KTuple tupleA && b.Ref is KTuple tupleB)
+				return TuplesCompare(tupleA, tupleB);
 			return ReferenceEquals(a.Ref, b.Ref)
 				? 0
 				: Math.Sign(RuntimeHelpers.GetHashCode(a.Ref).CompareTo(RuntimeHelpers.GetHashCode(b.Ref)));

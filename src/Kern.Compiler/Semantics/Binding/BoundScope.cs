@@ -15,6 +15,12 @@ internal sealed class BoundVariable(string name, KernType type, int slot, bool i
 	public bool IsSingleAssignment { get; } = isSingleAssignment;
 
 	public bool IsParameter { get; init; }
+
+	/// <summary>
+	/// Идентификатор кадра (функции), в котором объявлена переменная. Слоты уникальны
+	/// только внутри кадра, поэтому чтение из другого кадра — захват замыкания.
+	/// </summary>
+	public int Frame { get; init; }
 }
 
 /// <summary>

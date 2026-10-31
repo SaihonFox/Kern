@@ -145,6 +145,8 @@ public sealed partial class Binder
 		_selfVariable = null;
 		_selfType = null;
 		_typeScope = TypeParameterScope.Empty;
+		// Новый кадр: слоты и захваты считаются относительно него (см. Binder.Lambdas.cs).
+		_frame = ++_nextFrame;
 		foreach (var parameter in symbol.GenericParameters)
 			_typeScope = _typeScope.Add(parameter);
 
@@ -155,7 +157,8 @@ public sealed partial class Binder
 			_selfType = InstanceType(owner);
 			_selfVariable = new BoundVariable("$", _selfType, _nextSlot++, isSingleAssignment: true)
 			{
-				IsParameter = true
+				IsParameter = true,
+				Frame = _frame
 			};
 			_scope.TryDeclare(_selfVariable);
 			_flow.MarkAssigned(_selfVariable.Slot);
@@ -168,7 +171,8 @@ public sealed partial class Binder
 		{
 			var variable = new BoundVariable(parameter.Name, parameter.Type, _nextSlot++, isSingleAssignment: true)
 			{
-				IsParameter = true
+				IsParameter = true,
+				Frame = _frame
 			};
 			if (!_scope.TryDeclare(variable))
 				Report("KRN2106", $"Параметр '{parameter.Name}' уже объявлен в этой функции", parameter.Span);
@@ -244,30 +248,6 @@ public sealed partial class Binder
 		Report("KRN2109", "Такое тело функции пока не поддерживается (M3-A)", body.Span);
 		return new BoundBlock([], null, FallsThrough: false, body.Span);
 	}
-
-	private void CheckMainSignature(FunctionSymbol symbol)
-	{
-		if (symbol.Name != "main" || symbol.Owner is not null)
-			return;
-
-		if (!IsVoid(_returnType))
-			Report("KRN2107", "Функция main не может возвращать значение", DeclarationSpan(symbol));
-
-		if (symbol.Parameters.Count == 0)
-			return;
-		if (symbol.Parameters.Count == 1 && IsStringList(symbol.Parameters[0].Type))
-			return;
-
-		Report(
-			"KRN2107",
-			"Функция main может быть без параметров или принимать один list<str> args",
-			DeclarationSpan(symbol));
-	}
-
-	/// <summary>spec §13: единственный допустимый параметр <c>main</c> — <c>list&lt;str&gt;</c>.</summary>
-	private static bool IsStringList(KernType type) =>
-		type is BuiltinGenericType { BuiltinKind: BuiltinGenericKind.List, Arguments.Count: 1 } list &&
-		list.Arguments[0] == PrimitiveType.Str;
 
 	/// <summary>Тип экземпляра для <c>$</c> и приёмника метода.</summary>
 	private static KernType InstanceType(TypeSymbol owner) =>
@@ -513,7 +493,7 @@ public sealed partial class Binder
 
 	private BoundVariable DeclareLocal(string name, KernType type, bool isSingleAssignment, TextSpan span)
 	{
-		var variable = new BoundVariable(name, type, _nextSlot++, isSingleAssignment);
+		var variable = new BoundVariable(name, type, _nextSlot++, isSingleAssignment) { Frame = _frame };
 		if (!_scope.TryDeclare(variable))
 			Report("KRN2106", $"Переменная '{name}' уже объявлена в этой области видимости", span);
 
@@ -549,6 +529,17 @@ public sealed partial class Binder
 				return BindStaticStore(assignment, staticField.Field, staticField.Type, target.Span);
 
 			Report("KRN2103", $"Неизвестная переменная '{target.Name}'", target.Span);
+			return new BoundBlock([], null, FallsThrough: true, assignment.Span);
+		}
+
+		// Запись в захваченную переменную не поддерживается: VM захватывает значения
+		// (KClosure.Captures), а не ячейки (KCell), поэтому изменение осталось бы в копии.
+		if (variable.Frame != _frame)
+		{
+			Report(
+				"KRN2109",
+				$"Запись в захваченную переменную '{variable.Name}' не поддерживается: замыкание хранит копию значения",
+				assignment.Span);
 			return new BoundBlock([], null, FallsThrough: true, assignment.Span);
 		}
 

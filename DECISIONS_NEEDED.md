@@ -158,6 +158,16 @@ Options:
 
 Recommendation: option 1 until an example needs a named literal; option 2 if the owner wants names to be independent of the expected type.
 
+## Decided — owner answers (2026-10-31, M1–M3 push)
+
+- **Q27:** names of tuple members come from the expected type (`(i32 x, i32 y) p = (1, 2)`); no `(x = 1, …)` literal syntax for now.
+- **Tests batching:** only language-level features count toward the batch of five; std modules and opcodes do not count, tests are written at batch boundaries.
+- **Stage-2 examples (13, 15, 19, 20, 25–28):** add **stub libraries** (native types/members with panics) so the examples compile; running them stays out of scope.
+- **`main`:** support both `fun main` and `fun main() -> i32` (the value becomes the process exit code); `void` `main` exits 0.
+- **M3 scope:** loop-as-expression (list result) and iteration over `dict` (keys) and `str` (chars) are part of M1–M3.
+- **Tuples:** structural `==`, hash and `compare` are required (tuples become valid hashable values).
+- **Git:** auto-push after every green batch; `archive/legacy-tests` stays in the working tree.
+
 ## Deferred work (owner request, 2026-10-27)
 
 - **Examples refresh** (owner asked, then said "пока не делать"): provide examples covering `type`, inheritance, multiple inheritance, etc.; fix the existing examples against everything decided so far and report which files were changed and what exactly; add new examples. Survey done while recording: 41 `.kern` files under `examples/01..31`; all use the short `$field` form (no `$.`); inheritance is shown only as `@type` + `~fun` (`examples/03_units`, `22_events_patterns`) and single-parent `[A]` (`examples/23_native_inheritance`, `26_di`). No example exercises spec §2 multiple inheritance `type C(str name, i32 id)[A(name), B(id)]`, parent-ctor arguments `[A(x * 2)]`, `$[A].member` selection, or abstract members left abstract; no example shows `task<T>` async (see Q20).

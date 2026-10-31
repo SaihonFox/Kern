@@ -4,6 +4,14 @@ Purpose: the owner asked to "finish M1–M3 and then re-check everything". Every
 acceptance bullet is listed with an honest status and the evidence. Statuses: ✅ done and
 exercised · 🟡 partial / works for stage-1 examples but a named gap remains · ❌ missing.
 
+## Owner decisions 2026-10-31 (recorded in `DECISIONS_NEEDED.md`)
+
+Tuple names come from the expected type (no `(x = 1, …)` literal); only language features count
+toward the five-feature test batch; stage-2 examples get **stub libraries** so they compile
+(running stays out of scope); `main` supports both `void` and `-> i32` (exit code); loop-as-
+expression and `dict`/`str` iteration are in M1–M3; tuples need structural `==`, hash and
+`compare`; auto-push after green batches; `archive/legacy-tests` stays.
+
 ## M1 — Lexer, parser, AST, diagnostics
 
 | Item | Status | Evidence / gap |
