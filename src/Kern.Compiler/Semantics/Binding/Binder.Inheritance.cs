@@ -79,6 +79,22 @@ public sealed partial class Binder
 			span);
 	}
 
+	/// <summary>
+	/// Нужен ли динамический диспатч (spec §8): метод экземпляра класса, у которого есть
+	/// собственный объявленный владелец-класс. Статические и нативные члены, расширения,
+	/// методы <c>unit</c>/<c>unit!</c> и конструкторы остаются обычным <c>Call</c>.
+	/// </summary>
+	private static bool IsVirtualCall(KernType receiverType, FunctionSymbol function) =>
+		receiverType is ClassType &&
+		function is
+		{
+			IsStatic: false,
+			IsNative: false,
+			IsExtension: false,
+			Owner: { IsValueType: false, Kind: not Types.SymbolKind.Native },
+		} &&
+		function.Kind != FunctionKind.Constructor;
+
 	/// <summary>Запись в поле/свойство своего экземпляра без <c>$</c>: <c>_val = value * 2</c>.</summary>
 	private BoundStatement? TryBindImplicitMemberStore(AssignmentStatement assignment, string name, TextSpan span)
 	{

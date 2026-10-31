@@ -237,7 +237,10 @@ public sealed partial class Binder
 			ordered,
 			resolution.ReturnType ?? PrimitiveType.Void,
 			span,
-			receiver);
+			receiver)
+		{
+			Virtual = IsVirtualCall(receiver.Type, resolution.Function!),
+		};
 	}
 
 	private BoundExpression BindConstructorCall(

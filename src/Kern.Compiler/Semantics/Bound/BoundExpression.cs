@@ -147,7 +147,15 @@ public sealed record BoundCallExpression(
 	IReadOnlyList<BoundExpression> Arguments,
 	KernType Type,
 	TextSpan Span,
-	BoundExpression? Receiver = null) : BoundExpression(Type, Span);
+	BoundExpression? Receiver = null) : BoundExpression(Type, Span)
+{
+	/// <summary>
+	/// Метод экземпляра класса: codegen печатает <c>CallVirtual</c>, VM ищет ближайшее
+	/// переопределение по типу получателя (spec §8). Конструкторы, нативные вызовы,
+	/// расширения и методы <c>unit</c>/<c>unit!</c> остаются статическими.
+	/// </summary>
+	public bool Virtual { get; init; }
+}
 
 /// <summary>
 /// Встроенная индексация <c>xs[i]</c>/<c>d[k]</c> (B5b1, spec §3): цель — <c>list&lt;T&gt;</c>,

@@ -250,55 +250,32 @@ public sealed partial class Interpreter
 						}
 
 					// ---------- вызовы ----------
-					case OpCode.Call:
+					case OpCode.Call or OpCode.CallVirtual:
 						{
 							int calleeIndex = code[pc++];
 							int argc = code[pc++];
 							FunctionDef callee = _module.FunctionPool[calleeIndex];
-							if (argc != callee.ParamCount)
-								throw new KernPanic(
-									$"функция '{callee.Name}' ожидает {callee.ParamCount} аргументов, передано {argc}");
-							int callBase = stack.Count - argc;
-							if (callBase < stackBase)
-								throw new KernPanic($"вызов '{callee.Name}': аргументы заходят ниже базы кадра");
-							if (callee.IsNative)
+							if (op == OpCode.CallVirtual)
 							{
-								InvokeNative(callee, argc, ref stack);
+								// Получатель — первый аргумент, он же слот 0 кадра вызываемого.
+								// При недопустимой базе кадра резолв пропускаем: BeginCall ниже
+								// сообщит об ошибке тем же путём, что и для Call.
+								KValue receiver = argc > 0 && stack.Count - argc >= stackBase
+									? stack.At(stack.Count - argc)
+									: KValue.None;
+								callee = ResolveVirtualTarget(callee, receiver);
+							}
+							CallStart start = BeginCall(
+								callee, argc, function, locals, captures, pc, stackBase,
+								ref stack, ref frames, ref frameCount);
+							if (start.Function is not { } called)
 								break;
-							}
-							if (frameCount == frames.Length)
-							{
-								if (frames.Length >= MaxCallDepth)
-									throw new KernPanic("переполнение стека вызовов");
-								Array.Resize(ref frames, Math.Min(frames.Length * 2, MaxCallDepth));
-							}
-							if (frameCount >= MaxCallDepth)
-								throw new KernPanic("переполнение стека вызовов");
-							// Вызов конструктора неизменяемого unit открывает окно создания:
-							// его пролог, цепочка и тело заполняют поля будущего значения.
-							// Окно открывается только после проверок глубины и сразу
-							// запоминается в кадре вызывающего: иначе отказ по глубине или
-							// паника оставили бы объект записываемым навсегда.
-							KObject? construction = null;
-							if (argc > 0 &&
-								IsImmutableUnitConstructor(callee) &&
-								stack.At(callBase).Ref is KObject constructed)
-							{
-								constructed.BeginConstruction();
-								construction = constructed;
-							}
-							frames[frameCount++] = new Frame(function, locals, captures, pc, stackBase, construction);
-
-							KValue[] calleeLocals = AllocateLocals(callee);
-							stack.CopyTo(callBase, calleeLocals, argc);
-							stack.Truncate(callBase);
-
-							function = callee;
-							code = callee.Code;
-							locals = calleeLocals;
+							function = called;
+							code = function.Code;
+							locals = start.Locals!;
 							captures = null;
 							pc = 0;
-							stackBase = callBase;
+							stackBase = start.StackBase;
 							break;
 						}
 					case OpCode.Ret:

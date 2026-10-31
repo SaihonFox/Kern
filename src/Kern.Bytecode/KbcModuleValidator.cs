@@ -164,7 +164,7 @@ public static class KbcModuleValidator
 				or OpCode.NewTuple or OpCode.MakeFunc or OpCode.LoadCapture
 				or OpCode.CallValue or OpCode.TypeOfSig or OpCode.IsType
 				or OpCode.NewList or OpCode.NewArray or OpCode.NewDict
-				or OpCode.MakeClosure or OpCode.Call or OpCode.TupleGet
+				or OpCode.MakeClosure or OpCode.Call or OpCode.CallVirtual or OpCode.TupleGet
 				or OpCode.NewObjectGeneric => code[at + 1],
 			_ => -1,
 		};
@@ -186,7 +186,7 @@ public static class KbcModuleValidator
 			case OpCode.Jmp or OpCode.JmpIf or OpCode.JmpIfNot:
 				// цели проверяются после обхода кода (нужны все границы инструкций)
 				break;
-			case OpCode.Call:
+			case OpCode.Call or OpCode.CallVirtual:
 				{
 					int argc = code[at + 2];
 					if ((uint)arg >= (uint)module.FunctionPool.Count)

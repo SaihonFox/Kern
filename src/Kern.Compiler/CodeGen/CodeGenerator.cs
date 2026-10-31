@@ -563,7 +563,7 @@ public sealed partial class CodeGenerator
 		}
 
 		var argumentCount = call.Arguments.Count + (call.Receiver is null ? 0 : 1);
-		Emit(OpCode.Call);
+		Emit(call.Virtual ? OpCode.CallVirtual : OpCode.Call);
 		EmitOperand(index);
 		EmitOperand(argumentCount);
 	}

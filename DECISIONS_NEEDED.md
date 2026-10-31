@@ -345,3 +345,17 @@ Options:
 2. New code `KRN2192` «Абстрактный тип нельзя создать» (error) checked in `BindConstructorCall` for `Kind == AbstractClass`, including explicit ctors; clearer message, one new code.
 3. Reuse `KRN2107` (invalid `main`/declaration family) — wrong family, not recommended.
 Recommendation: option 1 now, option 2 if the owner wants a dedicated message; impact of changing later: one message/code change plus tests.
+
+### Q29: `~fun` override without an `open`/`@fun` base (2026-11-01, inheritance A2)
+The parser and binder accept `~fun area()` on a derived type even when no ancestor declares `@fun`/`open fun area()`; virtual dispatch then simply finds the method by name at runtime. C# requires `override` to match a virtual base member. Options:
+1. Require an inherited non-static method with the same name/arity to exist (own `@fun`/`open fun` or inherited); otherwise `KRN2101` (recommended, catches typos and makes `~` meaningful).
+2. Keep allowing it (current behaviour): `~` is documentation only, dispatch works anyway.
+3. Warn (`KRN2307`-style) but allow.
+Recommendation: option 1 in the next inheritance slice; impact: one binder check, tests, no runtime change.
+
+### Q30: should property accessors and user operators dispatch virtually? (2026-11-01, inheritance A2)
+Class methods now dispatch by runtime type (`CallVirtual`), but property getters/setters and `op` bodies are still emitted as static `Call`, so an overridden property/operator reached through a parent-typed value uses the base implementation. Options:
+1. Dispatch all instance class members (methods, accessors, operators) by name/arity — consistent object model (recommended).
+2. Methods only (current); document accessors/operators as statically bound.
+3. Dispatch only `@fun`/`~fun` methods (current) and defer the question until operator overrides are designed.
+Recommendation: option 1, implemented as a small extension of `CallVirtual` selection (accessors have generated names; operators have symbols) when the owner needs polymorphism through properties/operators.
