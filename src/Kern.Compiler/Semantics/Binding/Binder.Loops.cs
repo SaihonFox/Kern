@@ -16,29 +16,17 @@ public sealed partial class Binder
 {
 	private BoundStatement BindIterationLoop(LoopExpression source, SyntaxNode body, TextSpan span)
 	{
-		if (source.Bindings.Count != 1)
-		{
-			Report("KRN2101", "Итерационный loop ожидает ровно одну переменную", span);
-			return EmptyLoopBlock(span);
-		}
-
-		var binding = source.Bindings[0];
-		var declared = binding.Type is null ? null : _resolver.Resolve(binding.Type, _typeScope);
-
 		var previousScope = _scope;
 		_scope = new BoundScope(previousScope);
 		try
 		{
 			var statements = new List<BoundStatement>();
-			if (!TryBindIteration(source, statements, out var element, out var elementType, out var condition, out var increment))
+			if (!TryBindIteration(source, statements, out var element, out _, out var condition, out var increment))
 				return EmptyLoopBlock(span);
 
-			var variable = DeclareLocal(binding.Name, declared ?? elementType, false, binding.Span);
-			var loopType = declared ?? elementType;
-			element = Convert(element, loopType, binding.Span);
-			if (IsError(element.Type))
+			var assignments = BindIterationVariables(source, element, span);
+			if (assignments is null)
 				return EmptyLoopBlock(span);
-			DeclareFlow(variable, true, loopType);
 
 			var afterLoop = _flow.Clone();
 			afterLoop.ClearNarrowing();
@@ -54,10 +42,9 @@ public sealed partial class Binder
 			{
 				_iterationIncrement = previousIncrement;
 			}
-			var bodyStatements = new List<BoundStatement>(loopBody.Statements.Count + 2)
-			{
-				new BoundAssignment(variable.Name, variable.Slot, loopType, element, binding.Span)
-			};
+
+			var bodyStatements = new List<BoundStatement>(assignments.Count + loopBody.Statements.Count + 1);
+			bodyStatements.AddRange(assignments);
 			bodyStatements.AddRange(loopBody.Statements);
 			bodyStatements.Add(increment);
 
@@ -73,19 +60,103 @@ public sealed partial class Binder
 	}
 
 	/// <summary>
+	/// Переменные цикла: без переменной — скрытая; одна — объявление или запись в существующую
+	/// (голое имя, spec §3); несколько — деструктуризация элемента-кортежа (пары `dict`).
+	/// Возвращает присваивания, которые выполняются в начале каждой итерации.
+	/// </summary>
+	private List<BoundStatement>? BindIterationVariables(
+		LoopExpression source,
+		BoundExpression element,
+		TextSpan span)
+	{
+		var assignments = new List<BoundStatement>(source.Bindings.Count + 1);
+		if (source.Bindings.Count == 0)
+		{
+			var hidden = DeclareLocal($"#ignored{_nextSlot}", element.Type, false, span);
+			DeclareFlow(hidden, true, element.Type);
+			assignments.Add(new BoundAssignment(hidden.Name, hidden.Slot, element.Type, element, span));
+			return assignments;
+		}
+
+		if (source.Bindings.Count == 1)
+		{
+			var binding = source.Bindings[0];
+			var declared = binding.Type is null ? null : _resolver.Resolve(binding.Type, _typeScope);
+			if (declared is null && !binding.IsMutable && _scope.Lookup(binding.Name) is { } existing)
+			{
+				var value = Convert(element, existing.Type, binding.Span);
+				if (IsError(value.Type))
+					return null;
+				assignments.Add(new BoundAssignment(existing.Name, existing.Slot, existing.Type, value, binding.Span));
+				return assignments;
+			}
+
+			var type = declared ?? element.Type;
+			var converted = Convert(element, type, binding.Span);
+			if (IsError(converted.Type))
+				return null;
+			var variable = DeclareLocal(binding.Name, type, false, binding.Span);
+			DeclareFlow(variable, true, type);
+			assignments.Add(new BoundAssignment(variable.Name, variable.Slot, type, converted, binding.Span));
+			return assignments;
+		}
+
+		if (element.Type is not TupleType tuple || tuple.Elements.Count != source.Bindings.Count)
+		{
+			Report(
+				"KRN2102",
+				"Деструктуризация переменных цикла требует кортеж той же арности",
+				span);
+			return null;
+		}
+
+		var item = DeclareLocal($"#item{_nextSlot}", element.Type, false, span);
+		DeclareFlow(item, true, element.Type);
+		assignments.Add(new BoundAssignment(item.Name, item.Slot, element.Type, element, span));
+		var itemExpression = new BoundVariableExpression(item.Name, item.Slot, element.Type, span);
+
+		for (var index = 0; index < source.Bindings.Count; index++)
+		{
+			var binding = source.Bindings[index];
+			var declared = binding.Type is null ? null : _resolver.Resolve(binding.Type, _typeScope);
+			var type = declared ?? tuple.Elements[index].Type;
+			var access = new BoundTupleItemExpression(itemExpression, index, tuple.Elements[index].Type, binding.Span);
+			var value = Convert(access, type, binding.Span);
+			if (IsError(value.Type))
+				return null;
+
+			if (declared is null && !binding.IsMutable && _scope.Lookup(binding.Name) is { } existing)
+			{
+				var existingValue = Convert(value, existing.Type, binding.Span);
+				if (IsError(existingValue.Type))
+					return null;
+				assignments.Add(new BoundAssignment(
+					existing.Name, existing.Slot, existing.Type, existingValue, binding.Span));
+				continue;
+			}
+
+			var variable = DeclareLocal(binding.Name, type, false, binding.Span);
+			DeclareFlow(variable, true, type);
+			assignments.Add(new BoundAssignment(variable.Name, variable.Slot, type, value, binding.Span));
+		}
+
+		return assignments;
+	}
+
+	/// <summary>
 	/// Итерационный loop-выражение: результат — <c>list</c> значений тела
 	/// (<c>list&lt;i32&gt; squares = loop i32 i in 1..5 i ** 2</c>, spec §3).
 	/// </summary>
 	private BoundExpression BindIterationLoopExpression(LoopExpression loop)
 	{
-		if (loop.Bindings.Count != 1)
+		if (loop.Bindings.Count > 1)
 		{
-			Report("KRN2101", "Итерационный loop ожидает ровно одну переменную", loop.Span);
+			Report("KRN2101", "Итерационный loop ожидает не более одной переменной", loop.Span);
 			return new BoundErrorExpression(loop.Span);
 		}
 
-		var binding = loop.Bindings[0];
-		var declared = binding.Type is null ? null : _resolver.Resolve(binding.Type, _typeScope);
+		var binding = loop.Bindings.Count == 0 ? null : loop.Bindings[0];
+		var declared = binding?.Type is null ? null : _resolver.Resolve(binding.Type, _typeScope);
 		var previousScope = _scope;
 		_scope = new BoundScope(previousScope);
 		try
@@ -94,9 +165,14 @@ public sealed partial class Binder
 			if (!TryBindIteration(loop, statements, out var element, out var elementType, out var condition, out var increment))
 				return new BoundErrorExpression(loop.Span);
 
-			var variable = DeclareLocal(binding.Name, declared ?? elementType, false, binding.Span);
+			var bindingSpan = binding?.Span ?? loop.Span;
+			var variable = DeclareLocal(
+				binding?.Name ?? $"#ignored{_nextSlot}",
+				declared ?? elementType,
+				false,
+				bindingSpan);
 			var loopType = declared ?? elementType;
-			element = Convert(element, loopType, binding.Span);
+			element = Convert(element, loopType, bindingSpan);
 			if (IsError(element.Type))
 				return new BoundErrorExpression(loop.Span);
 			DeclareFlow(variable, true, loopType);
@@ -136,7 +212,7 @@ public sealed partial class Binder
 
 			var bodyStatements = new List<BoundStatement>(loopBody.Statements.Count + 1)
 			{
-				new BoundAssignment(variable.Name, variable.Slot, loopType, element, binding.Span)
+				new BoundAssignment(variable.Name, variable.Slot, loopType, element, bindingSpan)
 			};
 			bodyStatements.AddRange(loopBody.Statements);
 			var bodyBlock = new BoundBlock(bodyStatements, loopBody.Value, loopBody.FallsThrough, loopBody.Span);
@@ -177,7 +253,7 @@ public sealed partial class Binder
 			return false;
 		}
 
-		// `dict` итерируется по ключам (list<K>), `str` — по символам.
+		// `dict` итерируется парами (ключ, значение), `str` — по символам.
 		if (iterable.Type is BuiltinGenericType { BuiltinKind: BuiltinGenericKind.Dict } dictionary &&
 			dictionary.Arguments.Count == 2)
 		{
@@ -201,8 +277,43 @@ public sealed partial class Binder
 				return false;
 			}
 
-			var keyList = new BuiltinGenericType(BuiltinGenericKind.List, [dictionary.Arguments[0]]);
-			iterable = new BoundCallExpression(keys, [], keyList, source.Span, iterable);
+			var keyType = dictionary.Arguments[0];
+			var valueType = dictionary.Arguments[1];
+			var pairType = new TupleType(
+			[
+				new TupleElement(keyType, null),
+				new TupleElement(valueType, null)
+			]);
+
+			var dictLocal = DeclareLocal($"#iter{_nextSlot}", iterable.Type, false, source.Span);
+			DeclareFlow(dictLocal, true, iterable.Type);
+			statements.Add(new BoundLocalDeclaration(
+				dictLocal.Name, dictLocal.Slot, iterable.Type, iterable, false, source.Span));
+			var dictExpression = Variable(dictLocal, source.Span);
+
+			var keyList = new BuiltinGenericType(BuiltinGenericKind.List, [keyType]);
+			var keysExpression = new BoundCallExpression(keys, [], keyList, source.Span, dictExpression);
+			var keysLocal = DeclareLocal($"#keys{_nextSlot}", keyList, false, source.Span);
+			DeclareFlow(keysLocal, true, keyList);
+			statements.Add(new BoundLocalDeclaration(
+				keysLocal.Name, keysLocal.Slot, keyList, keysExpression, false, source.Span));
+
+			var dictIndex = DeclareLocal($"#index{_nextSlot}", PrimitiveType.I32, false, source.Span);
+			DeclareFlow(dictIndex, true, PrimitiveType.I32);
+			statements.Add(new BoundLocalDeclaration(
+				dictIndex.Name, dictIndex.Slot, PrimitiveType.I32, IntLiteral("0", source.Span), false, source.Span));
+
+			var keysVariable = Variable(keysLocal, source.Span);
+			var indexVariable = Variable(dictIndex, source.Span);
+			var keyExpression = new BoundIndexExpression(keysVariable, indexVariable, keyType, source.Span);
+			var valueExpression = new BoundIndexExpression(dictExpression, keyExpression, valueType, source.Span);
+			element = new BoundTupleExpression([keyExpression, valueExpression], pairType, source.Span);
+			elementType = pairType;
+			var dictLength = new BoundCallExpression(
+				LoopLengthFunction(keyList), [], PrimitiveType.I32, source.Span, keysVariable);
+			condition = new BoundBinaryExpression(indexVariable, "<", dictLength, PrimitiveType.Bool, source.Span);
+			increment = Increment(dictIndex, IntLiteral("1", source.Span), PrimitiveType.I32, source.Span);
+			return true;
 		}
 
 		if (iterable.Type.Equals(PrimitiveType.Str))
