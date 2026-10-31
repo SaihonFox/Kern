@@ -1,3 +1,4 @@
+using System.Globalization;
 using Kern.Binding.Attributes;
 using Kern.Binding.Formatting;
 using Kern.Binding.Values;
@@ -88,6 +89,35 @@ public static class StringApi
 
 	[KernMember]
 	public static bool IsBlank(string self) => string.IsNullOrWhiteSpace(self);
+
+	/// <summary>Целое по инвариантной культуре; nil при ошибке разбора или переполнении.</summary>
+	[KernName("to_i32")]
+	[KernMember]
+	public static int? ToI32(string self) =>
+		int.TryParse(self, NumberStyles.Integer, CultureInfo.InvariantCulture, out int value) ? value : null;
+
+	[KernName("to_i64")]
+	[KernMember]
+	public static long? ToI64(string self) =>
+		long.TryParse(self, NumberStyles.Integer, CultureInfo.InvariantCulture, out long value) ? value : null;
+
+	/// <summary>Дробное по инвариантной культуре (обычные формы с точкой и экспонентой); nil — не разобралось.</summary>
+	[KernName("to_f64")]
+	[KernMember]
+	public static double? ToF64(string self) =>
+		double.TryParse(self, NumberStyles.Float, CultureInfo.InvariantCulture, out double value) && double.IsFinite(value)
+			? value
+			: null;
+
+	/// <summary>Строго <c>"true"</c>/<c>"false"</c> (ordinal); иначе nil.</summary>
+	[KernName("to_bool")]
+	[KernMember]
+	public static bool? ToBool(string self) => self switch
+	{
+		"true" => true,
+		"false" => false,
+		_ => null
+	};
 
 	[KernMember]
 	public static string Repeat(string self, int count)

@@ -213,6 +213,31 @@ public sealed class GenericNativeMemberTests
 		Assert.Equal(KValue.Str("a"), Run(source, "text"));
 	}
 
+	[Fact]
+	public void Dict_keys_and_values_work_as_properties()
+	{
+		const string source = """
+			fun keys_len() -> i32 {
+				dict<str, i32> d = ["a": 1, "b": 2]
+				d.keys.len
+			}
+
+			fun values_len() -> i32 {
+				dict<str, i32> d = ["a": 1, "b": 2]
+				d.values.len
+			}
+
+			fun sum() -> i32 {
+				dict<str, i32> d = ["a": 1, "b": 2]
+				d.values.get(0) + d.values.get(1)
+			}
+			""";
+
+		Assert.Equal(KValue.I32(2), Run(source, "keys_len"));
+		Assert.Equal(KValue.I32(2), Run(source, "values_len"));
+		Assert.Equal(KValue.I32(3), Run(source, "sum"));
+	}
+
 	private static NativeCatalog Catalog() =>
 		NativeCatalog.Scan(typeof(Kern.Runtime.Core.CoreModule).Assembly);
 

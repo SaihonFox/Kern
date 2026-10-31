@@ -195,6 +195,12 @@ public static class DictApi
 	[KernMember]
 	public static KValue Get(KValue self, KValue key) => CollectionOps.ToDict(self).Get(key);
 
+	/// <summary>Значение по ключу или запасное значение; отсутствие ключа не пишет в словарь.</summary>
+	[KernName("get_or")]
+	[KernMember]
+	public static KValue GetOr(KValue self, KValue key, KValue fallback) =>
+		CollectionOps.ToDict(self).TryGet(key, out KValue value) ? value : fallback;
+
 	[KernMember]
 	public static void Set(KValue self, KValue key, KValue value) => CollectionOps.ToDict(self).Set(key, value);
 
@@ -218,6 +224,16 @@ public static class DictApi
 	[KernMember]
 	public static KValue Values(KValue self) =>
 		CollectionOps.ListValue(CollectionOps.ToDict(self).Items.Select(pair => pair.Value));
+
+	/// <summary>`dict.keys` без скобок — свойство (spec §12/пример 09).</summary>
+	[KernName("keys")]
+	[KernProperty]
+	public static KValue KeysProperty(KValue self) => Keys(self);
+
+	/// <summary>`dict.values` без скобок — свойство.</summary>
+	[KernName("values")]
+	[KernProperty]
+	public static KValue ValuesProperty(KValue self) => Values(self);
 }
 
 /// <summary>Приведение KValue к коллекциям и общие проверки индексов.</summary>

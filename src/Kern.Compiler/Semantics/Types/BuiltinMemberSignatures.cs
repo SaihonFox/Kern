@@ -91,6 +91,7 @@ internal static class BuiltinMemberSignatures
 		return member switch
 		{
 			"get" => value,
+			"get_or" => value,
 			"keys" => new BuiltinGenericType(BuiltinGenericKind.List, [key]),
 			"values" => new BuiltinGenericType(BuiltinGenericKind.List, [value]),
 			// contains_key/remove/len/is_empty/set/clear — сигнатура моста верна.

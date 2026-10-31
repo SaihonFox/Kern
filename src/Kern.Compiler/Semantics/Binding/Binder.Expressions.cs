@@ -545,7 +545,13 @@ public sealed partial class Binder
 		{
 			if (native.Kind != FunctionKind.Getter || native.ReturnType is null)
 				continue;
-			return new BoundCallExpression(native, [], native.ReturnType, member.Span, receiver);
+			var nativeType = native.ReturnType;
+			if (receiver.Type is BuiltinGenericType builtinReceiver &&
+				BuiltinMemberSignatures.ResolveReturnType(builtinReceiver, member.Member, [], out _) is { } substituted)
+			{
+				nativeType = substituted;
+			}
+			return new BoundCallExpression(native, [], nativeType, member.Span, receiver);
 		}
 
 		if (owner is null)

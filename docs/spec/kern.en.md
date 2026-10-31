@@ -976,6 +976,8 @@ fun main {
 -   **Стандартная библиотека:** `set<T>`, `queue<T>`, `stack<T>` нативные C#-типы (`Kern.Runtime/Collections/Containers`); на Kern остались только протоколы `iter`/`async_iter` (`Kern.Std/std/kern/collections.kern`); `list/dict/array/range/result/str/числа` — нативные (`Kern.Runtime`).
     Нативные «статические» типы (вызов `file.read_text(p)`, `json.to_str(x)`, `env.get(n)`, `random.next(a, b)`, `time.now_ms()`) объявлены через `[KernType("имя")]` + `[KernStatic]`; свободные функции — `[KernModule("модуль")]` + `[KernMember]`.
     Prelude (виден без `use`): `kern.core` (`print`, `println`, `eprintln`, `panic`, `delay`, `exit`), `kern.text`, `kern.collections`, `kern.numerics`, `kern.math`, `kern.io` (`readln`).
+-   **Числовой разбор `str` (2026-11-01):** `to_i32() -> i32?`, `to_i64() -> i64?`, `to_f64() -> f64?`, `to_bool() -> bool?` — инвариантный разбор; ошибка разбора и переполнение дают `nil`, `to_bool` принимает только `"true"`/`"false"` (ordinal).
+-   **`dict` (2026-11-01):** `get_or(key, fallback) -> V` — сохранённое значение или запасное; отсутствующий ключ не пишется в словарь. `keys`/`values` доступны и как свойства (`d.keys`, `d.values` — `list<K>`/`list<V>`), и как методы (`d.keys()`, `d.values()`).
 -   **Тесты:** функция с `#[test]` попадает в список тестов; `kernc test <путь>`; проверки — `use kern.test[assert, assert_eq, assert_ne, assert_near, assert_nil, assert_not_nil, fail]` (нарушение = panic).
 -   **IO-ошибки** (`file.read_text` и т.п.) возвращают `result<T, str>`; `*_async` методы возвращают `task<T>`.
 -   **enum:** отдельного синтаксиса нет — перечисление это union из `unit` без полей: `unit Red`, `unit Green`, `type Color = [Red, Green]`; разбор через `match` по типам (`Red _ => ...`).

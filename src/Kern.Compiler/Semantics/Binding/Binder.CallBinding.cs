@@ -187,7 +187,8 @@ public sealed partial class Binder
 		if (candidates.Count == 0)
 		{
 			fromNative = true;
-			candidates.AddRange(NativeMembers(receiver.Type, member.Member));
+			candidates.AddRange(NativeMembers(receiver.Type, member.Member)
+				.Where(function => function.Kind is not (FunctionKind.Getter or FunctionKind.Setter)));
 		}
 		if (candidates.Count == 0)
 			foreach (var extensions in _moduleScope.FindExtensionsFor(receiver.Type))
