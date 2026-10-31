@@ -83,6 +83,33 @@ public sealed class TypeResolver
 		if (scope.TryLookup(syntax.Name, out var parameter))
 			return syntax.Arguments.Count == 0 ? parameter : ReportNotGeneric(syntax);
 
+		// 2a. result<T, E> — union из встроенных unit Ok<T>/Err<E> (spec §16).
+		if (syntax.Name == ResultTypes.ResultName)
+		{
+			if (syntax.Arguments.Count != 2)
+				return ReportArity(ResultTypes.ResultName, 2, syntax.Arguments.Count, syntax);
+
+			var resultArguments = ResolveArguments(syntax, scope);
+			if (resultArguments is null)
+				return ErrorType.Instance;
+
+			return ResultTypes.CreateType(resultArguments[0], resultArguments[1]);
+		}
+
+		// 2b. Базовые варианты result: ok<T> и error<E> (spec §16).
+		if (syntax.Name is ResultTypes.OkBaseName or ResultTypes.ErrBaseName)
+		{
+			if (syntax.Arguments.Count != 1)
+				return ReportArity(syntax.Name, 1, syntax.Arguments.Count, syntax);
+
+			var baseArguments = ResolveArguments(syntax, scope);
+			if (baseArguments is null)
+				return ErrorType.Instance;
+
+			var symbol = syntax.Name == ResultTypes.OkBaseName ? ResultTypes.Ok : ResultTypes.Err;
+			return new UnitType(symbol, [baseArguments[0]], false);
+		}
+
 		// 3. Символы модуля: классы, unit-типы и union-алиасы.
 		foreach (var symbol in _table.GetSymbols(syntax.Name))
 		{
@@ -95,15 +122,28 @@ public sealed class TypeResolver
 			}
 		}
 
-		// 3a. Нативные типы каталога (spec §12.9): у такого символа нет объявления в исходнике,
-		// поэтому таблица символов его не видит, а имя всё равно должно быть допустимо в аннотациях.
-		if (_knownTypes is not null &&
-			_knownTypes.TryGetValue(syntax.Name, out var known) &&
-			known.Kind == SymbolKind.Native)
+		// 3a. Встроенные/нативные типы каталога (spec §12.9): у символа нет объявления в
+		// исходнике, поэтому таблица символов его не видит, а имя должно быть допустимо.
+		if (_knownTypes is not null && _knownTypes.TryGetValue(syntax.Name, out var known))
 		{
-			return syntax.Arguments.Count == 0
-				? new ClassType(known, [])
-				: ReportNotGeneric(syntax);
+			IReadOnlyList<KernType>? resolved =
+				syntax.Arguments.Count == 0 ? [] : ResolveArguments(syntax, scope);
+			if (resolved is null)
+				return ErrorType.Instance;
+			var arguments = resolved;
+			if (syntax.Arguments.Count > 0 && known.GenericArity != arguments.Count)
+				return ReportArity(syntax.Name, known.GenericArity, syntax.Arguments.Count, syntax);
+
+			return known.Kind switch
+			{
+				SymbolKind.Unit => new UnitType(known, arguments, false),
+				SymbolKind.ImmutableUnit => new UnitType(known, arguments, true),
+				SymbolKind.Class or SymbolKind.AbstractClass or SymbolKind.Native =>
+					new ClassType(known, arguments),
+				SymbolKind.UnionAlias when arguments.Count == 0 && known.UnionAlternatives.Count > 0 =>
+					UnionType.Create(known.UnionAlternatives),
+				_ => ReportUnknown(syntax),
+			};
 		}
 
 		// 3b. Импортированные типы (M3-F): символ найден по области видимости модуля.

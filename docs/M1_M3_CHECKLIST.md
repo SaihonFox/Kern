@@ -14,10 +14,10 @@ expression and `dict`/`str` iteration are in M1–M3; tuples need structural `==
 
 **Landed after the decisions (2026-10-31):** lambdas with by-value captures; extension functions,
 properties and operators; parameter default values; the repeat operator (`Repeat` opcode);
-`main() -> i32` exit codes; native type registration (`SymbolKind.Native`). Still open from the
-checklist: mutable captures (cells), local functions, tuple `==`/hash in the binder, loop-as-
-expression, `dict`/`str` iteration, imports, `result`/`Ok`/`Err`, inheritance audit, attribute
-binding, reflection stubs, stage-2 stubs.
+`main() -> i32` exit codes; native type registration (`SymbolKind.Native`); cells and recursive
+local functions; tuples end-to-end; loop expressions and `dict`/`str` iteration; imports/modules
+(M3-F); `result`/`Ok`/`Err`. Still open from the checklist: inheritance audit, attribute binding,
+reflection stubs, stage-2 stubs.
 
 ## M1 — Lexer, parser, AST, diagnostics
 
@@ -44,14 +44,14 @@ M1 verdict: **🟡 complete for stage 1 except number exponents and regex litera
 | Import resolver (`use path.module[…]`) | ✅ | M3-F (2026-10-31): module-per-file, `[items]`/`.*`, re-export, conflict/unknown diagnostics, library projects; native `kern.*` names remain global |
 | Primitives, nullable `T?`, unions, tuple types, function types, `never`, error type | ✅ | type resolver tests |
 | Builtin generics: `list/array/dict/set/collection` | ✅ | `collection<T>` upcast exists |
-| `result<T,E>` type | 🟡 | type exists (`BuiltinGenericKind.Result`), `Ok`/`Err` constructors/methods missing |
+| `result<T,E>` type | ✅ | M3 (2026-10-31): union of built-in `Ok<T>`/`Err<E>`; `Ok`/`Err` construction, patterns, coverage, `KRN2305`, `ok`/`error` labels |
 | `task<T>` type | 🟡 | exists; async end-to-end gaps (M5) |
 | Generic constraints, union alias substitution | 🟡 | basic constraints; substitution edge cases unverified |
 | Native generic member substitution (`list<T>.first() -> T`) | ❌ | KNOWN_ISSUES: binds as `object` |
 | Conversions (widening, nullable, boxing, collection upcast, constant narrowing) | ✅ | constant literal narrowing added in Batch 0 |
 | Overload resolution per spec §15 (`KRN1401/1402`) | ✅ | resolver + tests |
 
-M2 verdict: **🟡 imports, generic ctor inference, `result` constructors and native generics are the remaining M2 gaps.**
+M2 verdict: **🟡 imports, `result` and generic ctor inference are done; native generic members (`list<T>.first() -> T`) are the remaining M2 gap.**
 
 ## M3 — Binder
 

@@ -49,6 +49,33 @@ public sealed partial class CodeGenerator
 	}
 
 	/// <summary>
+	/// <c>Ok(value)</c>/<c>Err(error)</c>: объект встроенного unit-типа с подставленными
+	/// аргументами дженерика (иначе <c>IsType</c> не совпадёт с <c>Ok&lt;T&gt;</c>), поле
+	/// записывается напрямую — синтезированный конструктор не нужен.
+	/// </summary>
+	private void EmitResultConstruction(BoundResultConstructionExpression result)
+	{
+		if (result.Type is not UnitType unit ||
+			!_typeIndices.TryGetValue(unit.Symbol, out var typeIndex) ||
+			!_fieldSlots.TryGetValue(result.Field, out var slot))
+		{
+			Report("KRN2201", "Встроенный result не попал в TypeDef", result.Span);
+			Emit(OpCode.PushVoid);
+			return;
+		}
+
+		var arguments = _module.InternTypeSigList(
+			unit.Arguments.Select(argument => TypeSigMap.From(argument, _module.Name)));
+		Emit(OpCode.NewObjectGeneric, typeIndex);
+		EmitOperand(arguments);
+		Emit(OpCode.Dup);
+		EmitExpression(result.Value);
+		EmitCopyIfUnit(result.Value.Type);
+		Emit(OpCode.StoreField, slot);
+		Emit(OpCode.Pop);
+	}
+
+	/// <summary>
 	/// Инициализация локальной переменной. Для боксованного слота ячейка создаётся
 	/// <b>до</b> вычисления значения: замыкание может захватить её (рекурсивная функция).
 	/// </summary>

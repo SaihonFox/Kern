@@ -162,6 +162,9 @@ public enum OpCode
 	NewCell,        // нет операндов: снять значение, положить ячейку
 	LoadCell,       // нет операндов: снять ячейку, положить значение
 	StoreCell,      // нет операндов: снять значение и ячейку, записать
+
+	// --- обобщённый unit-объект (встроенный `result`: Ok<T>/Err<E>) ---
+	NewObjectGeneric, // typeIdx, sigListIdx: объект типа с подставленными аргументами дженерика
 }
 
 /// <summary>Раскладка операндов и вспомогательные проверки для <see cref="OpCode"/>.</summary>
@@ -180,7 +183,7 @@ public static class OpCodeInfo
 			or OpCode.Slice or OpCode.TupleGet => 1,
 		OpCode.PushI64 or OpCode.PushF64 or OpCode.Call
 			or OpCode.NewList or OpCode.NewArray or OpCode.NewDict
-			or OpCode.MakeClosure => 2,
+			or OpCode.MakeClosure or OpCode.NewObjectGeneric => 2,
 		_ => 0,
 	};
 
@@ -190,7 +193,7 @@ public static class OpCodeInfo
 	public static bool IsJump(OpCode op) => op is OpCode.Jmp or OpCode.JmpIf or OpCode.JmpIfNot;
 
 	/// <summary>Известен ли номер опкода (защита от мусора в .kbc).</summary>
-	public static bool IsDefined(int value) => value >= 0 && value <= (int)OpCode.StoreCell;
+	public static bool IsDefined(int value) => value >= 0 && value <= (int)OpCode.NewObjectGeneric;
 
 	public static bool IsDefined(OpCode op) => IsDefined((int)op);
 }

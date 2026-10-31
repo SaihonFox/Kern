@@ -41,6 +41,15 @@ public sealed partial class Parser
 			while (!AtEnd && !IsClosingAngle())
 			{
 				arguments.Add(ParseTypeSyntax());
+				// Метка параметра union-алиаса: `result<T[ok], E[error]>` (spec §16).
+				// Метки не ограничения и на семантику не влияют — пропускаем.
+				if (Current.Kind == TokenKind.LeftBracket)
+				{
+					Advance();
+					while (!AtEnd && Current.Kind != TokenKind.RightBracket)
+						Advance();
+					Consume(TokenKind.RightBracket, "Ожидалась ] после метки generic-аргумента");
+				}
 				if (!Match(TokenKind.Comma))
 					break;
 				if (IsClosingAngle())

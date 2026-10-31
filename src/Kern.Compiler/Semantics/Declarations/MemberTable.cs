@@ -34,6 +34,12 @@ public sealed class MemberTable
 		new Dictionary<string, IReadOnlyList<FunctionSymbol>>(StringComparer.Ordinal),
 		[], [], [], [], [], [], null);
 
+	/// <summary>Встроенный тип с полями и без поведения (например, <c>Ok&lt;T&gt;</c>/<c>Err&lt;E&gt;</c>).</summary>
+	public static MemberTable ForFields(IReadOnlyList<FieldSymbol> fields) => new(
+		new Dictionary<string, IReadOnlyList<FunctionSymbol>>(StringComparer.Ordinal),
+		fields,
+		[], [], [], [], [], null);
+
 	public IReadOnlyDictionary<string, IReadOnlyList<FunctionSymbol>> Functions => _functions;
 
 	public IReadOnlyList<FieldSymbol> Fields { get; }

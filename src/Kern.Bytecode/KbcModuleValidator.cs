@@ -164,7 +164,8 @@ public static class KbcModuleValidator
 				or OpCode.NewTuple or OpCode.MakeFunc or OpCode.LoadCapture
 				or OpCode.CallValue or OpCode.TypeOfSig or OpCode.IsType
 				or OpCode.NewList or OpCode.NewArray or OpCode.NewDict
-				or OpCode.MakeClosure or OpCode.Call or OpCode.TupleGet => code[at + 1],
+				or OpCode.MakeClosure or OpCode.Call or OpCode.TupleGet
+				or OpCode.NewObjectGeneric => code[at + 1],
 			_ => -1,
 		};
 
@@ -199,6 +200,20 @@ public static class KbcModuleValidator
 			case OpCode.NewObject:
 				ValidateTypeIndex(module, arg, where, "типа объекта");
 				break;
+			case OpCode.NewObjectGeneric:
+				{
+					ValidateTypeIndex(module, arg, where, "типа объекта");
+					int sigList = code[at + 2];
+					if ((uint)sigList >= (uint)module.TypeSigListPool.Count)
+						throw new KbcFormatException($"{where}: индекс списка подписей вне пула: {sigList}");
+					TypeDef definition = module.TypePool[arg];
+					if (definition.GenericParams.Count != module.TypeSigListPool[sigList].Length)
+						throw new KbcFormatException(
+							$"{where}: тип '{definition.Name}' ожидает {definition.GenericParams.Count} аргументов, передано {module.TypeSigListPool[sigList].Length}");
+					foreach (int sig in module.TypeSigListPool[sigList])
+						ValidateSigIndex(module, sig, where, "аргумента дженерика");
+					break;
+				}
 			case OpCode.LoadField or OpCode.StoreField:
 				// Слот проверяется у объекта во время исполнения: поле можно читать и писать
 				// из любой функции, а не только из метода владельца (spec §4).

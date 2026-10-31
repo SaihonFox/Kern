@@ -288,6 +288,10 @@ public sealed partial class CodeGenerator
 				EmitValueCall(valueCall);
 				break;
 
+			case BoundResultConstructionExpression result:
+				EmitResultConstruction(result);
+				break;
+
 			case BoundFieldExpression field:
 				if (field.Field.IsStatic)
 				{

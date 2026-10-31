@@ -373,6 +373,18 @@ public sealed partial class Binder
 		var type = _resolver.Resolve(NamedTypeSyntax.Plain(pattern.Name, pattern.Span), _typeScope);
 		if (IsError(type))
 			return new BoundUnsupportedPattern(pattern.Span);
+
+		// Ok/Err без аргументов в паттерне: берём вариант из типа субъекта (result).
+		if (type is UnitType { Symbol.GenericArity: > 0, Symbol: var genericSymbol } &&
+			subject is UnionType subjectUnion)
+		{
+			var alternative = subjectUnion.Alternatives
+				.OfType<UnitType>()
+				.FirstOrDefault(item => ReferenceEquals(item.Symbol, genericSymbol));
+			if (alternative is not null)
+				type = alternative;
+		}
+
 		if (type is not UnitType unit)
 		{
 			Report("KRN2113", $"Конструкторский паттерн '{pattern.Name}' требует unit-тип, получено '{type}'", pattern.Span);
@@ -380,8 +392,12 @@ public sealed partial class Binder
 		}
 
 		CheckPatternCompatible(subject, type, pattern.Span, "типа");
+		var argumentMap = TypeArgumentsMap(unit);
 		var declared = unit.Symbol.Members.Fields
 			.Where(field => !field.IsStatic && !field.IsBackingField)
+			.Select(field => argumentMap.Count == 0
+				? field
+				: field with { Type = Substitute(field.Type, argumentMap) })
 			.ToList();
 
 		var restCount = pattern.Arguments.Count(argument => argument is RestPattern);

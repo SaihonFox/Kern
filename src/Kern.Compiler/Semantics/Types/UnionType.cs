@@ -50,5 +50,8 @@ public sealed record UnionType : KernType
 		}
 	}
 
-	public override string ToString() => $"[{string.Join(",", Alternatives)}]";
+	public override string ToString() =>
+		ResultTypes.TryDescribe(this, out var result)
+			? result
+			: $"[{string.Join(",", Alternatives)}]";
 }

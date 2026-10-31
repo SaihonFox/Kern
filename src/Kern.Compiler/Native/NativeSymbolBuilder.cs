@@ -27,6 +27,8 @@ public static class NativeSymbolBuilder
 		// не может сослаться сам на себя ни в параметрах, ни в возвращаемом типе.
 		var types = new Dictionary<string, TypeSymbol>(module.Types, StringComparer.Ordinal);
 		RegisterTypes(types, catalog, problems);
+		types.TryAdd(ResultTypes.OkName, ResultTypes.Ok);
+		types.TryAdd(ResultTypes.ErrName, ResultTypes.Err);
 
 		var natives = new List<FunctionSymbol>();
 		foreach (NativeFunctionDescriptor descriptor in catalog.Functions)

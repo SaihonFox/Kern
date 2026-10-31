@@ -54,10 +54,10 @@ public sealed partial class Binder
 			return;
 		}
 
-		if (expression.Type is BuiltinGenericType
-			{ BuiltinKind: BuiltinGenericKind.Result or BuiltinGenericKind.Task } type)
+		if (ResultTypes.IsResultType(expression.Type) || expression.Type is BuiltinGenericType
+			{ BuiltinKind: BuiltinGenericKind.Task } type)
 		{
-			Warn("KRN2305", $"Результат типа '{type}' отброшен; используйте `_ =` или обработайте его", span);
+			Warn("KRN2305", $"Результат типа '{expression.Type}' отброшен; используйте `_ =` или обработайте его", span);
 			return;
 		}
 
