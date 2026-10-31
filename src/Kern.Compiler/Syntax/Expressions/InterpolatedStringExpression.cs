@@ -25,4 +25,8 @@ public sealed record InterpolationExpressionPart(
 /// <summary>Интерполированная строка <c>f"…"</c>/<c>fr"…"</c>/<c>fv"…"</c> (spec §3).</summary>
 public sealed record InterpolatedStringExpression(
 	IReadOnlyList<InterpolationPartNode> Parts,
-	TextSpan Span) : ExpressionNode(Span);
+	TextSpan Span) : ExpressionNode(Span)
+{
+	/// <summary><c>fx"…"</c>: результат — regex-литерал (spec §3/§12).</summary>
+	public bool Regex { get; init; }
+}

@@ -13,7 +13,7 @@
 | `kern.math` | базовые функции | — |
 | `kern.collections` | нативные `list`/`array`/`dict` (включая `first/last/get/set/map/filter/keys/values/get_or`), члены `str`/`char` | нет `set/queue/stack/observable`, нет `collection<T>`-протокола/адаптеров |
 | `str`/`char` (встроенные) | `len`, `upper`, `lower`, `trim*`, `contains`, `starts_with`, `ends_with`, `index_of`, `substring`, `replace`, `split`, `chars`, `lines`, `join`, `pad_left/right`, `repeat`, `to_str`, `to_i32/to_i64/to_f64/to_bool` | `str` пока не все члены из старых примеров |
-| `kern.regex` | `regex(pattern[, flags])` → `regex` (panic по-русски на неверный шаблон/флаг), `try_new(pattern[, flags]) -> regex?`, члены `is_match/find/find_all/replace/split`, свойства `pattern/options` | `x"…"`/`fx"…"` lowering — следующий компиляторный срез; тип результата `match` не реализован (имя занято ключевым словом); `regex.try_new(…)` пока только как `try_new(…)` |
+| `kern.regex` | `regex(pattern[, flags])` → `regex` (panic по-русски на неверный шаблон/флаг), `try_new(pattern[, flags]) -> regex?`, члены `is_match/find/find_all/replace/split`, свойства `pattern/options`; `x"…"`/`fx"…"` lowering реализован | тип результата `match` не реализован (Q32); `regex.try_new(…)` пока только как `try_new(…)` |
 
 ## Отсутствует (M7 и stage-2)
 
@@ -39,7 +39,7 @@
 | 18_time | `time` | `kern.time` |
 | 19_gui | stage-2 UI | вне первого прохода |
 | 20_ffi | stage-2 FFI | вне первого прохода |
-| 21_syntax_round15 | regex literal | `kern.regex` + lowering `x"…"`/`fx"…"` |
+| 21_syntax_round15 | ✅ clean+run 2026-11-01 | — |
 | 22_events_patterns | `KRN1001` | `kern.events` |
 | 23_native_inheritance | `collection<i32>` | M6 native inheritance + контейнеры |
 | 24_reflection | `typeof(x)`/`reflect.*` | M9 runtime reflection |

@@ -579,7 +579,17 @@ public sealed partial class Binder
 		return result;
 	}
 
-	private static bool NativeReceiverMatches(KernType expected, KernType actual) =>
+	private static bool NativeReceiverMatches(KernType expected, KernType actual)
+	{
+		// Мост `[KernType("object")]` обслуживает нативные handle-типы (streamwriter и т.п.):
+		// их члены зарегистрированы на object, а символ типа объявлен отдельно.
+		if (expected.Equals(PrimitiveType.Object) &&
+			actual is ClassType { Symbol.Kind: Semantics.Types.SymbolKind.Native })
+			return true;
+		return NativeReceiverMatchesCore(expected, actual);
+	}
+
+	private static bool NativeReceiverMatchesCore(KernType expected, KernType actual) =>
 		expected switch
 		{
 			BuiltinGenericType expectedBuiltin when actual is BuiltinGenericType actualBuiltin =>

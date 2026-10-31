@@ -54,7 +54,7 @@ public sealed partial class Parser
 		}
 
 		AddInterpolationText(parts, content, textStart, content.Length, header, contentOffset);
-		return new InterpolatedStringExpression(parts, token.Span);
+		return new InterpolatedStringExpression(parts, token.Span) { Regex = header.Regex };
 	}
 
 	private void AddInterpolationText(

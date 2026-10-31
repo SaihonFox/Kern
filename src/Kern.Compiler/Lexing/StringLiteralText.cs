@@ -33,8 +33,14 @@ public static class StringLiteralText
 
 		if (header.Regex)
 		{
-			error = "regex-литерал 'x\"…\"' пока не поддержан (M7)";
-			return false;
+			// `x"…"` — regex-литерал: обратные слэши не раскодируются (как raw+verbatim).
+			if (header.Interpolated)
+			{
+				error = "интерполированный regex-литерал обрабатывается парсером";
+				return false;
+			}
+			var regexContent = token[header.ContentStart..header.ContentEnd];
+			return TryDecodeInterpolationText(regexContent, raw: true, verbatim: true, out value, out error);
 		}
 
 		if (header.Interpolated)

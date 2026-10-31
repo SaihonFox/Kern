@@ -33,13 +33,19 @@ public sealed partial class Binder
 			}
 		}
 
+		BoundExpression result;
 		if (parts.Count == 0)
-			return new BoundLiteralExpression(string.Empty, null, PrimitiveType.Str, expression.Span);
+		{
+			result = new BoundLiteralExpression(string.Empty, null, PrimitiveType.Str, expression.Span);
+		}
+		else
+		{
+			result = parts[0];
+			for (var index = 1; index < parts.Count; index++)
+				result = new BoundBinaryExpression(result, "+", parts[index], PrimitiveType.Str, expression.Span);
+		}
 
-		var result = parts[0];
-		for (var index = 1; index < parts.Count; index++)
-			result = new BoundBinaryExpression(result, "+", parts[index], PrimitiveType.Str, expression.Span);
-		return result;
+		return expression.Regex ? BindRegexCall(result, expression.Span) : result;
 	}
 
 	private void BindInterpolationExpressionPart(
@@ -102,7 +108,41 @@ public sealed partial class Binder
 			return new BoundLiteralExpression(string.Empty, null, PrimitiveType.Str, span);
 		}
 
-		return new BoundLiteralExpression(value, null, PrimitiveType.Str, span);
+		var literal = new BoundLiteralExpression(value, null, PrimitiveType.Str, span);
+		// `x"…"` — regex-значение: литерал шаблона превращается в вызов `regex(pattern)`.
+		return StringLiteralText.TryReadHeader(text, out var header, out _) && header.Regex
+			? BindRegexCall(literal, span)
+			: literal;
+	}
+
+	/// <summary>Обёртка regex-литерала: `regex(pattern)` из `kern.regex` (spec §12).</summary>
+	private BoundExpression BindRegexCall(BoundExpression pattern, TextSpan span)
+	{
+		if (IsError(pattern.Type))
+			return new BoundErrorExpression(span);
+
+		FunctionSymbol? regex = null;
+		foreach (var candidate in VisibleFunctions("regex"))
+			if (candidate.Parameters.Count == 1)
+			{
+				regex = candidate;
+				break;
+			}
+
+		if (regex is null)
+		{
+			Report("KRN2103", "Regex-литерал требует функции 'regex' из kern.regex", span);
+			return new BoundErrorExpression(span);
+		}
+
+		var converted = Convert(pattern, regex.Parameters[0].Type, span);
+		if (IsError(converted.Type))
+			return new BoundErrorExpression(span);
+		return new BoundCallExpression(
+			regex,
+			[converted],
+			regex.ReturnType ?? PrimitiveType.Object,
+			span);
 	}
 
 	private BoundExpression BindCharLiteral(string text, TextSpan span)

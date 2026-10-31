@@ -107,7 +107,8 @@ public static class StreamApi
 }
 
 /// <summary>Общее состояние потоков: закрытие идемпотентно.</summary>
-internal abstract class StreamHandle : IDisposable
+[KernType("stream")]
+public abstract class StreamHandle : IDisposable
 {
 	private bool _closed;
 
@@ -135,7 +136,8 @@ internal abstract class StreamHandle : IDisposable
 }
 
 /// <summary>Поток записи UTF-8 без BOM.</summary>
-internal sealed class StreamWriterHandle : StreamHandle
+[KernType("streamwriter")]
+public sealed class StreamWriterHandle : StreamHandle
 {
 	private readonly StreamWriter _writer;
 
@@ -172,7 +174,8 @@ internal sealed class StreamWriterHandle : StreamHandle
 }
 
 /// <summary>Поток чтения UTF-8.</summary>
-internal sealed class StreamReaderHandle : StreamHandle
+[KernType("streamreader")]
+public sealed class StreamReaderHandle : StreamHandle
 {
 	private readonly StreamReader _reader;
 
@@ -210,7 +213,7 @@ public static partial class ConsoleModule
 	/// <summary><c>streamwriter(path)</c>: открыть файл на запись (перезапись), UTF-8 без BOM.</summary>
 	[KernName("streamwriter")]
 	[KernMember]
-	public static object OpenWriter(string path)
+	public static StreamWriterHandle OpenWriter(string path)
 	{
 		try
 		{
@@ -225,7 +228,7 @@ public static partial class ConsoleModule
 	/// <summary><c>streamreader(path)</c>: открыть файл на чтение, UTF-8.</summary>
 	[KernName("streamreader")]
 	[KernMember]
-	public static object OpenReader(string path)
+	public static StreamReaderHandle OpenReader(string path)
 	{
 		try
 		{

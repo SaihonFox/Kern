@@ -323,7 +323,7 @@ public sealed partial class Parser
 			case TokenKind.StringLiteral:
 				Advance();
 				if (StringLiteralText.TryReadHeader(token.Text, out var header, out _) &&
-					header.Interpolated && !header.Regex)
+					header.Interpolated)
 					return ParseInterpolatedString(token, header);
 				return new StringLiteralExpression(token.Text, token.Span);
 			case TokenKind.CharLiteral:

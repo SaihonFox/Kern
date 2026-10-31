@@ -27,14 +27,14 @@ reflection stubs, stage-2 stubs.
 | Number exponents (`1e-6`) | ✅ | `Lexer.ReadNumber`; `NumericLiteralTests` (2026-11-01); malformed → `LEX005` |
 | Strings: escapes, `\uNNNN`, raw `r`, verbatim `v`, triple quotes | ✅ | examples 01/12; `StringLiteralText` |
 | Interpolation `f`, `fr`, `fv`; `${}`, `${=}`, format specs | ✅ | Batch 0; `InterpolationTests` ran before archiving |
-| Regex literal `x"…"` value | ❌ | parses, value is M7 (`KRN2101`) |
+| Regex literal `x"…"` value | ✅ | 2026-11-01: `x"…"` (raw pattern) и `fx"…"` (интерполяция) сворачиваются в `regex(pattern)` из `kern.regex`; `RegexLiteralTests` |
 | Declarations: `fun`, `type`, `unit`, `unit!`, attributes, `project`, `use`, `#type/#fun`, extension members, operators, `op []` | ✅ | parser tests; examples |
 | Statements/expressions: `if`, `match` (all pattern forms), all `loop` forms, `stop/next/ret`, lambdas (parse), local functions (parse), `await` (parse), ranges, leading-dot chains, tuples (parse) | ✅ | parser coverage in archived suite; iteration loop now binds |
 | Labels `loop@outer` / `stop outer` | ✅ | `LoopLabelTests` (2026-11-01): all loop forms + loop expressions, lexical targets, `use` disposal, `KRN2106` for unknown/duplicate labels |
 | Error recovery, several diagnostics per file, spans | ✅ | parser diagnostics in CLI output |
 | All examples parse | ✅ | `StageOneSyntaxTests` passed before archiving |
 
-M1 verdict: **🟡 complete for stage 1 except regex literal values (M7).**
+M1 verdict: **✅ complete for stage 1** (regex literals landed 2026-11-01 and lower to `kern.regex.regex`).
 
 ## M2 — Symbols, types, conversions, overloads
 
@@ -78,7 +78,7 @@ M2 verdict: **✅ imports, `result`, generic ctor inference and native generic m
 | Compile-time reflection stubs (`name_of<T>`, `typeof<T>`) | ✅ | 2026-11-01: `typeof<T>()` (`TypeOfSig`, canonical text) and `name_of<T>()` (binder literal), `ReflectionStubTests`; runtime `typeof(x)`/`reflect.*` are M4/M7 |
 | `use`/dispose | ✅ | Batch 0 + M5 slice; native `dispose` blocked by `IsStatic` (KNOWN_ISSUES) |
 
-M3 verdict: **✅ closed 2026-11-01 for the stage-1 language surface.** Remaining items are re-scoped, not missing: regex literal values (M7), runtime reflection members `typeof(x)`/`reflect.*` (M4/M7), polymorphic extension receivers (`fun list<T>.foo`), generic signature substitution for user generic bodies in native positions (documented `KNOWN_ISSUES`), expression-bodied `op` members, and `~` validation for operators/properties. All ❌/🟡 rows above are closed or explicitly re-scoped.
+M3 verdict: **✅ closed 2026-11-01 for the stage-1 language surface.** Remaining items are re-scoped, not missing: runtime reflection members `typeof(x)`/`reflect.*` (M4/M7), generic signature substitution for user generic bodies in native positions (documented `KNOWN_ISSUES`), expression-bodied `op` members (done 2026-11-01), and `~` validation for operators/properties (done 2026-11-01). All ❌/🟡 rows above are closed or explicitly re-scoped.
 
 ## Definition of "M1–M3 done"
 
