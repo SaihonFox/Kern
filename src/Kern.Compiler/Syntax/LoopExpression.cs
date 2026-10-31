@@ -10,6 +10,9 @@ public enum LoopExpressionKind
 	DoWhile
 }
 
+/// <summary>Метка цикла <c>loop@outer</c> (spec §3, раунд 27): имя и span <c>@outer</c>.</summary>
+public sealed record LoopLabel(string Name, TextSpan Span);
+
 public sealed record LoopBindingNode(
 	TypeSyntax? Type,
 	string Name,
@@ -24,4 +27,5 @@ public sealed record LoopExpression(
 	ExpressionNode? Iterable,
 	ExpressionNode? Condition,
 	SyntaxNode Body,
-	TextSpan Span) : ExpressionNode(Span);
+	TextSpan Span,
+	LoopLabel? Label = null) : ExpressionNode(Span);

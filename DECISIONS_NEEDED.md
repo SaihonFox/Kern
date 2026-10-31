@@ -359,3 +359,10 @@ Class methods now dispatch by runtime type (`CallVirtual`), but property getters
 2. Methods only (current); document accessors/operators as statically bound.
 3. Dispatch only `@fun`/`~fun` methods (current) and defer the question until operator overrides are designed.
 Recommendation: option 1, implemented as a small extension of `CallVirtual` selection (accessors have generated names; operators have symbols) when the owner needs polymorphism through properties/operators.
+
+### Q31: default `f64` formatting of small and large values (2026-11-01, numeric exponents)
+`println(1e-6)` prints `1E-06` because f64 values use .NET round-trip (`"R"`) formatting; `0.000001` printed the same way before exponent literals existed. Options:
+1. Keep `"R"` (scientific notation where round-trip needs it) — recommended for stage 1: shortest round-trip form, culture-independent, no surprises for very large/small values.
+2. Fixed decimal for a "reasonable" magnitude window and scientific outside it (Python-`repr`-like, e.g. `0.000001` but `1e+20`): closer to user intuition, needs a formatter with documented thresholds.
+3. Always fixed decimal: `0.000001`, but huge/small values become long and lose readability.
+Recommendation: option 1 now; examples/tests that care about text should compare numbers, not printed exponents. Impact of changing later: one formatter change plus golden expectations (examples 12/21).

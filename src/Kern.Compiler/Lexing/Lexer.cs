@@ -164,6 +164,7 @@ public sealed class Lexer
 		var radix = 10;
 		var isRadix = false;
 		var malformed = false;
+		var hasExponent = false;
 		var bodyStart = start;
 		if (source.AsSpan(position).StartsWith("0x", StringComparison.OrdinalIgnoreCase) ||
 			source.AsSpan(position).StartsWith("0b", StringComparison.OrdinalIgnoreCase) ||
@@ -199,6 +200,21 @@ public sealed class Lexer
 			var integerPart = source.AsSpan(bodyStart, integerEnd - bodyStart);
 			malformed |= integerPart.Length > 0 && (integerPart[0] == '_' || integerPart[^1] == '_' ||
 				integerPart.Contains("__", StringComparison.Ordinal));
+
+			// Экспонента (spec §3): `1e3`, `1e-6`, `2E10`; `_` разрешены в цифрах, но не по краям.
+			if (position < source.Length && source[position] is 'e' or 'E')
+			{
+				hasExponent = true;
+				position++;
+				if (position < source.Length && source[position] is '+' or '-')
+					position++;
+				var exponentStart = position;
+				while (position < source.Length && (char.IsDigit(source[position]) || source[position] == '_'))
+					position++;
+				var exponentPart = source.AsSpan(exponentStart, position - exponentStart);
+				malformed |= exponentPart.IsEmpty || exponentPart[0] == '_' || exponentPart[^1] == '_' ||
+					exponentPart.Contains("__", StringComparison.Ordinal);
+			}
 		}
 		var numberEnd = position;
 		while (position < source.Length && char.IsLetterOrDigit(source[position])) position++;
@@ -206,7 +222,7 @@ public sealed class Lexer
 		if (suffix.Length > 0 && !IsNumericSuffix(suffix))
 			malformed = true;
 		var text = source[start..position];
-		var kind = !isRadix && (suffix.Length > 0 || text.Contains('.')) ? TokenKind.NumberLiteral : TokenKind.IntegerLiteral;
+		var kind = !isRadix && (suffix.Length > 0 || text.Contains('.') || hasExponent) ? TokenKind.NumberLiteral : TokenKind.IntegerLiteral;
 		if (malformed)
 			diagnostics.Add(new("LEX005", "Некорректный числовой литерал", new(start, position - start)));
 		tokens.Add(new(kind, text, new(start, position - start)));

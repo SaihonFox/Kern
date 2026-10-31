@@ -24,7 +24,7 @@ reflection stubs, stage-2 stubs.
 | Item | Status | Evidence / gap |
 |---|---|---|
 | Numbers: decimal, hex, binary, `0h` octal, `.5`, suffixes, separators | ✅ | lexer tests (archived suite), examples 01 |
-| Number exponents (`1e-6`) | ❌ | `LEX005` (KNOWN_ISSUES); use `0.000001` |
+| Number exponents (`1e-6`) | ✅ | `Lexer.ReadNumber`; `NumericLiteralTests` (2026-11-01); malformed → `LEX005` |
 | Strings: escapes, `\uNNNN`, raw `r`, verbatim `v`, triple quotes | ✅ | examples 01/12; `StringLiteralText` |
 | Interpolation `f`, `fr`, `fv`; `${}`, `${=}`, format specs | ✅ | Batch 0; `InterpolationTests` ran before archiving |
 | Regex literal `x"…"` value | ❌ | parses, value is M7 (`KRN2101`) |
