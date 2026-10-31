@@ -18,7 +18,7 @@ Others on demand: `BUILDER.md`, `TESTING.md`, `CONVENTIONS.md`, `WORKFLOW.md`, `
 - **If a design decision turns out to be bad** (dead end, contradiction, big cost): STOP that line of work, write the problem and options
   to `DECISIONS_NEEDED.md`, tell the owner. Do not silently redesign.
 - **Language-changing decisions** (anything visible in Kern syntax/semantics) go to `CHANGELOG_LANG.md` and into `docs/spec/kern.en.md` in the same change.
-- Do not touch `reference/` (read-only). Do not use git commands (owner does not use git here). Never put API keys into files.
+- Do not touch `reference/` (read-only). **Git is used now** (owner enabled it): the environment blocks the short `git` command but `git.exe` works; commit after every green batch with an English message, never force-push or rewrite pushed history, never commit API keys or large build artifacts, and ask before destructive history operations. Never put API keys into files.
 - Scope control: implement only the current milestone. Stage-2 items (see ROADMAP) are not started without owner approval.
 - Keep edits small and focused; do not reformat unrelated code; do not rename public things without need.
 

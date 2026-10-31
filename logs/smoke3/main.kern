@@ -1,7 +1,0 @@
-type Field(str name)
-
-fun main {
-	Field f = Field("x")
-	println(f"${f.name}")
-	println(f"a${1 + 2}b")
-}
