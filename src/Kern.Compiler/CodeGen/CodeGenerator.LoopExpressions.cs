@@ -27,7 +27,7 @@ public sealed partial class CodeGenerator
 		EmitOperand(0);
 		Emit(OpCode.StoreLocal, loop.ListSlot);
 
-		var context = new LoopContext();
+		var context = new LoopContext(loop.Label);
 		_loops.Push(context);
 		try
 		{
@@ -74,7 +74,7 @@ public sealed partial class CodeGenerator
 	/// <summary>Тело: значение блока, добавление в список, инкремент итерации.</summary>
 	private void EmitLoopExpressionBody(BoundLoopExpression loop)
 	{
-		EmitBlock(loop.Body, leaveValue: true);
+		EmitBlock(loop.Body, leaveValue: true, loopBody: true);
 		Emit(OpCode.LoadLocal, loop.ListSlot);
 		Emit(OpCode.Swap);
 		Emit(OpCode.ListAppend);

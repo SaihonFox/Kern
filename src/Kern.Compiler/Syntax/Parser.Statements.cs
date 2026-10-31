@@ -61,7 +61,7 @@ public sealed partial class Parser
 			{
 				var loopBody = loop.Body as BlockStatement ?? new BlockStatement(
 					[new ExpressionStatement((ExpressionNode)loop.Body, loop.Body.Span)], loop.Body.Span);
-				return new LoopStatement(loopBody, loop.Span, loop);
+				return new LoopStatement(loopBody, loop.Span, loop, loop.Label);
 			}
 			return new ExpressionStatement(loop, loop.Span);
 		}
@@ -77,9 +77,23 @@ public sealed partial class Parser
 		if (Current.Kind is TokenKind.Stop or TokenKind.Next)
 		{
 			var token = Advance();
+			// Метка-цель допустима только сразу на той же строке: `stop` + отдельный
+			// оператор на следующей строке остаётся обычным `stop`.
+			string? target = null;
+			var targetSpan = default(TextSpan);
+			var end = token.Span.End;
+			if (Current.Kind == TokenKind.Identifier &&
+				!HasNewlineBetween(token.Span.End, Current.Span.Start))
+			{
+				var targetToken = Advance();
+				target = targetToken.Text;
+				targetSpan = targetToken.Span;
+				end = targetToken.Span.End;
+			}
+			var span = new TextSpan(token.Span.Start, end - token.Span.Start);
 			return token.Kind == TokenKind.Stop
-				? new StopStatement(token.Span)
-				: new NextStatement(token.Span);
+				? new StopStatement(span, target, targetSpan)
+				: new NextStatement(span, target, targetSpan);
 		}
 		if (Current.Kind == TokenKind.Identifier && Current.Text == "if")
 		{

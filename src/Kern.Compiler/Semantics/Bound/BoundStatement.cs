@@ -85,10 +85,27 @@ public sealed record BoundLoopStatement(
 	BoundBlock Body,
 	bool IsDoWhile,
 	bool IsInfinite,
-	TextSpan Span) : BoundStatement(Span);
+	TextSpan Span) : BoundStatement(Span)
+{
+	/// <summary>Метка <c>loop@outer</c>; null — цикл без метки.</summary>
+	public string? Label { get; init; }
+}
 
-/// <summary>Выход из ближайшего цикла. Вне цикла binder сообщает KRN2106.</summary>
-public sealed record BoundStopStatement(TextSpan Span) : BoundStatement(Span);
+/// <summary>
+/// Выход из ближайшего или помеченного цикла. <see cref="TargetDepth"/> — 0 для
+/// ближайшего цикла, 1 для непосредственно объемлющего и т. д. Вне цикла binder
+/// сообщает KRN2106.
+/// </summary>
+public sealed record BoundStopStatement(TextSpan Span) : BoundStatement(Span)
+{
+	public int TargetDepth { get; init; }
+}
 
-/// <summary>Переход к следующей итерации ближайшего цикла.</summary>
-public sealed record BoundNextStatement(TextSpan Span) : BoundStatement(Span);
+/// <summary>
+/// Переход к следующей итерации ближайшего или помеченного цикла; глубина цели как у
+/// <see cref="BoundStopStatement"/>.
+/// </summary>
+public sealed record BoundNextStatement(TextSpan Span) : BoundStatement(Span)
+{
+	public int TargetDepth { get; init; }
+}

@@ -173,12 +173,12 @@ public sealed partial class CodeGenerator
 				EmitLoopStatement(loop);
 				break;
 
-			case BoundStopStatement:
-				EmitLoopJump(breakJump: true, statement.Span);
+			case BoundStopStatement stop:
+				EmitLoopJump(breakJump: true, stop.TargetDepth, stop.Span);
 				break;
 
-			case BoundNextStatement:
-				EmitLoopJump(breakJump: false, statement.Span);
+			case BoundNextStatement next:
+				EmitLoopJump(breakJump: false, next.TargetDepth, next.Span);
 				break;
 		}
 	}
@@ -444,7 +444,7 @@ public sealed partial class CodeGenerator
 			return;
 		}
 
-		var context = new LoopContext();
+		var context = new LoopContext(loop.Label);
 		_loops.Push(context);
 		try
 		{
@@ -485,7 +485,12 @@ public sealed partial class CodeGenerator
 		}
 	}
 
-	private void EmitLoopJump(bool breakJump, TextSpan span)
+	/// <summary>
+	/// <c>stop</c>/<c>next</c> с глубиной цели: 0 — ближайший цикл, 1 — объемлющий и т. д.
+	/// Освобождает <c>use</c>-кадры до тела целевого цикла включительно и вешает jump на
+	/// его break/continue-метку (spec §12: stop/next тоже выход).
+	/// </summary>
+	private void EmitLoopJump(bool breakJump, int targetDepth, TextSpan span)
 	{
 		if (_loops.Count == 0)
 		{
@@ -493,15 +498,22 @@ public sealed partial class CodeGenerator
 			return;
 		}
 
-		// use внутри тела цикла освобождается перед jump'ом (spec §12: stop/next тоже выход).
-		if (_loopDisposeFrames.Count > 0)
-			EmitDisposalsThrough(_loopDisposeFrames[^1]);
+		var contexts = _loops.ToArray();
+		if (targetDepth < 0 || targetDepth >= contexts.Length)
+		{
+			Report("KRN2201", "Цель stop/next не найдена среди объемлющих циклов", span);
+			return;
+		}
+
+		var target = contexts[targetDepth];
+		if (target.DisposeFrameIndex >= 0)
+			EmitDisposalsThrough(target.DisposeFrameIndex);
 
 		var jump = EmitJump(OpCode.Jmp);
 		if (breakJump)
-			_loops.Peek().BreakJumps.Add(jump);
+			target.BreakJumps.Add(jump);
 		else
-			_loops.Peek().ContinueJumps.Add(jump);
+			target.ContinueJumps.Add(jump);
 	}
 
 	private void PatchLoop(LoopContext context)
@@ -753,10 +765,15 @@ public sealed partial class CodeGenerator
 		_diagnostics.Add(new Diagnostic(code, message, span));
 
 	/// <summary>Метки текущего цикла для stop/next; continue-цель известна после генерации тела.</summary>
-	private sealed class LoopContext
+	private sealed class LoopContext(string? label)
 	{
+		public string? Label { get; } = label;
 		public List<int> BreakJumps { get; } = [];
 		public List<int> ContinueJumps { get; } = [];
+
+		/// <summary>Индекс dispose-кадра тела цикла; -1 — тело ещё не генерировалось.</summary>
+		public int DisposeFrameIndex { get; set; } = -1;
+
 		public int ContinueTarget { get; set; }
 	}
 }

@@ -10,6 +10,7 @@ public sealed partial class Parser
 		var start = Current.Span.Start;
 		var isAsync = Match(TokenKind.Async);
 		Consume(TokenKind.Loop, "Ожидалось ключевое слово loop после async");
+		var label = ParseLoopLabel();
 		if (Current.Kind == TokenKind.LeftBrace)
 		{
 			var body = ParseBlock();
@@ -17,10 +18,10 @@ public sealed partial class Parser
 			{
 				var doWhileCondition = ParseExpression();
 				return new LoopExpression(LoopExpressionKind.DoWhile, isAsync, [], null, doWhileCondition, body,
-					new TextSpan(start, doWhileCondition.Span.End - start));
+					new TextSpan(start, doWhileCondition.Span.End - start), label);
 			}
 			return new LoopExpression(LoopExpressionKind.Infinite, isAsync, [], null, null, body,
-				new TextSpan(start, body.Span.End - start));
+				new TextSpan(start, body.Span.End - start), label);
 		}
 
 		if (isAsync)
@@ -28,35 +29,49 @@ public sealed partial class Parser
 			if (TryParseLoopBindingList(out var asyncBindings))
 			{
 				Advance();
-				return ParseLoopIteration(start, true, asyncBindings);
+				return ParseLoopIteration(start, true, asyncBindings, label);
 			}
 			var asyncIterable = ParseExpression();
-			return ParseLoopIteration(start, true, [], asyncIterable);
+			return ParseLoopIteration(start, true, [], label, asyncIterable);
 		}
 
 		if (TryParseLoopBindingList(out var bindings))
 		{
 			Advance();
-			return ParseLoopIteration(start, false, bindings);
+			return ParseLoopIteration(start, false, bindings, label);
 		}
 		if (Current.Kind == TokenKind.In)
 		{
 			Advance();
-			return ParseLoopIteration(start, false, []);
+			return ParseLoopIteration(start, false, [], label);
 		}
 
 		var conditionExpression = ParseExpression();
 		if (conditionExpression is RangeExpression)
-			return ParseLoopIteration(start, false, [], conditionExpression);
+			return ParseLoopIteration(start, false, [], label, conditionExpression);
 		var condition = conditionExpression is ParenthesizedExpression parenthesized
 			? parenthesized.Expression
 			: conditionExpression;
 		var loopBody = ParseLoopBody();
 		return new LoopExpression(LoopExpressionKind.Condition, false, [], null, condition, loopBody,
-			new TextSpan(start, loopBody.Span.End - start));
+			new TextSpan(start, loopBody.Span.End - start), label);
 	}
 
-	private LoopExpression ParseLoopIteration(int start, bool isAsync, IReadOnlyList<LoopBindingNode> bindings,
+	/// <summary>Необязательная метка <c>@name</c> сразу после <c>loop</c> (spec §3, раунд 27).</summary>
+	private LoopLabel? ParseLoopLabel()
+	{
+		if (Current.Kind != TokenKind.At)
+			return null;
+		var at = Advance();
+		var name = Consume(TokenKind.Identifier, "Ожидалось имя метки цикла после @");
+		return new LoopLabel(name.Text, new TextSpan(at.Span.Start, name.Span.End - at.Span.Start));
+	}
+
+	private LoopExpression ParseLoopIteration(
+		int start,
+		bool isAsync,
+		IReadOnlyList<LoopBindingNode> bindings,
+		LoopLabel? label,
 		ExpressionNode? parsedIterable = null)
 	{
 		var iterable = parsedIterable ?? ParseExpression();
@@ -64,7 +79,7 @@ public sealed partial class Parser
 			? ParseAwaitLoopBody()
 			: ParseLoopBody();
 		return new LoopExpression(LoopExpressionKind.Iteration, isAsync, bindings, iterable, null, body,
-			new TextSpan(start, body.Span.End - start));
+			new TextSpan(start, body.Span.End - start), label);
 	}
 
 	private SyntaxNode ParseAwaitLoopBody()

@@ -30,7 +30,13 @@ public sealed partial class CodeGenerator
 	{
 		_disposeFrames.Add(new DisposeFrame());
 		if (loopBody)
+		{
 			_loopDisposeFrames.Add(_disposeFrames.Count - 1);
+			// Тело цикла открывается сразу после push его контекста: запоминаем кадр,
+			// чтобы stop/next с меткой могли освободить именно до целевого цикла.
+			if (_loops.Count > 0)
+				_loops.Peek().DisposeFrameIndex = _disposeFrames.Count - 1;
+		}
 	}
 
 	/// <summary>Закрыть кадр; маркер тела цикла снимается вместе со своим кадром.</summary>

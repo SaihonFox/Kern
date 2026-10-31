@@ -135,6 +135,9 @@ public sealed record BoundLoopExpression(
 
 	/// <summary>Инкремент счётчика итерации, выполняется после добавления значения.</summary>
 	public BoundStatement? Increment { get; init; }
+
+	/// <summary>Метка <c>loop@outer</c>; null — цикл без метки.</summary>
+	public string? Label { get; init; }
 }
 
 /// <summary>Вызов после разрешения перегрузки; аргументы идут в порядке параметров.</summary>

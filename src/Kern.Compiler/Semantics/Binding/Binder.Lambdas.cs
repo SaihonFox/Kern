@@ -144,12 +144,11 @@ public sealed partial class Binder
 		var savedNextSlot = _nextSlot;
 		var savedReturn = _returnType;
 		var savedFlow = _flow;
-		var savedLoopDepth = _loopDepth;
-		var savedIteration = _iterationIncrement;
 		var savedNoneDepth = _noneReadDepth;
 		var savedConstruction = _constructionType;
 		var savedStaticInit = _staticInitializerType;
-		var savedLoops = _loopFlows.ToArray();
+		var savedLoops = _loopContexts.ToArray();
+		var savedLabels = _functionLabels.ToArray();
 
 		var frame = ++_nextFrame;
 		_frame = frame;
@@ -159,9 +158,8 @@ public sealed partial class Binder
 		{
 			_nextSlot = 0;
 			_flow = new FlowState();
-			_loopDepth = 0;
-			_loopFlows.Clear();
-			_iterationIncrement = null;
+			_loopContexts.Clear();
+			_functionLabels.Clear();
 			_noneReadDepth = 0;
 			// Контексты создания/`!`-статики лямбда не наследует (Q15b).
 			_constructionType = null;
@@ -254,14 +252,14 @@ public sealed partial class Binder
 			_nextSlot = savedNextSlot;
 			_returnType = savedReturn;
 			_flow = savedFlow;
-			_loopDepth = savedLoopDepth;
-			_iterationIncrement = savedIteration;
 			_noneReadDepth = savedNoneDepth;
 			_constructionType = savedConstruction;
 			_staticInitializerType = savedStaticInit;
-			_loopFlows.Clear();
+			_loopContexts.Clear();
 			for (var index = savedLoops.Length - 1; index >= 0; index--)
-				_loopFlows.Push(savedLoops[index]);
+				_loopContexts.Push(savedLoops[index]);
+			_functionLabels.Clear();
+			_functionLabels.UnionWith(savedLabels);
 		}
 	}
 

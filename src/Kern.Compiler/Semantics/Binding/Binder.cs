@@ -43,15 +43,16 @@ public sealed partial class Binder
 	private TypeSymbol? _staticInitializerType;
 
 	private int _nextSlot;
-	private int _loopDepth;
+	private FlowState _flow = new();
 
 	/// <summary>
-	/// Инкремент итерационного <c>loop … in …</c>: <c>next</c> внутри тела должен выполнить
-	/// его перед переходом к следующей итерации (иначе счётчик не растёт).
+	/// Стек объемлющих циклов текущей функции: метка, инкремент итерации и состояния
+	/// <c>stop</c>. Верхний элемент — ближайший цикл (spec §3, раунд 27).
 	/// </summary>
-	private BoundStatement? _iterationIncrement;
-	private FlowState _flow = new();
-	private readonly Stack<LoopFlow> _loopFlows = [];
+	private readonly Stack<LoopContext> _loopContexts = [];
+
+	/// <summary>Метки циклов, уже объявленные в текущей функции (дубликат — KRN2106).</summary>
+	private readonly HashSet<string> _functionLabels = new(StringComparer.Ordinal);
 	private int _noneReadDepth;
 
 	public Binder(ModuleSymbol module, SymbolTable table)
@@ -151,9 +152,9 @@ public sealed partial class Binder
 		// Контекст `!`-статики тоже принадлежит только её инициализатору (Q15b).
 		_staticInitializerType = null;
 		_nextSlot = 0;
-		_loopDepth = 0;
 		_flow = new FlowState();
-		_loopFlows.Clear();
+		_loopContexts.Clear();
+		_functionLabels.Clear();
 		_noneReadDepth = 0;
 		_selfVariable = null;
 		_selfType = null;
@@ -369,7 +370,10 @@ public sealed partial class Binder
 		return expression switch
 		{
 			BoundLoopExpression bound => new BoundLoopStatement(
-				bound.Condition, bound.Body, bound.IsDoWhile, bound.IsInfinite, bound.Span),
+				bound.Condition, bound.Body, bound.IsDoWhile, bound.IsInfinite, bound.Span)
+			{
+				Label = bound.Label
+			},
 			_ => new BoundExpressionStatement(expression, loop.Span)
 		};
 	}
@@ -383,26 +387,6 @@ public sealed partial class Binder
 		if (!consumeValue)
 			WarnDiscardedValue(expression, statement.Span);
 		return new BoundExpressionStatement(expression, statement.Span);
-	}
-
-	private BoundStatement BindLoopStatement(LoopStatement statement)
-	{
-		if (statement.Source is { Kind: LoopExpressionKind.Iteration } iteration)
-			return BindIterationLoop(iteration, statement.Body, statement.Span);
-
-		var body = BindLoopBodyWithFlow(null, statement.Body, out var breaks);
-		_flow = breaks.Count > 0 ? FlowState.Join(breaks) : FlowState.Unreachable();
-		return new BoundLoopStatement(null, body, IsDoWhile: false, IsInfinite: true, statement.Span);
-	}
-
-	private BoundStatement BindStop(StopStatement statement)
-	{
-		if (_loopDepth == 0)
-			Report("KRN2106", "Оператор stop допустим только внутри цикла", statement.Span);
-		if (_flow.Reachable && _loopFlows.Count > 0)
-			_loopFlows.Peek().Breaks.Add(_flow.Clone());
-		_flow.MarkUnreachable();
-		return new BoundStopStatement(statement.Span);
 	}
 
 	/// <summary>Тело цикла: блок или одиночное выражение/оператор в неявном блоке.</summary>
@@ -427,40 +411,6 @@ public sealed partial class Binder
 
 		Report("KRN2109", "Такое тело цикла пока не поддерживается (M3-C)", body.Span);
 		return new BoundBlock([], null, FallsThrough: false, body.Span);
-	}
-
-	/// <summary>
-	/// Тело цикла с отдельным состоянием потока: сужения сбрасываются (обратное ребро делает
-	/// их неверными), затем применяются факты истинности условия. Состояния <c>stop</c>
-	/// возвращаются для слияния после цикла.
-	/// </summary>
-	private BoundBlock BindLoopBodyWithFlow(
-		BoundExpression? condition,
-		SyntaxNode body,
-		out List<FlowState> breaks)
-	{
-		var bodyEntry = _flow.Clone();
-		bodyEntry.ClearNarrowing();
-		if (condition is not null)
-			ApplyConditionFacts(bodyEntry, condition, whenTrue: true);
-
-		var loopFlow = new LoopFlow();
-		_loopFlows.Push(loopFlow);
-		_loopDepth++;
-		BoundBlock bound;
-		try
-		{
-			_flow = bodyEntry;
-			bound = BindLoopBody(body);
-		}
-		finally
-		{
-			_loopDepth--;
-			_loopFlows.Pop();
-		}
-
-		breaks = loopFlow.Breaks;
-		return bound;
 	}
 
 	private BoundVariable DeclareLocal(string name, KernType type, bool isSingleAssignment, TextSpan span)
@@ -735,9 +685,4 @@ public sealed partial class Binder
 	private void Warn(string code, string message, TextSpan span) =>
 		_diagnostics.Add(new Diagnostic(code, message, span, DiagnosticSeverity.Warning));
 
-	/// <summary>Метки текущего цикла для stop/next: состояния на момент выхода из цикла.</summary>
-	private sealed class LoopFlow
-	{
-		public List<FlowState> Breaks { get; } = [];
-	}
 }

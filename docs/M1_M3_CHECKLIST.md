@@ -30,11 +30,11 @@ reflection stubs, stage-2 stubs.
 | Regex literal `x"…"` value | ❌ | parses, value is M7 (`KRN2101`) |
 | Declarations: `fun`, `type`, `unit`, `unit!`, attributes, `project`, `use`, `#type/#fun`, extension members, operators, `op []` | ✅ | parser tests; examples |
 | Statements/expressions: `if`, `match` (all pattern forms), all `loop` forms, `stop/next/ret`, lambdas (parse), local functions (parse), `await` (parse), ranges, leading-dot chains, tuples (parse) | ✅ | parser coverage in archived suite; iteration loop now binds |
-| Labels `loop@outer` / `stop outer` | ❌ | round 27 syntax, not parsed/bound |
+| Labels `loop@outer` / `stop outer` | ✅ | `LoopLabelTests` (2026-11-01): all loop forms + loop expressions, lexical targets, `use` disposal, `KRN2106` for unknown/duplicate labels |
 | Error recovery, several diagnostics per file, spans | ✅ | parser diagnostics in CLI output |
 | All examples parse | ✅ | `StageOneSyntaxTests` passed before archiving |
 
-M1 verdict: **🟡 complete for stage 1 except number exponents and regex literal values (M7) and loop labels.**
+M1 verdict: **🟡 complete for stage 1 except regex literal values (M7).**
 
 ## M2 — Symbols, types, conversions, overloads
 

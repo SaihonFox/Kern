@@ -134,9 +134,9 @@ public sealed partial class Binder
 		var previousCurrent = _current;
 		var previousScope = _scope;
 		var previousFlow = _flow;
-		var previousLoopDepth = _loopDepth;
 		// Stack перечисляется сверху вниз: восстанавливаем обратным порядком.
-		var previousLoopFlows = _loopFlows.ToArray();
+		var previousLoopContexts = _loopContexts.ToArray();
+		var previousFunctionLabels = _functionLabels.ToArray();
 		var previousNoneReadDepth = _noneReadDepth;
 		var previousTypeScope = _typeScope;
 		var previousConstruction = _constructionType;
@@ -150,9 +150,9 @@ public sealed partial class Binder
 		_constructionType = null;
 		_staticInitializerType = type;
 		_nextSlot = 0;
-		_loopDepth = 0;
 		_flow = new FlowState();
-		_loopFlows.Clear();
+		_loopContexts.Clear();
+		_functionLabels.Clear();
 		_noneReadDepth = 0;
 		_selfVariable = null;
 		_selfType = null;
@@ -187,10 +187,11 @@ public sealed partial class Binder
 			_current = previousCurrent;
 			_scope = previousScope;
 			_flow = previousFlow;
-			_loopDepth = previousLoopDepth;
-			_loopFlows.Clear();
-			for (var index = previousLoopFlows.Length - 1; index >= 0; index--)
-				_loopFlows.Push(previousLoopFlows[index]);
+			_loopContexts.Clear();
+			for (var index = previousLoopContexts.Length - 1; index >= 0; index--)
+				_loopContexts.Push(previousLoopContexts[index]);
+			_functionLabels.Clear();
+			_functionLabels.UnionWith(previousFunctionLabels);
 			_noneReadDepth = previousNoneReadDepth;
 			_typeScope = previousTypeScope;
 			_constructionType = previousConstruction;

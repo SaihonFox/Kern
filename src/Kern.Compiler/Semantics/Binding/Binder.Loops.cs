@@ -30,18 +30,7 @@ public sealed partial class Binder
 
 			var afterLoop = _flow.Clone();
 			afterLoop.ClearNarrowing();
-			var previousIncrement = _iterationIncrement;
-			BoundBlock loopBody;
-			List<FlowState> breaks;
-			try
-			{
-				_iterationIncrement = increment;
-				loopBody = BindLoopBodyWithFlow(null, body, out breaks);
-			}
-			finally
-			{
-				_iterationIncrement = previousIncrement;
-			}
+			var loopBody = BindLoopBodyWithFlow(null, body, source.Label, increment, out var breaks);
 
 			var bodyStatements = new List<BoundStatement>(assignments.Count + loopBody.Statements.Count + 1);
 			bodyStatements.AddRange(assignments);
@@ -49,7 +38,10 @@ public sealed partial class Binder
 			bodyStatements.Add(increment);
 
 			var block = new BoundBlock(bodyStatements, null, loopBody.FallsThrough, loopBody.Span);
-			statements.Add(new BoundLoopStatement(condition, block, IsDoWhile: false, IsInfinite: false, span));
+			statements.Add(new BoundLoopStatement(condition, block, IsDoWhile: false, IsInfinite: false, span)
+			{
+				Label = source.Label?.Name
+			});
 			_flow = breaks.Count > 0 ? FlowState.Join(breaks) : afterLoop;
 			return new BoundBlock(statements, null, FallsThrough: true, span);
 		}
@@ -179,18 +171,7 @@ public sealed partial class Binder
 
 			var afterLoop = _flow.Clone();
 			afterLoop.ClearNarrowing();
-			var previousIncrement = _iterationIncrement;
-			BoundBlock loopBody;
-			List<FlowState> breaks;
-			try
-			{
-				_iterationIncrement = increment;
-				loopBody = BindLoopBodyWithFlow(null, loop.Body, out breaks);
-			}
-			finally
-			{
-				_iterationIncrement = previousIncrement;
-			}
+			var loopBody = BindLoopBodyWithFlow(null, loop.Body, loop.Label, increment, out var breaks);
 
 			if (loopBody.Value is null || IsVoid(loopBody.Value.Type))
 			{
@@ -220,7 +201,8 @@ public sealed partial class Binder
 			var expression = new BoundLoopExpression(condition, bodyBlock, false, false, listType, loop.Span)
 			{
 				ListSlot = list.Slot,
-				Increment = increment
+				Increment = increment,
+				Label = loop.Label?.Name
 			};
 			_flow = breaks.Count > 0 ? FlowState.Join(breaks) : afterLoop;
 			return new BoundBlockExpression(statements, expression, FallsThrough: true, listType, loop.Span);
@@ -452,26 +434,71 @@ public sealed partial class Binder
 		return new FunctionSymbol("len", FunctionKind.Getter) { ReturnType = PrimitiveType.I32 };
 	}
 
+	private BoundStatement BindLoopStatement(LoopStatement statement)
+	{
+		if (statement.Source is { Kind: LoopExpressionKind.Iteration } iteration)
+			return BindIterationLoop(iteration, statement.Body, statement.Span);
+
+		var label = statement.Label ?? statement.Source?.Label;
+		var body = BindLoopBodyWithFlow(null, statement.Body, label, increment: null, out var breaks);
+		_flow = breaks.Count > 0 ? FlowState.Join(breaks) : FlowState.Unreachable();
+		return new BoundLoopStatement(null, body, IsDoWhile: false, IsInfinite: true, statement.Span)
+		{
+			Label = label?.Name
+		};
+	}
+
+	/// <summary>
+	/// <c>stop</c> ближайшего/помеченного цикла: состояние потока добавляется в breaks
+	/// целевого цикла, поэтому после <b>целевого</b> цикла код остаётся достижимым, а
+	/// промежуточные циклы выхода не получают.
+	/// </summary>
+	private BoundStatement BindStop(StopStatement statement)
+	{
+		var resolved = TryResolveLoopTarget(
+			statement.Target,
+			statement.Target is null ? statement.Span : statement.TargetSpan,
+			"stop",
+			out var target,
+			out var depth);
+		if (resolved && _flow.Reachable)
+			target!.Flow.Breaks.Add(_flow.Clone());
+		_flow.MarkUnreachable();
+		return new BoundStopStatement(statement.Span)
+		{
+			TargetDepth = resolved ? depth : 0
+		};
+	}
+
 	/// <summary>
 	/// <c>next</c>: внутри итерационного <c>loop … in …</c> сначала выполняется инкремент
-	/// счётчика, иначе переход к условию зациклил бы цикл (spec §3).
+	/// счётчика, иначе переход к условию зациклил бы цикл (spec §3). Для <c>next label</c>
+	/// берётся инкремент целевого цикла.
 	/// </summary>
 	private BoundStatement BindNext(NextStatement statement)
 	{
-		if (_loopDepth == 0)
-			Report("KRN2106", "Оператор next допустим только внутри цикла", statement.Span);
+		var resolved = TryResolveLoopTarget(
+			statement.Target,
+			statement.Target is null ? statement.Span : statement.TargetSpan,
+			"next",
+			out var target,
+			out var depth);
 		_flow.MarkUnreachable();
 
-		if (_iterationIncrement is { } increment)
+		var next = new BoundNextStatement(statement.Span)
+		{
+			TargetDepth = resolved ? depth : 0
+		};
+		if (resolved && target!.Increment is { } increment)
 		{
 			return new BoundBlock(
-				[increment, new BoundNextStatement(statement.Span)],
+				[increment, next],
 				null,
 				FallsThrough: false,
 				statement.Span);
 		}
 
-		return new BoundNextStatement(statement.Span);
+		return next;
 	}
 
 	private BoundAssignment Increment(BoundVariable variable, BoundExpression step, KernType type, TextSpan span) =>
@@ -509,7 +536,7 @@ public sealed partial class Binder
 		List<FlowState> breaks;
 		if (loop.Kind is LoopExpressionKind.DoWhile)
 		{
-			body = BindLoopBodyWithFlow(null, loop.Body, out breaks);
+			body = BindLoopBodyWithFlow(null, loop.Body, loop.Label, increment: null, out breaks);
 			condition = BindLoopCondition(loop.Condition, loop.Span);
 			var exit = _flow.Clone();
 			ApplyConditionFacts(exit, condition, whenTrue: false);
@@ -517,7 +544,7 @@ public sealed partial class Binder
 		}
 		else
 		{
-			body = BindLoopBodyWithFlow(condition, loop.Body, out breaks);
+			body = BindLoopBodyWithFlow(condition, loop.Body, loop.Label, increment: null, out breaks);
 			if (loop.Kind == LoopExpressionKind.Infinite)
 			{
 				_flow = breaks.Count > 0 ? FlowState.Join(breaks) : FlowState.Unreachable();
@@ -539,7 +566,10 @@ public sealed partial class Binder
 			loop.Kind == LoopExpressionKind.DoWhile,
 			loop.Kind == LoopExpressionKind.Infinite,
 			type,
-			loop.Span);
+			loop.Span)
+		{
+			Label = loop.Label?.Name
+		};
 	}
 
 	private BoundExpression BindLoopCondition(ExpressionNode? condition, TextSpan span)
@@ -555,4 +585,111 @@ public sealed partial class Binder
 
 	private static BoundBlock EmptyLoopBlock(TextSpan span) =>
 		new([], null, FallsThrough: true, span);
+
+	/// <summary>
+	/// Тело цикла с отдельным состоянием потока: сужения сбрасываются (обратное ребро делает
+	/// их неверными), затем применяются факты истинности условия. Состояния <c>stop</c>
+	/// возвращаются для слияния после цикла.
+	/// </summary>
+	private BoundBlock BindLoopBodyWithFlow(
+		BoundExpression? condition,
+		SyntaxNode body,
+		LoopLabel? label,
+		BoundStatement? increment,
+		out List<FlowState> breaks)
+	{
+		var bodyEntry = _flow.Clone();
+		bodyEntry.ClearNarrowing();
+		if (condition is not null)
+			ApplyConditionFacts(bodyEntry, condition, whenTrue: true);
+
+		var context = PushLoopContext(label, increment);
+		BoundBlock bound;
+		try
+		{
+			_flow = bodyEntry;
+			bound = BindLoopBody(body);
+		}
+		finally
+		{
+			_loopContexts.Pop();
+		}
+
+		breaks = context.Flow.Breaks;
+		return bound;
+	}
+
+	/// <summary>
+	/// Зарегистрировать цикл на время привязки тела. Метка должна быть уникальна в функции
+	/// (spec §3, раунд 27): дубликат — KRN2106, но контекст всё равно добавляется, чтобы
+	/// привязка тела продолжилась.
+	/// </summary>
+	private LoopContext PushLoopContext(LoopLabel? label, BoundStatement? increment)
+	{
+		if (label is not null && !_functionLabels.Add(label.Name))
+			Report("KRN2106", $"Метка цикла '{label.Name}' уже объявлена в этой функции", label.Span);
+		var context = new LoopContext(label?.Name, increment);
+		_loopContexts.Push(context);
+		return context;
+	}
+
+	/// <summary>
+	/// Разрешить цель <c>stop</c>/<c>next</c>: без имени — ближайший цикл, с именем —
+	/// ближайший объемлющий цикл с этой меткой (метки лексические). <paramref name="depth"/>
+	/// — 0 для ближайшего цикла; такую же глубину использует codegen.
+	/// </summary>
+	private bool TryResolveLoopTarget(
+		string? name,
+		TextSpan span,
+		string keyword,
+		out LoopContext? target,
+		out int depth)
+	{
+		target = null;
+		depth = -1;
+		if (_loopContexts.Count == 0)
+		{
+			Report("KRN2106", $"Оператор {keyword} допустим только внутри цикла", span);
+			return false;
+		}
+
+		if (name is null)
+		{
+			target = _loopContexts.Peek();
+			depth = 0;
+			return true;
+		}
+
+		var index = 0;
+		foreach (var context in _loopContexts)
+		{
+			if (string.Equals(context.Label, name, StringComparison.Ordinal))
+			{
+				target = context;
+				depth = index;
+				return true;
+			}
+			index++;
+		}
+
+		Report("KRN2106", $"Метка цикла '{name}' не найдена среди объемлющих циклов", span);
+		return false;
+	}
+
+	/// <summary>Метки текущего цикла для stop/next: состояния на момент выхода из цикла.</summary>
+	private sealed class LoopFlow
+	{
+		public List<FlowState> Breaks { get; } = [];
+	}
+
+	/// <summary>Объемлющий цикл: метка, инкремент итерации и состояния выхода.</summary>
+	private sealed class LoopContext(string? label, BoundStatement? increment)
+	{
+		public string? Label { get; } = label;
+
+		/// <summary>Инкремент счётчика итерационного <c>loop … in …</c> для <c>next</c>.</summary>
+		public BoundStatement? Increment { get; } = increment;
+
+		public LoopFlow Flow { get; } = new();
+	}
 }
