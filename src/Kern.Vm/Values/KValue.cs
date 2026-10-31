@@ -145,8 +145,38 @@ public readonly struct KValue : IEquatable<KValue>
 		ValueKind.Char => AsChar.ToString(),
 		ValueKind.Str => AsStr,
 		ValueKind.Ref => Ref?.ToString() ?? "null",
-		ValueKind.F16 or ValueKind.F32 or ValueKind.F64 => AsF64.ToString("R", CultureInfo.InvariantCulture),
+		ValueKind.F16 or ValueKind.F32 or ValueKind.F64 => FormatFloat(),
 		ValueKind.U8 or ValueKind.U16 or ValueKind.U32 or ValueKind.U64 => AsU64.ToString(CultureInfo.InvariantCulture),
 		_ => Bits.ToString(CultureInfo.InvariantCulture),
 	};
+
+	/// <summary>
+	/// Формат дробных значений (Q31): в диапазоне <c>[1e-6, 1e15)</c> — десятичная запись
+	/// без экспоненты (кратчайшая с обратным round-trip), иначе — научная запись `R`.
+	/// `NaN`/`Infinity`/`-0` остаются как у `R`. Для `f32` точность ограничена 7 знаками.
+	/// </summary>
+	private string FormatFloat()
+	{
+		double value = AsF64;
+		bool single = Kind == ValueKind.F32;
+		double magnitude = System.Math.Abs(value);
+		if (double.IsNaN(value) || double.IsInfinity(value) || value == 0)
+			return SingleText(value, single);
+
+		if (magnitude < 1e-6 || magnitude >= 1e15)
+			return SingleText(value, single);
+
+		string fixedText = value.ToString(
+			single ? "0.#######" : "0.#################", CultureInfo.InvariantCulture);
+		if (double.TryParse(fixedText, NumberStyles.Float, CultureInfo.InvariantCulture, out double parsed) &&
+			parsed == (single ? (float)value : value))
+			return fixedText;
+
+		return SingleText(value, single);
+	}
+
+	private static string SingleText(double value, bool single) =>
+		single
+			? ((float)value).ToString("R", CultureInfo.InvariantCulture)
+			: value.ToString("R", CultureInfo.InvariantCulture);
 }

@@ -363,6 +363,7 @@ Class methods now dispatch by runtime type (`CallVirtual`), but property getters
 Recommendation: option 1, implemented as a small extension of `CallVirtual` selection (accessors have generated names; operators have symbols) when the owner needs polymorphism through properties/operators.
 
 ### Q31: default `f64` formatting of small and large values (2026-11-01, numeric exponents)
+**Decided 2026-11-01 (owner): option 2 implemented.** Values with `1e-6 <= |x| < 1e15` print in fixed decimal (shortest round-trip: `0.000001`, `2.5`, `1000000`); values outside use scientific (`1E-20`, `1E+20`); `f32` prints its shortest float representation (`0.1`, `150`); `NaN`/`Infinity` unchanged. Implemented in `KValue.FormatFloat`; interpolation formats (`.2f`) unchanged. Tests: `FloatFormattingTests` (3 facts).
 `println(1e-6)` prints `1E-06` because f64 values use .NET round-trip (`"R"`) formatting; `0.000001` printed the same way before exponent literals existed. Options:
 1. Keep `"R"` (scientific notation where round-trip needs it) — recommended for stage 1: shortest round-trip form, culture-independent, no surprises for very large/small values.
 2. Fixed decimal for a "reasonable" magnitude window and scientific outside it (Python-`repr`-like, e.g. `0.000001` but `1e+20`): closer to user intuition, needs a formatter with documented thresholds.
