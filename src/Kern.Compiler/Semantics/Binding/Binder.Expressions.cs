@@ -317,20 +317,6 @@ public sealed partial class Binder
 
 	private static bool IsBool(KernType type) => type.Equals(PrimitiveType.Bool);
 
-	/// <summary>Кортежи совпадают по форме: имена полей не влияют на равенство типов.</summary>
-	private static bool TupleShapesEqual(TupleType left, TupleType right)
-	{
-		if (left.Elements.Count != right.Elements.Count)
-			return false;
-		for (var index = 0; index < left.Elements.Count; index++)
-		{
-			if (!left.Elements[index].Type.Equals(right.Elements[index].Type))
-				return false;
-		}
-
-		return true;
-	}
-
 	private static bool TryCommonNumeric(KernType left, KernType right, out KernType common)
 	{
 		common = null!;

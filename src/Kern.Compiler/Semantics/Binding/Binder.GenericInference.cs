@@ -94,6 +94,20 @@ public sealed partial class Binder
 			? new UnitType(type, arguments, type.IsImmutable)
 			: new ClassType(type, arguments);
 
+	/// <summary>Кортежи совпадают по форме: имена полей не влияют на равенство типов.</summary>
+	private static bool TupleShapesEqual(TupleType left, TupleType right)
+	{
+		if (left.Elements.Count != right.Elements.Count)
+			return false;
+		for (var index = 0; index < left.Elements.Count; index++)
+		{
+			if (!left.Elements[index].Type.Equals(right.Elements[index].Type))
+				return false;
+		}
+
+		return true;
+	}
+
 	/// <summary>Карта аргументов generic-типа получателя: <c>T → i32</c> для <c>Box&lt;i32&gt;</c>.</summary>
 	private static Dictionary<string, KernType> TypeArgumentsMap(KernType type)
 	{
