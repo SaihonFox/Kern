@@ -91,20 +91,12 @@ public sealed partial class CodeGenerator
 
 			case BoundLocalDeclaration declaration:
 				if (declaration.Initializer is not null)
-				{
-					EmitExpression(declaration.Initializer);
-					EmitCopyIfUnit(declaration.Type);
-					EmitCellIfBoxed(declaration.Slot);
-					Emit(OpCode.StoreLocal, declaration.Slot);
-				}
+					EmitLocalInitializer(declaration.Slot, declaration.Type, declaration.Initializer);
 				foreach (var binding in declaration.DeclaredBindings)
 				{
 					if (binding.Initializer is null)
 						continue;
-					EmitExpression(binding.Initializer);
-					EmitCopyIfUnit(binding.Initializer.Type);
-					EmitCellIfBoxed(binding.Slot);
-					Emit(OpCode.StoreLocal, binding.Slot);
+					EmitLocalInitializer(binding.Slot, binding.Initializer.Type, binding.Initializer);
 				}
 				break;
 

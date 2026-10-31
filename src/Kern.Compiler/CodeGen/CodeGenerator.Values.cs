@@ -48,6 +48,30 @@ public sealed partial class CodeGenerator
 			Emit(OpCode.Not);
 	}
 
+	/// <summary>
+	/// Инициализация локальной переменной. Для боксованного слота ячейка создаётся
+	/// <b>до</b> вычисления значения: замыкание может захватить её (рекурсивная функция).
+	/// </summary>
+	private void EmitLocalInitializer(int slot, KernType type, BoundExpression initializer)
+	{
+		if (!_boxedSlots.Contains(slot))
+		{
+			EmitExpression(initializer);
+			EmitCopyIfUnit(type);
+			Emit(OpCode.StoreLocal, slot);
+			return;
+		}
+
+		Emit(OpCode.PushNone);
+		Emit(OpCode.NewCell);
+		Emit(OpCode.StoreLocal, slot);
+		EmitExpression(initializer);
+		EmitCopyIfUnit(type);
+		Emit(OpCode.LoadLocal, slot);
+		Emit(OpCode.Swap);
+		Emit(OpCode.StoreCell);
+	}
+
 	/// <summary>Значение локальной переменной живёт в ячейке: обернуть перед <c>StoreLocal</c>.</summary>
 	private void EmitCellIfBoxed(int slot)
 	{
