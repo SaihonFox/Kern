@@ -48,6 +48,13 @@ public sealed partial class CodeGenerator
 			Emit(OpCode.Not);
 	}
 
+	/// <summary>Значение локальной переменной живёт в ячейке: обернуть перед <c>StoreLocal</c>.</summary>
+	private void EmitCellIfBoxed(int slot)
+	{
+		if (_boxedSlots.Contains(slot))
+			Emit(OpCode.NewCell);
+	}
+
 	/// <summary>
 	/// <c>obj?.member</c>: приёмник один раз в слот, проверка на <c>nil</c>, затем обычный
 	/// доступ из слота; в ветви <c>nil</c> на стек кладётся <c>nil</c>.

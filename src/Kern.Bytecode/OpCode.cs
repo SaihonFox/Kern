@@ -157,6 +157,11 @@ public enum OpCode
 
 	// --- повтор строки/символа (spec §3: `3 * "Ha"`) ---
 	Repeat,         // нет операндов: [значение, i64] -> повторённое значение (str/char)
+
+	// --- ячейки для замыканий с изменяемым захватом ---
+	NewCell,        // нет операндов: снять значение, положить ячейку
+	LoadCell,       // нет операндов: снять ячейку, положить значение
+	StoreCell,      // нет операндов: снять значение и ячейку, записать
 }
 
 /// <summary>Раскладка операндов и вспомогательные проверки для <see cref="OpCode"/>.</summary>
@@ -185,7 +190,7 @@ public static class OpCodeInfo
 	public static bool IsJump(OpCode op) => op is OpCode.Jmp or OpCode.JmpIf or OpCode.JmpIfNot;
 
 	/// <summary>Известен ли номер опкода (защита от мусора в .kbc).</summary>
-	public static bool IsDefined(int value) => value >= 0 && value <= (int)OpCode.Repeat;
+	public static bool IsDefined(int value) => value >= 0 && value <= (int)OpCode.StoreCell;
 
 	public static bool IsDefined(OpCode op) => IsDefined((int)op);
 }

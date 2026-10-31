@@ -85,6 +85,12 @@ public sealed partial class Binder
 			if (IsError(value.Type))
 				return new BoundBlock([], null, FallsThrough: true, assignment.Span);
 
+			if (variable.Frame != _frame && CapturedStore(variable, value, target.Span) is { } capturedStore)
+			{
+				statements.Add(capturedStore);
+				continue;
+			}
+
 			_flow.MarkAssigned(variable.Slot);
 			statements.Add(new BoundAssignment(variable.Name, variable.Slot, variable.Type, value, target.Span));
 		}

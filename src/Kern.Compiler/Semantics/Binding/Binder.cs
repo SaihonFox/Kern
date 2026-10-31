@@ -150,6 +150,7 @@ public sealed partial class Binder
 		_typeScope = TypeParameterScope.Empty;
 		// Новый кадр: слоты и захваты считаются относительно него (см. Binder.Lambdas.cs).
 		_frame = ++_nextFrame;
+		_boxedByFrame[_frame] = [];
 		foreach (var parameter in symbol.GenericParameters)
 			_typeScope = _typeScope.Add(parameter);
 
@@ -209,7 +210,8 @@ public sealed partial class Binder
 		return new BoundFunction(symbol, parameters, body, _returnType, localCount)
 		{
 			Initializers = initializers,
-			Chain = chain
+			Chain = chain,
+			BoxedSlots = _boxedByFrame[_frame]
 		};
 	}
 
@@ -542,16 +544,10 @@ public sealed partial class Binder
 			return new BoundBlock([], null, FallsThrough: true, assignment.Span);
 		}
 
-		// Запись в захваченную переменную не поддерживается: VM захватывает значения
-		// (KClosure.Captures), а не ячейки (KCell), поэтому изменение осталось бы в копии.
+		// Запись в захваченную переменную: через ячейку замыкания (замыкание хранит
+		// ссылку, изменение видно объемлющей функции).
 		if (variable.Frame != _frame)
-		{
-			Report(
-				"KRN2109",
-				$"Запись в захваченную переменную '{variable.Name}' не поддерживается: замыкание хранит копию значения",
-				assignment.Span);
-			return new BoundBlock([], null, FallsThrough: true, assignment.Span);
-		}
+			return BindCapturedAssignment(assignment, variable);
 
 		var value = assignment.Operator == "="
 			? BindExpression(assignment.Value, variable.Type)

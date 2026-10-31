@@ -21,6 +21,9 @@ public sealed partial class Binder
 
 	private int _nextFrame;
 
+	private readonly Dictionary<int, HashSet<int>> _boxedByFrame = [];
+
+	/// <summary>Стек кадров лямбд (для захватов и диагностик).</summary>
 	private readonly Stack<LambdaContext> _lambdaFrames = [];
 
 	/// <summary>
@@ -84,7 +87,7 @@ public sealed partial class Binder
 
 		var context = _lambdaFrames.Peek();
 		var index = CaptureIn(context, variable, span, out var type);
-		return new BoundCaptureExpression(index, type, span);
+		return new BoundCaptureExpression(index, type, span, IsCell: true);
 	}
 
 	private int CaptureIn(LambdaContext context, BoundVariable variable, TextSpan span, out KernType type)
@@ -106,13 +109,15 @@ public sealed partial class Binder
 				Report("KRN2105", $"Переменная '{variable.Name}' используется до присваивания", span);
 
 			sourceType = context.EnclosingFlow.NarrowedType(variable.Slot) ?? variable.Type;
-			source = new BoundVariableExpression(variable.Name, variable.Slot, sourceType, span);
+			// Захватываем ячейку: значение копируется по ссылке, изменения видны обеим сторонам.
+			_boxedByFrame[variable.Frame].Add(variable.Slot);
+			source = new BoundCellReferenceExpression(variable.Slot, sourceType, span);
 		}
 		else if (context.Parent is { } parent)
 		{
 			var parentIndex = CaptureIn(parent, variable, span, out var parentType);
 			sourceType = parentType;
-			source = new BoundCaptureExpression(parentIndex, parentType, span);
+			source = new BoundCaptureExpression(parentIndex, parentType, span, IsCell: true);
 		}
 		else
 		{
@@ -148,6 +153,7 @@ public sealed partial class Binder
 
 		var frame = ++_nextFrame;
 		_frame = frame;
+		_boxedByFrame[frame] = [];
 		_lambdaFrames.Push(context);
 		try
 		{
@@ -233,7 +239,10 @@ public sealed partial class Binder
 			// Валидатор .kbc требует captures ≤ LocalCount − ParamCount: захваты живут
 			// в кадре за последним локальным слотом, значения берутся из массива захватов.
 			var localCount = System.Math.Max(_nextSlot, parameters.Count + context.Captures.Count);
-			var function = new BoundFunction(lambdaSymbol, parameters, body, returnType, localCount);
+			var function = new BoundFunction(lambdaSymbol, parameters, body, returnType, localCount)
+			{
+				BoxedSlots = _boxedByFrame[frame]
+			};
 			var functionType = new FunctionType(parameterTypes, returnType);
 			return new BoundLambdaExpression(lambdaSymbol, function, [.. context.Captures], functionType, lambda.Span);
 		}

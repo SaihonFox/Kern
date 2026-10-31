@@ -15,6 +15,8 @@ public sealed record BoundFunction(
 	KernType ReturnType,
 	int LocalCount)
 {
+	public IReadOnlySet<int> BoxedSlots { get; init; } = new HashSet<int>();
+
 	/// <summary>
 	/// Инициализаторы полей экземпляра в порядке объявления; заполняются только у конструктора
 	/// (spec §8, п.827). Пусто — пролог ничего не генерирует.

@@ -192,6 +192,20 @@ public sealed partial class Interpreter
 							break;
 						}
 
+					// ---------- ячейки замыканий ----------
+					case OpCode.NewCell:
+						stack.Push(KValue.Obj(new KCell(stack.Pop())));
+						break;
+					case OpCode.LoadCell:
+						stack.Push(KCell.Require(stack.Pop(), "LoadCell").Value);
+						break;
+					case OpCode.StoreCell:
+						{
+							KValue stored = stack.Pop();
+							KCell.Require(stack.Pop(), "StoreCell").Value = stored;
+							break;
+						}
+
 					// ---------- преобразования ----------
 					case OpCode.ConvI8 or OpCode.ConvI16 or OpCode.ConvI32 or OpCode.ConvI64
 						or OpCode.ConvU8 or OpCode.ConvU16 or OpCode.ConvU32 or OpCode.ConvU64

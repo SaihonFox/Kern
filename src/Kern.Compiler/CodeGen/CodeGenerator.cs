@@ -26,6 +26,9 @@ public sealed partial class CodeGenerator
 	private SourceText? _source;
 	private SourceBundle? _bundle;
 
+	/// <summary>Слоты текущей функции, захваченные замыканиями: живут в <c>KCell</c>.</summary>
+	private IReadOnlySet<int> _boxedSlots = new HashSet<int>();
+
 	/// <summary>
 	/// Генерирует байткод модуля. Если передан <paramref name="source"/>, у функций заполняются
 	/// <c>SourceFile</c> (непустой путь) и <c>LineTable</c> (границы операторов).
@@ -68,76 +71,6 @@ public sealed partial class CodeGenerator
 		return new CodegenResult(_module, _diagnostics);
 	}
 
-	private void EmitFunction(BoundFunction function)
-	{
-		_current = _module.FunctionPool[_functionIndices[function.Symbol]];
-		_code = [];
-		_current.LineTable = [];
-		if (_bundle is not null)
-			_current.SourceFile = SourceFileFor(function, _bundle);
-		else if (!string.IsNullOrEmpty(_source?.Path))
-			_current.SourceFile = _source.Path;
-		EmitConstructorEntry(function);
-		var body = function.Body;
-		var leavesValue = body.Value is not null;
-		EmitBlock(body, leavesValue);
-
-		if (IsVoid(function.ReturnType))
-		{
-			if (leavesValue)
-				Emit(OpCode.Pop);
-			Emit(OpCode.PushVoid);
-			Emit(OpCode.Ret);
-		}
-		else if (leavesValue)
-		{
-			Emit(OpCode.Ret);
-		}
-		else if (body.FallsThrough)
-		{
-			Emit(OpCode.PushVoid);
-			Emit(OpCode.Ret);
-		}
-
-		_current.Code = [.. _code];
-	}
-
-	private void EmitBlock(BoundBlock block, bool leaveValue, bool loopBody = false)
-	{
-		PushDisposeFrame(loopBody);
-		try
-		{
-			var valueEmittedByTail = false;
-			for (var index = 0; index < block.Statements.Count; index++)
-			{
-				var statement = block.Statements[index];
-				var isTailValue = leaveValue &&
-					block.Value is not null &&
-					index == block.Statements.Count - 1 &&
-					statement is BoundExpressionStatement expressionStatement &&
-					ReferenceEquals(expressionStatement.Expression, block.Value);
-				EmitStatement(statement, isTailValue);
-				valueEmittedByTail |= isTailValue;
-			}
-
-			// Блок-выражение из одного выражения (например, accessor `get $x * 2`) не имеет statements:
-			// значение нужно сгенерировать явно, иначе функция вернёт пустоту.
-			if (leaveValue && block.Value is not null && !valueEmittedByTail)
-				EmitExpression(block.Value);
-
-			// use: обычный выход из блока освобождает переменные в обратном порядке объявления.
-			if (block.FallsThrough)
-				EmitDisposalsThrough(_disposeFrames.Count - 1);
-
-			if (leaveValue && block.Value is null && block.FallsThrough)
-				Emit(OpCode.PushVoid);
-		}
-		finally
-		{
-			PopDisposeFrame(loopBody);
-		}
-	}
-
 	private void EmitStatement(BoundStatement statement, bool leaveValue)
 	{
 		RecordLine(statement.Span);
@@ -161,6 +94,7 @@ public sealed partial class CodeGenerator
 				{
 					EmitExpression(declaration.Initializer);
 					EmitCopyIfUnit(declaration.Type);
+					EmitCellIfBoxed(declaration.Slot);
 					Emit(OpCode.StoreLocal, declaration.Slot);
 				}
 				foreach (var binding in declaration.DeclaredBindings)
@@ -169,6 +103,7 @@ public sealed partial class CodeGenerator
 						continue;
 					EmitExpression(binding.Initializer);
 					EmitCopyIfUnit(binding.Initializer.Type);
+					EmitCellIfBoxed(binding.Slot);
 					Emit(OpCode.StoreLocal, binding.Slot);
 				}
 				break;
@@ -179,9 +114,25 @@ public sealed partial class CodeGenerator
 				break;
 
 			case BoundAssignment assignment:
+				if (_boxedSlots.Contains(assignment.Slot))
+				{
+					Emit(OpCode.LoadLocal, assignment.Slot);
+					EmitExpression(assignment.Value);
+					EmitCopyIfUnit(assignment.Type);
+					Emit(OpCode.StoreCell);
+					break;
+				}
+
 				EmitExpression(assignment.Value);
 				EmitCopyIfUnit(assignment.Type);
 				Emit(OpCode.StoreLocal, assignment.Slot);
+				break;
+
+			case BoundCapturedAssignment capturedAssignment:
+				Emit(OpCode.LoadCapture, capturedAssignment.CaptureIndex);
+				EmitExpression(capturedAssignment.Value);
+				EmitCopyIfUnit(capturedAssignment.Type);
+				Emit(OpCode.StoreCell);
 				break;
 
 			case BoundFieldAssignment fieldAssignment:
@@ -250,6 +201,8 @@ public sealed partial class CodeGenerator
 
 			case BoundVariableExpression variable:
 				Emit(OpCode.LoadLocal, variable.Slot);
+				if (_boxedSlots.Contains(variable.Slot))
+					Emit(OpCode.LoadCell);
 				break;
 
 			case BoundNilExpression:
@@ -332,6 +285,12 @@ public sealed partial class CodeGenerator
 
 			case BoundCaptureExpression capture:
 				Emit(OpCode.LoadCapture, capture.Index);
+				if (capture.IsCell)
+					Emit(OpCode.LoadCell);
+				break;
+
+			case BoundCellReferenceExpression cellReference:
+				Emit(OpCode.LoadLocal, cellReference.Slot);
 				break;
 
 			case BoundValueCallExpression valueCall:

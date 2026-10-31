@@ -66,6 +66,7 @@ public sealed partial class CodeGenerator
 	{
 		var savedCode = _code;
 		var savedCurrent = _current;
+		var savedBoxed = _boxedSlots;
 		var savedLoops = _loops.ToArray();
 		var savedDisposeFrames = _disposeFrames.ToArray();
 		var savedLoopDisposeFrames = _loopDisposeFrames.ToArray();
@@ -80,6 +81,7 @@ public sealed partial class CodeGenerator
 		{
 			_code = savedCode;
 			_current = savedCurrent;
+			_boxedSlots = savedBoxed;
 			_loops.Clear();
 			for (var index = savedLoops.Length - 1; index >= 0; index--)
 				_loops.Push(savedLoops[index]);

@@ -3,7 +3,6 @@ using Kern.Compiler.Semantics.Types;
 using Kern.Core.Diagnostics;
 
 namespace Kern.Compiler.Semantics.Bound;
-
 /// <summary>
 /// Один захват замыкания: имя для диагностики, выражение-источник в кадре объемлющей
 /// функции и тип захваченного значения. Источник — либо локальная переменная
@@ -21,7 +20,23 @@ public sealed record BoundCapture(string Name, BoundExpression Source, KernType 
 public sealed record BoundCaptureExpression(
 	int Index,
 	KernType Type,
+	TextSpan Span,
+	bool IsCell = false) : BoundExpression(Type, Span);
+
+/// <summary>Ссылка на ячейку локальной переменной при создании замыкания: <c>LoadLocal</c>.</summary>
+public sealed record BoundCellReferenceExpression(
+	int Slot,
+	KernType Type,
 	TextSpan Span) : BoundExpression(Type, Span);
+
+/// <summary>
+/// Запись в захваченную переменную через ячейку: <c>LoadCapture idx</c>, значение, <c>StoreCell</c>.
+/// </summary>
+public sealed record BoundCapturedAssignment(
+	int CaptureIndex,
+	KernType Type,
+	BoundExpression Value,
+	TextSpan Span) : BoundStatement(Span);
 
 /// <summary>
 /// Лямбда как значение (<c>fun(i32 n) -&gt; i32 n * n</c>, spec §6): синтезированная
