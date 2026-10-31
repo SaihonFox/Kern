@@ -1,6 +1,0 @@
-fun greet(str name = "мир") -> str { "привет, " + name }
-fun main {
-	println(greet())
-	println(greet("Bob"))
-	println(3 * "Ha")
-}
