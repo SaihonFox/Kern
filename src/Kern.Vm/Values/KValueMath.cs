@@ -134,6 +134,13 @@ public static class KValueMath
 			return KValue.Str(a.AsStr + b.AsStr);
 		}
 
+		// Конкатенация списков (spec §3): `items + [item]` — новый list<T>; исходные не меняются.
+		if (op == ArithOp.Add && a.Ref is KList leftList && b.Ref is KList rightList)
+		{
+			KType? elementType = leftList.ElementType ?? rightList.ElementType;
+			return KValue.Obj(new KList(elementType, leftList.Items.Concat(rightList.Items)));
+		}
+
 		if (a.Kind != b.Kind)
 			throw new KernPanic($"несовпадение типов операндов {OpName(op)}: {a.TypeName} и {b.TypeName}");
 

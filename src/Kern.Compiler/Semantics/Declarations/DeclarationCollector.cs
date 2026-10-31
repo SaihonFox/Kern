@@ -104,6 +104,12 @@ public sealed partial class DeclarationCollector
 				_diagnostics.Add(new Diagnostic(problem.Code, problem.Message, problem.Span));
 
 		_diagnostics.AddRange(_resolver.Diagnostics);
+
+		// 4. spec §2: конкретный type обязан реализовать оставшиеся абстрактные методы.
+		// Проверка идёт после разрешения выборов родителей (шаг 3); собственный метод или
+		// явный $[A].foo снимает требование.
+		AuditAbstractMembers();
+
 		var extensions = BuildExtensions();
 		var module = new ModuleSymbol(
 			moduleName,

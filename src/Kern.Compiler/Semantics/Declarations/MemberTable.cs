@@ -62,6 +62,9 @@ public sealed class MemberTable
 	/// <summary>Поля с учётом унаследованных; статические члены родителя не наследуются.</summary>
 	public IReadOnlyList<FieldSymbol> Fields => _mergedFields ??= MergeFields();
 
+	/// <summary>Собственные функции объявления без унаследованных и выбранных членов.</summary>
+	internal IReadOnlyDictionary<string, IReadOnlyList<FunctionSymbol>> OwnFunctions => _functions;
+
 	/// <summary>Собственные поля объявления (для раскладки слотов в TypeDef).</summary>
 	internal IReadOnlyList<FieldSymbol> OwnFields => _fields;
 
@@ -105,6 +108,18 @@ public sealed class MemberTable
 	{
 		EnsureSelectionsResolved();
 		return _selectionProblems ?? [];
+	}
+
+	/// <summary>
+	/// Разрешённая реализация выбора родителя для сигнатуры выбора; null, если выбора нет или
+	/// он не разрешился. Нужна проверке реализации абстрактных членов (spec §2).
+	/// </summary>
+	internal FunctionSymbol? SelectedFunction(string signature)
+	{
+		EnsureSelectionsResolved();
+		return _selectedFunctions is not null && _selectedFunctions.TryGetValue(signature, out var selected)
+			? selected
+			: null;
 	}
 
 	/// <summary>Выбранный член родителя — реализация члена этого типа (для статической привязки).</summary>
