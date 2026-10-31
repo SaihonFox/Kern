@@ -142,6 +142,7 @@ public static class OverloadResolver
 			function,
 			pairs,
 			call.ExplicitTypeArguments,
+			ClassSubstitution(function, call.ReceiverType),
 			out var substitution,
 			out var typeArguments))
 			return false;
@@ -225,9 +226,37 @@ public static class OverloadResolver
 			return function.ReceiverType;
 		if (function.Owner is null || function.IsStatic)
 			return null;
+		// Аргументы владельца (не пустые!) нужны, чтобы после подстановки T = i32 приёмник
+		// совпал с Stack<i32>; иначе конверсия получателя всегда падает.
 		return function.Owner.IsValueType
-			? new UnitType(function.Owner, [], function.Owner.IsImmutable)
-			: new ClassType(function.Owner, []);
+			? new UnitType(function.Owner, [.. function.Owner.GenericParameters], function.Owner.IsImmutable)
+			: new ClassType(function.Owner, [.. function.Owner.GenericParameters]);
+	}
+
+	/// <summary>
+	/// Аргументы generic-параметров типа-владельца, выведенные из типа получателя:
+	/// <c>Stack&lt;i32&gt;.push</c> видит <c>T = i32</c> (функция не объявляет T сама).
+	/// </summary>
+	private static IReadOnlyDictionary<string, KernType>? ClassSubstitution(
+		FunctionSymbol function,
+		KernType? receiverType)
+	{
+		if (function.Owner is not { } owner || receiverType is null)
+			return null;
+
+		IReadOnlyList<KernType>? arguments = receiverType switch
+		{
+			ClassType @class when ReferenceEquals(@class.Symbol, owner) => @class.Arguments,
+			UnitType unit when ReferenceEquals(unit.Symbol, owner) => unit.Arguments,
+			_ => null
+		};
+		if (arguments is null || arguments.Count == 0)
+			return null;
+
+		var map = new Dictionary<string, KernType>(StringComparer.Ordinal);
+		for (var index = 0; index < owner.GenericParameterNames.Count && index < arguments.Count; index++)
+			map[owner.GenericParameterNames[index]] = arguments[index];
+		return map;
 	}
 
 	private static bool TryConvert(CallArgument argument, KernType target, out Conversion conversion)

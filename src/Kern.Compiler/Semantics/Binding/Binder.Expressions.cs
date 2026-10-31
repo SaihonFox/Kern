@@ -105,6 +105,10 @@ public sealed partial class Binder
 			if (UnqualifiedStaticField(identifier.Name, identifier.Span) is { } staticField)
 				return staticField;
 
+			// Поле/свойство своего экземпляра без `$` (spec §8: `radius`, `_val`, `items`).
+			if (TryBindImplicitMemberRead(identifier.Name, identifier.Span) is { } implicitMember)
+				return implicitMember;
+
 			Report("KRN2103", $"Неизвестное имя '{identifier.Name}'", identifier.Span);
 			return new BoundErrorExpression(identifier.Span);
 		}

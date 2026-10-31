@@ -1,5 +1,8 @@
+using Kern.Compiler.Semantics.Bound;
 using Kern.Compiler.Semantics.Declarations;
 using Kern.Compiler.Semantics.Types;
+using Kern.Compiler.Syntax;
+using Kern.Core.Diagnostics;
 
 namespace Kern.Compiler.Semantics.Binding;
 
@@ -41,4 +44,52 @@ public sealed partial class Binder
 	/// <summary>Собственное звено цепочки (для диагностик «нужен экземпляр/тип»).</summary>
 	private static bool IsOwnOwner(KernType receiver, TypeSymbol owner) =>
 		OwnerOf(receiver) is { } self && ReferenceEquals(self, owner);
+
+	/// <summary>
+	/// Поле/свойство своего экземпляра без <c>$</c> (spec §8): <c>radius</c>, <c>_val</c>,
+	/// <c>items</c> внутри тела типа. Локальные имена проверяются вызывающим кодом раньше.
+	/// </summary>
+	private BoundExpression? TryBindImplicitMemberRead(string name, TextSpan span)
+	{
+		if (_selfVariable is null || _selfType is null || OwnerOf(_selfType) is not { } owner)
+			return null;
+		if (owner.Members.FindField(name) is null && owner.Members.FindProperty(name) is null)
+			return null;
+
+		return BindMemberAccessOn(AccessVariable(_selfVariable, span), ImplicitMember(name, span));
+	}
+
+	/// <summary>Вызов метода своего экземпляра без <c>$</c>: <c>hello()</c>, <c>area()</c>.</summary>
+	private BoundExpression? TryBindImplicitMemberCall(
+		string name,
+		IReadOnlyList<CallArgumentNode> arguments,
+		IReadOnlyList<TypeSyntax> typeArguments,
+		TextSpan span)
+	{
+		if (_selfVariable is null || _selfType is null || OwnerOf(_selfType) is not { } owner)
+			return null;
+		if (!owner.Members.GetFunctions(name).Any(function => !function.IsStatic))
+			return null;
+
+		return BindMemberCallOn(
+			AccessVariable(_selfVariable, span),
+			ImplicitMember(name, span),
+			arguments,
+			typeArguments,
+			span);
+	}
+
+	/// <summary>Запись в поле/свойство своего экземпляра без <c>$</c>: <c>_val = value * 2</c>.</summary>
+	private BoundStatement? TryBindImplicitMemberStore(AssignmentStatement assignment, string name, TextSpan span)
+	{
+		if (_selfVariable is null || _selfType is null || OwnerOf(_selfType) is not { } owner)
+			return null;
+		if (owner.Members.FindField(name) is null && owner.Members.FindProperty(name) is null)
+			return null;
+
+		return BindFieldAssignment(assignment, ImplicitMember(name, span));
+	}
+
+	private static MemberAccessExpression ImplicitMember(string name, TextSpan span) =>
+		new(new SelfExpression(span), name, IsConditional: false, span);
 }

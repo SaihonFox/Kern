@@ -61,6 +61,10 @@ public sealed partial class Binder
 		if (_scope.Lookup(identifier.Name) is { } variable && variable.Type is FunctionType)
 			return BindValueCall(identifier, variable, arguments, typeArguments, span);
 
+		// Метод своего экземпляра без `$` (spec §8): `hello()`, `area()` внутри тела типа.
+		if (TryBindImplicitMemberCall(identifier.Name, arguments, typeArguments, span) is { } implicitCall)
+			return implicitCall;
+
 		// Встроенные Ok/Err: значение без синтезированного конструктора (spec §16).
 		if (identifier.Name is ResultTypes.OkName or ResultTypes.ErrName &&
 			VisibleType(identifier.Name) is { } resultVariant &&

@@ -15,10 +15,13 @@ internal static class GenericInference
 		FunctionSymbol function,
 		IReadOnlyList<(KernType Parameter, KernType Argument)> pairs,
 		IReadOnlyList<KernType>? explicitArguments,
+		IReadOnlyDictionary<string, KernType>? classSubstitution,
 		out Dictionary<string, KernType> substitution,
 		out IReadOnlyList<KernType> typeArguments)
 	{
-		substitution = new Dictionary<string, KernType>(StringComparer.Ordinal);
+		substitution = classSubstitution is { Count: > 0 }
+			? new Dictionary<string, KernType>(classSubstitution, StringComparer.Ordinal)
+			: new Dictionary<string, KernType>(StringComparer.Ordinal);
 		typeArguments = [];
 		var parameters = function.GenericParameters;
 

@@ -84,6 +84,8 @@ public sealed partial class DeclarationCollector
 			constructors.Add(new FunctionSymbol("ctor", FunctionKind.Constructor)
 			{
 				Owner = owner,
+				// Тип-параметры владельца нужны инициализаторам полей: `<T>[]` в `Stack<T>`.
+				GenericParameters = [.. owner.GenericParameters],
 				Accessibility = owner.Accessibility,
 				Declaration = declaration
 			});

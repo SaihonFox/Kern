@@ -168,9 +168,11 @@ public sealed class MemberTable
 		GetFunctions(name).FirstOrDefault(function => function.Signature == signature);
 
 	public FieldSymbol? FindField(string name) =>
+		_fields.FirstOrDefault(field => field.Name == name) ??
 		Fields.FirstOrDefault(field => field.Name == name);
 
 	public PropertySymbol? FindProperty(string name) =>
+		_properties.FirstOrDefault(property => property.Name == name) ??
 		Properties.FirstOrDefault(property => property.Name == name);
 
 	internal static MemberTable Create(

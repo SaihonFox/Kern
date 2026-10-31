@@ -237,7 +237,8 @@ public sealed partial class Binder
 		if (body is BlockStatement block)
 		{
 			var bound = BindBlock(block, createScope: false, valueUsed: !IsVoid(_returnType), hint: _returnType);
-			if (bound.FallsThrough && !IsVoid(_returnType))
+			// Абстрактный метод тела не имеет: отсутствие значения — не ошибка (spec §8).
+			if (bound.FallsThrough && !IsVoid(_returnType) && !symbol.IsAbstract)
 			{
 				if (bound.Value is null)
 				{
@@ -462,64 +463,6 @@ public sealed partial class Binder
 		return bound;
 	}
 
-	private BoundStatement BindLocalDeclaration(LocalDeclarationStatement declaration)
-	{
-		var declared = declaration.Type is null ? null : _resolver.Resolve(declaration.Type, _typeScope);
-		var initializer = declaration.Initializer is null ? null : BindExpression(declaration.Initializer, declared);
-		var initializerType = initializer?.Type;
-
-		var type = declared ?? initializer?.Type ?? ErrorType.Instance;
-		if (declared is null && initializer is null)
-		{
-			Report("KRN2102", $"У переменной '{declaration.Name}' нужен тип или инициализатор", declaration.Span);
-			type = ErrorType.Instance;
-		}
-		else if (declared is null && initializerType is NilType)
-		{
-			Report("KRN2102", $"Нельзя вывести тип переменной '{declaration.Name}' из nil; укажите nullable-тип явно", declaration.Span);
-			type = ErrorType.Instance;
-		}
-		else if (declared is null && initializerType is PrimitiveType { Primitive: PrimitiveKind.None })
-		{
-			Report("KRN2102", $"Нельзя вывести тип переменной '{declaration.Name}' из none; объявите переменную без инициализатора", declaration.Span);
-			type = ErrorType.Instance;
-		}
-
-		if (initializer is not null && declared is not null)
-			initializer = Convert(initializer, declared, declaration.Initializer!.Span);
-
-		var variable = DeclareLocal(declaration.Name, type, declaration.IsSingleAssignment, declaration.Span);
-		DeclareFlow(variable, initializer is not null, initializerType);
-
-		var additional = new List<BoundLocalBinding>(declaration.DeclaredBindings.Count);
-		foreach (var binding in declaration.DeclaredBindings)
-		{
-			var extraInitializer = binding.Initializer is null ? null : BindExpression(binding.Initializer, declared);
-			var extraInitializerType = extraInitializer?.Type;
-			var extraType = declared ?? extraInitializer?.Type ?? ErrorType.Instance;
-			if (declared is null && extraInitializerType is PrimitiveType { Primitive: PrimitiveKind.None })
-			{
-				Report("KRN2102", $"Нельзя вывести тип переменной '{binding.Name}' из none; объявите переменную без инициализатора", binding.Span);
-				extraType = ErrorType.Instance;
-			}
-			if (extraInitializer is not null && declared is not null)
-				extraInitializer = Convert(extraInitializer, declared, binding.Span);
-
-			var extraVariable = DeclareLocal(binding.Name, extraType, declaration.IsSingleAssignment, binding.Span);
-			DeclareFlow(extraVariable, extraInitializer is not null, extraInitializerType);
-			additional.Add(new BoundLocalBinding(binding.Name, extraVariable.Slot, extraInitializer));
-		}
-
-		return new BoundLocalDeclaration(
-			declaration.Name,
-			variable.Slot,
-			type,
-			initializer,
-			declaration.IsSingleAssignment,
-			declaration.Span,
-			additional);
-	}
-
 	private BoundVariable DeclareLocal(string name, KernType type, bool isSingleAssignment, TextSpan span)
 	{
 		var variable = new BoundVariable(name, type, _nextSlot++, isSingleAssignment) { Frame = _frame };
@@ -556,6 +499,10 @@ public sealed partial class Binder
 			// Без квалификации запись в статическое поле своего типа (M3-D3b).
 			if (UnqualifiedStaticField(target.Name, target.Span) is { } staticField)
 				return BindStaticStore(assignment, staticField.Field, staticField.Type, target.Span);
+
+			// Запись в поле/свойство своего экземпляра без `$`: `_val = value * 2`.
+			if (TryBindImplicitMemberStore(assignment, target.Name, target.Span) is { } implicitStore)
+				return implicitStore;
 
 			Report("KRN2103", $"Неизвестная переменная '{target.Name}'", target.Span);
 			return new BoundBlock([], null, FallsThrough: true, assignment.Span);
