@@ -216,6 +216,15 @@ public sealed partial class CodeGenerator
 					Emit(OpCode.Not);
 				break;
 
+			// Рефлексия времени компиляции (spec §17/§18): `typeof<T>()` и `name_of<T>()`.
+			case BoundTypeOfExpression typeOf:
+				Emit(OpCode.TypeOfSig, _module.InternTypeSig(TypeSigMap.From(typeOf.TypeArgument, _module.Name)));
+				break;
+
+			case BoundNameOfExpression nameOf:
+				Emit(OpCode.PushConst, _module.InternConst(KConst.Str(nameOf.TypeArgument.ToString())));
+				break;
+
 			case BoundBinaryExpression binary:
 				EmitBinary(binary);
 				break;

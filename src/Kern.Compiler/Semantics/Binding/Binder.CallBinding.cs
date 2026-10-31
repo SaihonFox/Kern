@@ -61,6 +61,11 @@ public sealed partial class Binder
 		if (_scope.Lookup(identifier.Name) is { } variable && variable.Type is FunctionType)
 			return BindValueCall(identifier, variable, arguments, typeArguments, span);
 
+		// Рефлексия времени компиляции (spec §17/§18): `typeof<T>()`/`name_of<T>()`.
+		// Пользовательская функция с тем же именем важнее, если аргументов-типов нет.
+		if (TryBindMetaCall(identifier.Name, arguments, typeArguments, span) is { } metaCall)
+			return metaCall;
+
 		// Метод своего экземпляра без `$` (spec §8): `hello()`, `area()` внутри тела типа.
 		if (TryBindImplicitMemberCall(identifier.Name, arguments, typeArguments, span) is { } implicitCall)
 			return implicitCall;
