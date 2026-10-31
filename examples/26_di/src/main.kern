@@ -1,0 +1,74 @@
+// Раунд 20: внедрение зависимостей (библиотека kern.di, собирается отдельно: libs/Kern.Libs.slnx)
+use kern.di[container]
+
+// --- сервисы ---
+@type mailer {
+	@fun send(str to, str text)
+}
+
+type console_mailer[mailer] {
+	~fun send(str to, str text) {
+		println(f"письмо для ${to}: ${text}")
+	}
+}
+
+type logger(str prefix) {
+	fun info(str msg) { println(f"[${prefix}] ${msg}") }
+}
+
+// --- вариант 1: зависимости через конструктор, регистрация типов и фабрик ---
+type user_service(logger log, mailer mail) {
+	fun register(str name) {
+		log.info(f"регистрация ${name}")
+		mail.send(name, "добро пожаловать")
+	}
+}
+
+// --- вариант 2: атрибуты. #[singleton] + c.scan(), #[inject] на свойствах ---
+#[singleton]
+type clock {
+	fun now() -> str { "12:00" }
+}
+
+type report {
+	#[inject] logger log { get; set }
+	#[inject] clock clk { get; set }
+
+	fun print() { log.info(f"отчёт на ${clk.now()}") }
+}
+
+// объект с освобождением: dispose() вызывается при c.dispose() / при выходе из `use`
+type connection {
+	fun dispose() { println("соединение закрыто") }
+}
+
+fun main {
+	var c = container()
+
+	// фабрики: без аргументов и с контейнером
+	c.singleton<logger>(fun { logger("app") })
+	c.singleton_as<mailer, console_mailer>()
+	c.transient<user_service>(fun(container k) { user_service(k.get<logger>(), k.get<mailer>()) })
+
+	var svc = c.get<user_service>()
+	svc.register("аня")
+
+	// именованные регистрации
+	c.singleton<logger>(fun { logger("audit") }, "audit")
+	c.get<logger>("audit").info("проверка")
+
+	// атрибуты
+	c.scan()
+	var r = c.create<report>()      // конструктор + #[inject]-свойства
+	r.print()
+
+	// область: scoped-объекты живут в ней
+	c.scoped<connection>()
+	var s = c.scope()
+	var a = s.get<connection>()
+	var b = s.get<connection>()
+	println(f"в области один экземпляр: ${a === b}")
+	s.dispose()
+
+	println(c.try_get<user_service>() != nil)
+}

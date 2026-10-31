@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<ItemGroup>
+		<ProjectReference Include="../Kern.Core/Kern.Core.csproj" />
+		<ProjectReference Include="../Kern.Bytecode/Kern.Bytecode.csproj" />
+		<ProjectReference Include="../Kern.Binding/Kern.Binding.csproj" />
+	</ItemGroup>
+</Project>

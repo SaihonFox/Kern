@@ -1,0 +1,71 @@
+// unit: value-семантика, сравнение по полям, операторы, деструктуризация, unit! и «enum с данными»
+unit Point(f64 x, f64 y) {
+	f64 len => ($x ** 2 + $y ** 2) ** 0.5
+
+	op +(Point other) -> Point {
+		Point($x + other.x, $y + other.y)
+	}
+
+	op *(f64 k) -> Point
+		Point($x * k, $y * k)
+}
+
+unit! IpAddress(str address)
+unit! StreetAddress(str city, str street, str house)
+type Addresses = [IpAddress, StreetAddress]
+
+unit Circle(f64 radius)
+unit Rect(f64 w, f64 h)
+type Shape = [Circle, Rect]
+
+// enum — это union из unit без полей
+unit Red
+unit Green
+unit Blue
+type Color = [Red, Green, Blue]
+
+fun color_name(Color c) -> str
+	match c {
+		Red => "красный"
+		Green => "зелёный"
+		Blue => "синий"
+	}
+
+unit Box<T>(T value)
+
+fun area(Shape shape) -> f64
+	match shape {
+		Circle c => 3.14159 * c.radius ** 2
+		Rect r => r.w * r.h
+	}
+
+fun show(Addresses a) -> str
+	match a {
+		IpAddress(addr) => f"ip ${addr}"
+		StreetAddress(city, street, house) => f"${city}, ${street} ${house}"
+	}
+
+fun main {
+	Point a(1.0, 2.0)
+	Point b = a              // независимая копия
+	b.x = 10.0
+	println(a)               // x не изменился
+	println(b)
+	println(a == Point(1.0, 2.0))   // по значению: true
+	println((a + b).len)
+	println(a * 2.0)
+
+	(f64 px, f64 py) = a     // деструктуризация по полям
+	println(f"${px} ${py}")
+
+	println(area(Circle(2.0)))
+	println(area(Rect(3.0, 4.0)))
+
+	println(show(IpAddress("127.0.0.1")))
+	println(show(StreetAddress("Казань", "Баумана", "1")))
+
+	println(color_name(Green()))
+
+	var box = Box(5)         // Box<i32> выводится
+	println(box)
+}

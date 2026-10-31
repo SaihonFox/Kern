@@ -1,0 +1,73 @@
+// Классы, наследование, абстрактные типы, свойства, ctor-цепочки, generics с ограничениями, reified typeof
+@type Shape {
+	@fun area() -> f64
+	fun describe() -> str
+		f"площадь ${area():.2f}"
+}
+
+type Circle(f64 radius)[Shape] {
+	~fun area() -> f64
+		3.14159 * radius ** 2
+}
+
+type Square(f64 side)[Shape] {
+	~fun area() -> f64
+		side ** 2
+}
+
+type Counter {
+	i32 _val
+	i32 val {
+		get _val
+		set(value) _val = value * 2
+	}
+	i32 total { get; set } = 5
+	i32 doubled => _val * 2
+}
+
+type Range(i32 lo, i32 hi) {
+	ctor(i32 hi) : $(0, hi)           // как `: this(0, hi)` в C#
+}
+
+open type A { str name = "a"
+	fun hello(i32 x) -> str f"A: ${x}" }
+open type B { str name = "b"
+	fun hello(i32 x) -> str f"B: ${x}" }
+type C()[A, B] {
+	fun $[A].hello(i32 x) -> str
+	str $[A].name
+}
+
+type Stack<T> {
+	list<T> items = <T>[]
+	fun push(T item) { items = items + [item] }
+	i32 size => items.len               // свойство только для чтения
+}
+
+fun largest<T[num]>(T a, T b) -> T
+	if a > b { a } else { b }
+
+fun main {
+	list<Shape> shapes = [Circle(1.0), Square(2.0)]
+	loop var s in shapes println(s.describe())
+
+	Counter c()
+	c.val = 4
+	println(c.val)          // 8
+	println(c.total)        // 5
+
+	Range r(10)
+	println(f"${r.lo}..${r.hi}")
+
+	C both()
+	println(both.hello(1))  // A: 1
+	println(both.name)      // a
+
+	Stack<i32> s = Stack<i32>()
+	s.push(1)
+	s.push(2)
+	println(s.size)
+
+	println(largest(3, 9))
+	println(typeof<i32>())
+}

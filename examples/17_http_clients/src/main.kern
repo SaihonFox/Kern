@@ -1,0 +1,31 @@
+// Два способа типизированного HTTP-клиента. Нужен доступ в интернет (jsonplaceholder).
+use kern.http[http_client]
+
+unit Post(i64 id, str title, i64 user_id)
+
+// Вариант B: контракт описан абстрактным типом, методы помечены атрибутами
+@type PostsApi {
+	#[get("/posts/{id}")]  @fun one(i64 id) -> task<result<Post, str>>
+	#[get("/posts")]       @fun by_user(i64 user_id) -> task<result<list<Post>, str>>
+	#[post("/posts")]      @fun create(Post p) -> task<result<Post, str>>
+}
+
+async fun main {
+	// Вариант A: клиент с базовым адресом и get<T>/post<T>
+	http_client api("https://jsonplaceholder.typicode.com")
+	match await api.get<Post>("/posts/1") {
+		Ok(p) => println(f"A: ${p.title}")
+		Err(e) => println(f"A: ошибка ${e}")
+	}
+
+	// Вариант B: прокси по атрибутам
+	PostsApi posts = http_client.proxy<PostsApi>("https://jsonplaceholder.typicode.com")
+	match await posts.one(2) {
+		Ok(p) => println(f"B: ${p.title}")
+		Err(e) => println(f"B: ошибка ${e}")
+	}
+	match await posts.by_user(1) {
+		Ok(list) => println(f"B: постов у пользователя 1: ${list.len}")
+		Err(e) => println(f"B: ошибка ${e}")
+	}
+}

@@ -1,0 +1,53 @@
+// Потоки (общая память с раунда 24), каналы, примитивы синхронизации и сжатие.
+// Запуск: kernc run examples/14_threads_compress -O2
+use kern.threading[thread, worker, channel, mutex, atomic, semaphore]
+use kern.compress[compress]
+
+fun square(i32 n) -> i32 n * n
+
+// Канал и счётчик передаются по ссылке; потоки видят одни и те же объекты
+fun producer(channel<i32> ch, atomic sent) -> i32 {
+	loop i32 i in 1..=5 {
+		ch.send(i * i)
+		sent.increment()
+	}
+	ch.close()
+	5
+}
+
+fun main {
+	// 1. результат потока
+	worker<i32> w = thread.spawn_with(square, 12)
+	match w.join() {
+		Ok(v) => println(f"12² = ${v}")
+		Err(e) => println(f"ошибка потока: ${e}")
+	}
+
+	// 2. канал: поток-производитель шлёт, главный поток читает до закрытия (после close() recv даёт nil)
+	channel<i32> ch(2)
+	atomic sent(0)
+	worker<i32> p = thread.spawn_with(producer, ch, sent)
+	i32 sum = 0
+	loop {
+		i32? v = ch.recv()
+		if v == nil { stop }
+		sum += v!
+	}
+	p.join()
+	println(f"сумма квадратов 1..5 = ${sum}, отправлено: ${sent.value}")
+
+	// 3. mutex и семафор
+	mutex m()
+	semaphore gate(1)
+	gate.wait()
+	println(f"в критической секции: ${m.run(fun -> i32 42)}")
+	gate.release()
+
+	// 4. сжатие
+	str text = "Kern Kern Kern Kern Kern Kern Kern Kern"
+	str packed = compress.gzip(text)
+	match compress.gunzip(packed) {
+		Ok(back) => println(f"gzip туда-обратно: ${back == text}")
+		Err(e) => println(e)
+	}
+}

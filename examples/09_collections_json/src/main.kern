@@ -1,0 +1,52 @@
+// dict / set / queue / stack, json, файлы, окружение
+use kern.json[json]
+use kern.env[env]
+
+unit Person(str name, i32 age)
+
+fun main {
+	dict<str, i32> stock = ["яблоки": 5, "груши": 0]
+	stock["сливы"] = 12
+	println(stock.len)
+	println(stock.get_or("киви", -1))
+	println(stock.contains_key("груши"))
+	loop var name in stock.keys println(name)
+
+	set<i32> seen()
+	seen.add(3)
+	seen.add(3)
+	seen.add(7)
+	println(seen.len)                 // 2
+	println(seen.contains(7))
+
+	queue<str> jobs()
+	jobs.enqueue("a")
+	jobs.enqueue("b")
+	println(jobs.dequeue())           // a
+
+	stack<i32> history()
+	history.push(1)
+	history.push(2)
+	println(history.pop())            // 2
+
+	// json
+	Person p("Аня", 25)
+	str text = json.to_str(p)
+	println(text)
+	match json.from_str<Person>(text) {
+		Ok(back) => println(f"${back.name} / ${back.age}")
+		Err(e) => println(f"ошибка: ${e}")
+	}
+
+	match json.parse("{\"x\": [1, 2, 3]}") {
+		Ok(v) => println(v)
+		Err(e) => println(e)
+	}
+
+	// файлы (ошибки — как result, не исключения)
+	match file.write_text("hello.txt", "привет") {
+		Ok(_) => println("записано")
+		Err(e) => println(f"не записано: ${e}")
+	}
+	println(env.os)
+}

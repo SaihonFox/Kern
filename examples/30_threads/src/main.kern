@@ -1,0 +1,101 @@
+// Раунд 24: потоки с общей памятью. kernc run examples/30_threads
+use kern.threading[thread, worker, mutex, amutex, rw_lock, atomic, shared, channel, conc_list, conc_dict, conc_queue]
+use kern.tasks[tasks, parallel, pool]
+
+type Counter {
+	i32 value = 0
+	mutex gate = mutex()
+
+	fun add(i32 n) {
+		use var g = gate.guard()      // замок держится до конца блока
+		value += n
+	}
+}
+
+// конфигурация, которую читают многие и редко меняют
+type Config {
+	rw_lock lk = rw_lock()
+	str mode = "fast"
+
+	fun get -> str {
+		use var g = lk.read()
+		mode
+	}
+
+	fun set(str m) {
+		use var g = lk.write()
+		mode = m
+	}
+}
+
+async fun main {
+	// 1. общий объект: 4 потока увеличивают один счётчик
+	var counter = Counter()
+	list<worker<i32>> ws = []
+	loop var t in 0..4 {
+		ws.add(thread.spawn(fun -> i32 {
+			loop 0..1000 { counter.add(1) }
+			0
+		}))
+	}
+	loop var w in ws { w.join() }
+	println(f"счётчик: ${counter.value}")                   // 4000
+
+	// 2. atomic и общая ячейка
+	var hits = atomic(0)
+	shared<str> status = shared("idle")
+	var w2 = thread.spawn(fun -> i32 {
+		loop 0..500 { hits.increment() }
+		status.set("done")
+		0
+	})
+	w2.join()
+	println(f"atomic: ${hits.value}, статус: ${status.get()}")
+
+	// 3. потокобезопасные коллекции: частоты слов
+	conc_dict<str, i32> freq = conc_dict()
+	var words = ["a", "b", "a", "c", "b", "a"]
+	await parallel.each(words, fun(str w) { freq.update(w, 0, fun(i32 n) -> i32 n + 1) })
+	println(f"a=${freq.get("a")} b=${freq.get("b")} c=${freq.get("c")}")   // 3 2 1
+
+	conc_list<i32> squares = conc_list()
+	await parallel.for_range(0, 10, fun(i32 i) { squares.add(i * i) })
+	println(f"квадратов: ${squares.len}")                   // 10 (порядок не определён)
+
+	conc_queue<str> jobs = conc_queue()
+	jobs.push("one")
+	jobs.push("two")
+	println(f"очередь: ${jobs.pop()} ${jobs.pop()} ${jobs.pop()}")  // one two nil
+
+	// 4. параллельные map / reduce на ядрах (замыкания разрешены)
+	var k = 10
+	var scaled = await parallel.map([1, 2, 3, 4, 5], fun(i32 x) -> i32 x * k)
+	var total = await parallel.reduce(scaled, 0, fun(i32 a, i32 b) -> i32 a + b)
+	println(f"map: ${scaled}, reduce: ${total}")            // [10..50], 150
+
+	// 5. async + потоки: тяжёлая работа в пуле, цикл событий свободен
+	var heavy = thread.run(fun -> i32 {
+		i32 s = 0
+		loop var i in 0..100000 { s += i % 7 }
+		s
+	})
+	await delay(1)
+	println(f"thread.run: ${await heavy}")
+
+	// 6. асинхронный замок, который можно держать через await
+	amutex am = amutex()
+	var order = conc_list<str>()
+	async fun step(str name) {
+		use var g = await am.lock()
+		order.add(f"${name}+")
+		await delay(5)
+		order.add(f"${name}-")
+	}
+	await tasks.all([step("A"), step("B")])
+	println(f"порядок: ${order.snapshot()}")                // A+ A- B+ B- (или B…A)
+
+	// 7. читатели/писатель
+	var cfg = Config()
+	cfg.set("safe")
+	println(f"режим: ${cfg.get()}")
+}

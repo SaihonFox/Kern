@@ -1,0 +1,52 @@
+// async/await, result<T, E> вместо исключений, ранний выход ret, panic
+fun parse_age(str text) -> result<i32, str> {
+	if text == "" { ret Err("пустая строка") }
+	i32 n = text.to_i32() ?: ret Err(f"не число: ${text}")
+	if n < 0 { ret Err("отрицательный возраст") }
+	Ok(n)
+}
+
+fun show(result<i32, str> r) -> str
+	match r {
+		Ok(v) => f"возраст ${v}"
+		Err(e) => f"ошибка: ${e}"
+	}
+
+// async-поток: тип наследует async_iter<T> и реализует `next() -> task<T?>`; nil завершает поток
+type ticker(i32 limit)[async_iter<i32>] {
+	i32 current = 0
+
+	~async fun next -> i32? {
+		await delay(5)
+		if current >= limit { ret nil }
+		current += 1
+		current
+	}
+}
+
+async fun compute(i32 x) -> i32 {
+	await delay(10)
+	x * 2
+}
+
+async fun main(list<str> args) {
+	println(show(parse_age("42")))
+	println(show(parse_age("")))
+	println(show(parse_age("abc")))
+	println(show(parse_age("-5")))
+
+	i32 a = await compute(5)
+	println(a)
+
+	// параллельный запуск и ожидание всех
+	var t1 = compute(1)
+	var t2 = compute(2)
+	println(await t1 + await t2)
+
+	// async loop
+	ticker t(3)
+	var ticks = async loop var n in t n * 10
+	println(ticks)                       // [10, 20, 30]
+
+	if args.len > 100 { panic("слишком много аргументов") }
+}

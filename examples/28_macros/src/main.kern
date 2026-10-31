@@ -1,0 +1,15 @@
+// Раунд 22: макросы (генерация кода при компиляции). kernc run examples/28_macros
+#[derive(to_text)]
+type point(f64 x, f64 y)
+
+#[to_text]
+#[field_count]
+#[require_id]
+unit user(i64 id, str name)
+
+fun main {
+	println(point(1.0, 2.0).to_text())
+	println(user(1, "аня").to_text())
+	println(user_field_count())
+	println(sq!(3 + 1))
+}

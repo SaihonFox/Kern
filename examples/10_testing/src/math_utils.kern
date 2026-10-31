@@ -1,0 +1,8 @@
+pub fun clamp(i32 x, i32 lo, i32 hi) -> i32
+	if x < lo { lo } else if x > hi { hi } else { x }
+
+pub fun factorial(i32 n) -> i64 {
+	i64 acc = 1
+	loop i32 i in 2..=n { acc *= i }
+	acc
+}

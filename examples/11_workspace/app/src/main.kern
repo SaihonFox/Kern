@@ -1,0 +1,5 @@
+use util[greet]
+
+fun main(list<str> args) {
+	println(greet(if args.len > 0 args[0] else "Kern"))
+}

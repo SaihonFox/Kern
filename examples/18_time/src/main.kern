@@ -1,0 +1,33 @@
+// Время: duration (промежуток), datetime (момент), stopwatch (секундомер), time.measure
+// Время самой программы: kernc run examples/18_time --time
+use kern.time[time, duration, datetime, stopwatch]
+
+fun main {
+	// duration — неизменяемое значение; арифметика и сравнения как у чисел
+	var d = duration.from_seconds(90)
+	println(d)                                         // 1m 30s
+	println(d.total_ms)                                // 90000
+	println(d * 2)                                     // 3m
+	println(d + duration.from_ms(500))                 // 1m 30.5s
+	println(d > duration.from_minutes(1))              // true
+	println(duration.parse("1h30m").total_minutes)     // 90
+
+	// datetime — момент со смещением от UTC
+	var launch = datetime.of(2026, 10, 14, 12, 30, 0)
+	println(launch)                                    // 2026-10-14T12:30:00.000Z
+	println(launch.year)                               // 2026
+	println(launch.weekday)                            // 3 (ISO: 1 — понедельник)
+	var later = launch + duration.from_hours(36)
+	println(later.format("yyyy-MM-dd HH:mm"))          // 2026-10-16 00:30
+	println(later - launch)                            // 1d 12h
+	println(launch.add_months(3).format("dd.MM.yyyy")) // 14.01.2027
+
+	// stopwatch запускается при создании
+	stopwatch sw()
+	time.sleep(20)
+	println(sw.elapsed.total_ms >= 20)                 // true
+
+	// time.measure выполняет функцию и возвращает duration
+	var took = time.measure(fun { time.sleep(10) })
+	println(took.total_ms >= 10)                       // true
+}

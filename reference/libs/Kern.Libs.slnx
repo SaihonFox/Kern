@@ -1,0 +1,8 @@
+<Solution>
+	<Project Path="Kern.Lib.Db/Kern.Lib.Db.csproj" />
+	<Project Path="Kern.Lib.Ui/Kern.Lib.Ui.csproj" />
+	<Project Path="Kern.Lib.Ffi/Kern.Lib.Ffi.csproj" />
+	<Project Path="Kern.Lib.Transpile/Kern.Lib.Transpile.csproj" />
+	<Project Path="Kern.Lib.Di/Kern.Lib.Di.csproj" />
+	<Project Path="Kern.Lib.Backend/Kern.Lib.Backend.csproj" />
+</Solution>

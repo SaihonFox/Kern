@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><RootNamespace>Kern.Tests</RootNamespace><IsPackable>false</IsPackable></PropertyGroup>
+  <ItemGroup>
+	<PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.*" />
+	<PackageReference Include="xunit" Version="2.*" />
+	<PackageReference Include="xunit.runner.visualstudio" Version="2.*" />
+	<ProjectReference Include="../Kern.Compiler/Kern.Compiler.csproj" />
+	<ProjectReference Include="../Kern.Runtime/Kern.Runtime.csproj" />
+	<!-- внешние библиотеки собираются перед тестами, но их DLL не копируются в вывод: KernHarness грузит их из libs/_out -->
+	<ProjectReference Include="../../libs/Kern.Lib.Db/Kern.Lib.Db.csproj" ReferenceOutputAssembly="false" />
+	<ProjectReference Include="../../libs/Kern.Lib.Ui/Kern.Lib.Ui.csproj" ReferenceOutputAssembly="false" />
+	<ProjectReference Include="../../libs/Kern.Lib.Ffi/Kern.Lib.Ffi.csproj" ReferenceOutputAssembly="false" />
+	<ProjectReference Include="../Kern.Std/Kern.Std.csproj" />
+  </ItemGroup>
+</Project>

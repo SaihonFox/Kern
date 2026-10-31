@@ -1,0 +1,34 @@
+// SQLite + ORM и HTTP-сервер. Запуск: kernc run examples/13_db_web  (затем откройте http://localhost:8080/users)
+use kern.db.sqlite[sqlite]
+use kern.db[orm, table]
+use kern.web[web_server, web_request, web_response, web]
+use kern.server
+use kern.json[json]
+
+unit User(i64 id, str name, i32 age)
+
+async fun main {
+	sqlite db(":memory:")
+	table<User> users = orm.table<User>(db)
+	users.create()
+	users.insert(User(0, "Аня", 25))
+	users.insert(User(0, "Борис", 31))
+
+	web_server s(8080)
+	s.get("/users", fun (web_request r) -> web_response {
+		match users.all() {
+			Ok(list) => web.json(list)
+			Err(e) => web.status(500, e)
+		}
+	})
+	s.get("/users/{id}", fun (web_request r) -> web_response {
+		i64 id = r.param("id")?.to_i64() ?: 0
+		match users.find(id) {
+			Ok(nil) => web.not_found()
+			Ok(u) => web.json(u)
+			Err(e) => web.status(500, e)
+		}
+	})
+	println("слушаю http://localhost:8080")
+	await s.serve()
+}

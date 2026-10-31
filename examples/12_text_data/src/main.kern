@@ -1,0 +1,49 @@
+// regex, csv, yaml, xml, crypto, uuid
+use kern.regex[regex]
+use kern.csv[csv]
+use kern.yaml[yaml]
+use kern.xml[xml]
+use kern.crypto[crypto]
+use kern.uuid[uuid]
+
+fun main {
+	// регулярные выражения
+	regex r("(\\d+)-(\\d+)")
+	println(r.is_match("диапазон 10-20"))
+	match r.find("диапазон 10-20") {
+		nil => println("нет")
+		m => println(f"${m.text} → группы ${m.groups}")
+	}
+	println(r.replace("1-2 и 3-4", "<$1..$2>"))
+
+	// csv
+	str table = "имя,возраст\nАня,25\n\"Борис, мл.\",31\n"
+	match csv.parse_dicts(table) {
+		Ok(rows) => loop var row in rows {
+			str who = row["имя"]
+			str age = row["возраст"]
+			println(f"${who}: ${age}")
+		}
+		Err(e) => println(e)
+	}
+
+	// yaml
+	match yaml.parse("name: kern\nversion: 1\ntags: [lang, vm]\nauthor:\n  name: Saihon\n") {
+		Ok(doc) => println(yaml.to_str(doc))
+		Err(e) => println(e)
+	}
+
+	// xml
+	match xml.parse("<users><user id=\"1\">Аня</user><user id=\"2\">Борис</user></users>") {
+		Ok(root) => loop var u in root.find_all("user") {
+			str id = u.attr("id") ?: "?"
+			println(f"${id} = ${u.text}")
+		}
+		Err(e) => println(e)
+	}
+
+	// хэши
+	println(crypto.sha256("kern"))
+	println(crypto.base64_encode("привет"))
+	println(uuid.new().len)             // 36
+}

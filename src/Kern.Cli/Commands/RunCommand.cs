@@ -1,0 +1,89 @@
+using Kern.Binding.Resolution;
+using Kern.Bytecode;
+using Kern.Cli.Infrastructure;
+using Kern.Vm.Async;
+using Kern.Vm.Execution;
+using Kern.Vm.Values;
+
+namespace Kern.Cli.Commands;
+
+/// <summary>
+/// <c>kernc run &lt;файл.kern | папка&gt; [аргумент ...]</c>: компилирует один файл или проект
+/// по соглашению и выполняет его top-level <c>fun main</c>. Аргументы после исходника
+/// передаются в <c>main(list&lt;str&gt; args)</c> (spec §13); <c>main</c> без параметров их
+/// игнорирует. Асинхронный <c>main</c> (возвращает <c>task&lt;T&gt;</c>) доводится до конца
+/// планировщиком VM. Вывод программы идёт через <see cref="Console"/>.
+/// </summary>
+internal static class RunCommand
+{
+	private const int AsyncWaitTimeoutMs = 30_000;
+
+	public static int Run(string[] args, TextWriter stdout, TextWriter stderr)
+	{
+		if (!SourceArguments.TryParse(
+			args, "run", allowOutput: false, allowProgramArguments: true, stderr,
+			out string path, out SourceKind kind, out _, out IReadOnlyList<string> programArguments))
+			return 2;
+
+		CompileResult result = SourceCompiler.Compile(path, kind);
+		SourceCompiler.Report(result, stderr);
+		if (!result.Success)
+			return 1;
+
+		CompiledProgram program = result.Program!;
+		int entry = program.Module.EntryPoint;
+		if (entry < 0)
+		{
+			stderr.WriteLine(kind == SourceKind.Project
+				? "ошибка: в проекте нет функции main"
+				: "ошибка: в файле нет функции main");
+			return 1;
+		}
+
+		FunctionDef entryPoint = program.Module.FunctionPool[entry];
+		try
+		{
+			var interpreter = new Interpreter(program.Module, new NativeResolver(program.Catalog));
+			KValue[] mainArguments = entryPoint.ParamCount == 1
+				? [KValue.Obj(new KList(interpreter.Types.Prim(PrimKind.Str), programArguments.Select(KValue.Str)))]
+				: [];
+			WaitForTask(interpreter, interpreter.Run(entry, mainArguments));
+			return 0;
+		}
+		catch (KernPanic panic)
+		{
+			stderr.WriteLine($"ошибка выполнения: {panic.Message}");
+			return 1;
+		}
+	}
+
+	/// <summary>
+	/// Если <c>main</c> асинхронный, <see cref="Interpreter.Run"/> вернул <c>task&lt;T&gt;</c>:
+	/// крутим планировщик в текущем потоке, как это делает сам интерпретатор на <c>await</c>.
+	/// </summary>
+	private static void WaitForTask(Interpreter interpreter, KValue value)
+	{
+		if (value.Kind != ValueKind.Ref || value.Ref is not KTask task)
+			return;
+
+		long startTicks = Environment.TickCount64;
+		while (!task.IsCompleted)
+		{
+			if (interpreter.Scheduler.HasWork)
+			{
+				interpreter.Scheduler.RunUntilIdle();
+				continue;
+			}
+
+			if (Environment.TickCount64 - startTicks > AsyncWaitTimeoutMs)
+				throw new KernPanic("асинхронная операция не завершилась: нет внешних событий");
+
+			interpreter.Scheduler.WaitForWork(TimeSpan.FromMilliseconds(50));
+		}
+
+		if (task.Status == KTaskStatus.Failed && task.Error is { } error)
+			throw error;
+		if (task.Status == KTaskStatus.Canceled)
+			throw new KernPanic("задача main отменена");
+	}
+}

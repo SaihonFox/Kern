@@ -1,0 +1,130 @@
+// Раунд 21: backend-фреймворк (библиотека kern.backend, собирается отдельно: libs/Kern.Libs.slnx).
+// Запуск: kernc run examples/27_backend
+//   curl localhost:8080/health
+//   curl -X POST localhost:8080/login -d '{"user":"admin","password":"secret"}'     → {"token":"…"}
+//   curl localhost:8080/api/todos
+//   curl -X POST localhost:8080/api/todos -H "Authorization: Bearer <token>" -d '{"title":"купить хлеб"}'
+//   curl -X DELETE localhost:8080/api/todos/1 -H "Authorization: Bearer <token>"      (нужна роль admin)
+//   curl -N localhost:8080/events                                                       (SSE; события шлёт POST /notify)
+//   curl localhost:8080/stop                                                            (останавливает сервер)
+use kern.backend[app, ctx, res, chain, middleware, jwt, sse, socket]
+use kern.backend.server
+use kern.di[container]
+
+unit todo(i64 id, str title, bool done)
+unit todo_dto(str title)
+unit login_dto(str user, str password)
+unit token_dto(str token)
+
+str secret = "kern-secret"
+
+// --- хранилище (singleton в контейнере) ---
+type todo_repo {
+	list<todo> items = <todo>[]
+	i64 next_id = 1
+
+	fun all() -> list<todo> items
+
+	fun find(i64 id) -> todo? {
+		loop var t in items {
+			if t.id == id { ret t }
+		}
+		nil
+	}
+
+	fun add(str title) -> todo {
+		var t = todo(next_id, title, false)
+		next_id = next_id + 1
+		items = items + [t]
+		t
+	}
+
+	fun remove(i64 id) -> bool {
+		list<todo> rest = <todo>[]
+		bool found = false
+		loop var t in items {
+			if t.id == id { found = true } else { rest = rest + [t] }
+		}
+		items = rest
+		found
+	}
+}
+
+// --- вариант 2: атрибутный контроллер; параметры связываются по типу и имени ---
+#[controller("/api/todos")]
+type todo_controller(todo_repo repo) {
+	#[get("/")]
+	fun index() -> list<todo> repo.all()
+
+	#[get("/{id}")]
+	fun show(i64 id) -> todo? repo.find(id)                 // nil → 404
+
+	#[post("/")]
+	#[auth]
+	fun create(todo_dto dto) -> todo repo.add(dto.title)    // тело запроса → todo_dto
+
+	#[delete("/{id}")]
+	#[roles("admin")]
+	fun remove(i64 id) -> res {
+		if repo.remove(id) { res.no_content() } else { res.not_found() }
+	}
+}
+
+fun issue_token(login_dto d) -> res {
+	if d.password != "secret" { ret res.unauthorized("неверный пароль") }
+	str role = if d.user == "admin" { "admin" } else { "user" }
+	res.json(token_dto(jwt.sign(d.user, [role], secret, 3600)))
+}
+
+async fun main {
+	var k = container()
+	k.singleton<todo_repo>()
+
+	app a(8080)
+	a.services(k)
+
+	// --- вариант 1: функции и middleware ---
+	a.use(middleware.recover())
+	a.use(middleware.logger())
+	a.use(middleware.cors())
+	a.use(middleware.jwt_optional(secret))          // если токен есть — ctx.user и роли заполнены
+	a.use(fun(ctx c, chain n) -> res {              // свой middleware
+		var r = n.next()
+		r.header("X-Powered-By", "kern")
+	})
+
+	a.get("/health", fun (ctx c) -> res res.text(f"ok, пользователь: ${c.user ?: "аноним"}"))
+
+	a.post("/login", fun (ctx c) -> res {
+		match c.json<login_dto>() {
+			Ok(d) => issue_token(d)
+			Err(e) => res.bad_request(e)
+		}
+	})
+
+	// группа с общим префиксом и обязательной авторизацией
+	var admin = a.group("/admin")
+	admin.use(middleware.require_role("admin"))
+	admin.get("/stats", fun (ctx c) -> res res.text("доступно только admin"))
+
+	// SSE и WebSocket
+	a.sse("/events", fun (sse s) {
+		s.send("hello", "подключено")
+	})
+	a.post("/notify", fun (ctx c) -> res {
+		i32 n = a.sse_broadcast("/events", "note", c.body)
+		res.text(f"доставлено: ${n}")
+	})
+	a.ws("/echo", fun (socket s, str text) {
+		s.send(f"эхо: ${text}")
+	})
+
+	a.get("/stop", fun (ctx c) -> res {
+		a.stop()
+		res.text("пока")
+	})
+
+	a.scan_controllers()                            // регистрирует todo_controller
+	await a.serve()
+	println("сервер остановлен")
+}

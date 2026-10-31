@@ -1,0 +1,56 @@
+// Раунд 16: события (`+=`/`-=`), observable-список, структурный match по именам полей.
+use kern.events[event, signal]
+use kern.collections[observable]
+
+unit Point(f64 x, f64 y)
+unit User(str name, i32 age, str role)
+
+type Button {
+	event<str> clicked = event<str>()
+	signal closed = signal()
+
+	fun press(str who) {
+		clicked.emit(who)
+	}
+}
+
+fun describe(Point p) -> str {
+	match p {
+		Point(x: 0, y: 0) => "начало координат"
+		Point(x: 0, y: var y) => f"на оси Y, y = ${y}"
+		Point(y: 0) => "на оси X"
+		_ => "где-то ещё"
+	}
+}
+
+fun main {
+	var b = Button()
+	var log = fun(str who) { println(f"кликнул ${who}") }
+	b.clicked += log
+	b.clicked += fun(str who) { println(f"второй обработчик: ${who}") }
+	b.press("Аня")
+	b.clicked -= log
+	b.press("Боря")                          // остался только второй обработчик
+
+	b.closed += fun { println("закрыто") }
+	b.closed.emit()
+
+	observable<i32> nums = observable<i32>()
+	nums.on_change(fun(str kind, i32 item) { println(f"изменение: ${kind} ${item}") })
+	nums.add(1)
+	nums.add(2)
+	nums.remove(1)
+	nums.clear()
+
+	println(describe(Point(0, 0)))
+	println(describe(Point(0, 7)))
+	println(describe(Point(3, 0)))
+
+	var u = User("Анна", 30, "admin")
+	var text = match u {
+		User(role: "admin", name: var n) => f"админ ${n}"
+		User(age: i32 a) : a < 18 => "несовершеннолетний"
+		_ => "пользователь"
+	}
+	println(text)
+}

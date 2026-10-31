@@ -1,0 +1,73 @@
+// if / match / loop как выражения, диапазоны, stop / next, loop возвращает list
+fun grade(i32 score) -> str
+	match { score >= 90 => "A"; score >= 75 => "B"; _ => "C" }
+
+fun main {
+	i32 x = 7
+	str label = if x > 5 { "big" } else { "small" }
+	println(label)
+	println(if x % 2 == 0 { "чётное" } else { "нечётное" })
+
+	println(match x { 1 => "one"; 2 => "two"; _ => "other" })
+	println(grade(80))
+	println(match x { v if v > 5 => "gt5"; _ => "le5" })
+
+	list<i32> squares = loop i32 i in 1..5 i ** 2     // [1, 4, 9, 16]
+	println(squares)
+	println(loop i32 i in 1..=5 i)                         // [1, 2, 3, 4, 5]
+	println(loop i32 i in 1..10:2 i)                       // [1, 3, 5, 7, 9]
+	loop 0..3 println("hi")
+
+	// stop / next
+	var evens = loop i32 i in 0..20 {
+		if i % 2 == 1 { next }
+		if i > 10 { stop }
+		i
+	}
+	println(evens)
+
+	dict<str, i32> ages = ["аня": 25, "борис": 31]
+	loop var pair in ages println(pair)
+	loop (str who, i32 years) in ages println(f"${who}: ${years}")   // кортеж: у каждого элемента тип (или `var`)
+
+	// голое имя в `loop` — уже объявленная переменная: ей и присваиваются значения.
+	// Новую переменную объявляют `loop i32 i in …` или `loop var i in …`; без переменной — `loop 0..3 …`
+	i32 j = -1
+	loop j in 0..3 { }
+	println(j)                                         // 2
+	loop 0..2 println("повтор")
+
+	// while: `loop условие тело`
+	i32 n = 0
+	loop n < 3 {
+		println(f"n=${n}")
+		n += 1
+	}
+
+	// бесконечный цикл: `loop { … }`, выход через stop
+	i32 count = 0
+	loop {
+		count += 1
+		if count >= 4 { stop }
+	}
+	println(count)                                     // 4
+
+	// условие с оператором `in` — в скобках
+	list<i32> allowed = [1, 2, 3]
+	i32 k = 1
+	loop (k in allowed) k += 1
+	println(k)                                         // 4
+
+	// stop/next можно писать и внутри выражения с недовычисленными операндами
+	list<i32> picked = []
+	loop i32 i in 0..10 {
+		if i % 2 == 0 {
+			picked.add(i)
+		} else if i > 6 {
+			stop
+		} else {
+			next
+		}
+	}
+	println(picked)                                    // [0, 2, 4, 6]
+}

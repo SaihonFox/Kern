@@ -1,0 +1,41 @@
+// Исходник, который транспилируется (ядро языка: unit, match, loop, generics, result)
+unit Point(f64 x, f64 y)
+
+fun area(Point a, Point b) -> f64 {
+	var w = b.x - a.x
+	var h = b.y - a.y
+	w * h
+}
+
+fun describe(i32 n) -> str
+	match n {
+		0 => "ноль"
+		1..9 => "мало"
+		_ => f"много: ${n}"
+	}
+
+fun divide(i32 a, i32 b) -> result<i32, str> {
+	if b == 0 { Err("деление на ноль") } else { Ok(a / b) }
+}
+
+fun first_or<T>(list<T> xs, T fallback) -> T {
+	if xs.len == 0 { fallback } else { xs[0] }
+}
+
+fun sum_to(i32 n) -> i32 {
+	i32 total = 0
+	loop var i in 0..n { total += i }
+	total
+}
+
+fun main {
+	var p = Point(1.0, 2.0)
+	println(area(p, Point(4.0, 6.0)))
+	println(describe(5))
+	println(sum_to(10))
+	match divide(10, 2) {
+		Ok(v) => println(f"результат ${v}")
+		Err(e) => println(e)
+	}
+	println(first_or([1, 2, 3], 0))
+}

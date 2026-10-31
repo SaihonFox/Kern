@@ -1,0 +1,16 @@
+// FFI: вызов функций из C/C++ библиотек (внешняя библиотека Kern.Lib.Ffi, модуль kern.ffi).
+// Сигнатура задаётся строкой "возврат(аргументы)": void bool i8 i16 i32 i64 u8 u16 u32 u64 f32 f64 ptr str.
+use kern.ffi[native_lib]
+
+fun main {
+	// Windows: msvcrt.dll; Linux: libc.so.6; macOS: libSystem.dylib
+	native_lib c("msvcrt")
+
+	var strlen = c.fn("strlen", "i64(str)")
+	println(strlen.call(["привет"]))        // 12: длина в байтах UTF-8
+
+	var abs = c.fn("abs", "i32(i32)")
+	println(abs.call([-42]))                // 42
+
+	println(c.has("no_such_function"))      // false
+}

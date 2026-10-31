@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<ItemGroup>
+		<ProjectReference Include="../Kern.Core/Kern.Core.csproj" />
+	</ItemGroup>
+</Project>

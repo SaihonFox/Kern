@@ -1,0 +1,9 @@
+use kern.test[assert_eq]
+// модуль util из цели core
+pub fun greet(str name) -> str
+	f"Привет, ${name}!"
+
+#[test]
+fun greet_works {
+	assert_eq("Привет, Мир!", greet("Мир"))
+}

@@ -1,0 +1,42 @@
+// Тесты с моками: kernc test examples/16_mocks
+use kern.test[assert_eq, mock]
+
+@type Mailer {
+	@fun send(str to, str body) -> bool
+	@fun ping() -> i32
+}
+
+// Код, который мы тестируем: зависит от абстрактного Mailer
+fun notify_all(Mailer m, list<str> users) -> i32 {
+	i32 sent = 0
+	loop var u in users {
+		if m.send(u, "Привет, " + u) { sent += 1 }
+	}
+	sent
+}
+
+fun main {
+	println("запустите: kernc test examples/16_mocks")
+}
+
+#[test]
+fun counts_successful_sends {
+	Mailer m = mock.create<Mailer>()
+	mock.returns(m, "send", true)
+	mock.returns_for(m, "send", ["bob", "Привет, bob"], false)
+
+	assert_eq(2, notify_all(m, ["ann", "bob", "eve"]))
+	mock.verify(m, "send", 3)
+	mock.verify_with(m, "send", ["ann", "Привет, ann"], 1)
+	mock.verify_never(m, "ping")
+}
+
+#[test]
+fun custom_handler_and_reset {
+	Mailer m = mock.create<Mailer>()
+	mock.handle(m, "ping", fun (list<object> args) -> i32 42)
+	assert_eq(42, m.ping())
+	assert_eq(1, mock.calls(m, "ping"))
+	mock.reset_calls(m)
+	assert_eq(0, mock.calls(m, "ping"))
+}

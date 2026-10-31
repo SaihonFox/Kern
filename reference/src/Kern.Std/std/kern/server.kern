@@ -1,0 +1,22 @@
+// Серверный цикл поверх нативного kern.web: запросы принимаются асинхронно, обработчики идут в потоке VM.
+//
+//   use kern.web[web_server, web_request, web_response, web]
+//   use kern.server
+//   async fun main {
+//       web_server s(8080)
+//       s.get("/hi/{name}") fun (web_request r) -> web_response web.text(f"привет, ${r.param("name")}")
+//       await s.serve()
+//   }
+use kern.web[web_server, web_request]
+
+/// Поток входящих запросов сервера для `async loop`; завершается, когда сервер остановлен.
+pub type request_stream(web_server server)[async_iter<web_request>] {
+	~async fun next -> web_request? {
+		await server.accept()
+	}
+}
+
+/// Обрабатывает запросы по одному, пока сервер не остановят (`s.stop()`).
+pub async fun web_server.serve {
+	async loop var r in request_stream($) $.handle(r)
+}

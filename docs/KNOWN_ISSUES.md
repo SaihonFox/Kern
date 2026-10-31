@@ -1,0 +1,78 @@
+# KNOWN_ISSUES — lessons from the old attempt (`reference/`) and traps to avoid
+
+The reference code (~35k lines C#) was written **without ever being compiled** (the author had no dotnet). The owner built it on Windows in places and pasted errors.
+Treat reference as a source of *ideas and structure*, not as truth. Below: every defect known so far, plus design traps.
+
+## A. Compile-time traps (C#)
+1. `Kern.Runtime.Math` namespace shadows `System.Math` inside `Kern.Runtime.*` → write `System.Math.Max(...)`.
+2. Missing `using Kern.Runtime.Core;` for `Kv` (helpers `Kv.Of/As/Last/Strs`) in several files; missing `using Kern.Compiler.Semantics.Bound;` in the transpiler lowerer.
+   Lesson: build early and often; do not trust "looks right".
+3. In `Kern.Compiler` these names collide: `Syntax.{TypeKind, MemberFlags, FuncType}` vs `Bytecode.{TypeKind, MemberFlags}` vs `Semantics.Types.FuncType` → use `using Alias = …`.
+4. `MacroData.cs` had warning CS9124 (primary-ctor parameter captured and also stored) — avoid capturing primary-ctor params into fields twice.
+5. IDE0290/IDE0330 are only suggestions (primary ctor, `System.Threading.Lock`); not errors.
+6. `ModuleMap.cs` maps C# namespaces → Kern modules; the namespace `Kern.Runtime.Math` exists, so name new C# namespaces carefully.
+
+## B. Semantic bugs observed when the owner ran the examples
+1. **`len` missing on `list<T>` / `dict<K,V>` (KRN2003)**: `len` was an *extension property* implemented as a generic static C# method on `KList<T>`; member lookup failed to unify the receiver with generic parameters.
+   Design fix: first-class native members for builtin generics, not "extension with unification". Use `KERN_TRACE_MEMBERS=1`-style tracing in your new lookup code.
+2. `contains` ambiguity (KRN1402) between list/collection overloads: make overload ranking prefer the more specific receiver (`list<T>` over `collection<T>`).
+3. Conversions to `collection<T>` failed for `set/list/str` arguments and `streamwriter`→`stream` (KRN1404/KRN2001): the collection hierarchy conversion must be in `Conversions` and in generic inference.
+4. `regex` type was not found when a program used `x"…"`/`use kern.regex[regex]` (KRN1001) — module/type registration gap.
+5. **Attributes on properties/fields were never written into bytecode**, so DI `#[inject]` and reflection saw nothing (runtime panic "call of method now via nil"). Emit attributes for all members.
+6. `panic("…")` as the last statement of a function with a return type gave KRN2104 ("missing return") because `panic` was not `never`. Decision: `never` type (see spec).
+7. Lambda result type: `fun(i32 x) -> x * k` parsed `x` as the result type. The language requires `-> Type` before the body: `fun(i32 x) -> i32 x * k`.
+8. Example 31 (`kbc`) reported "module 'mathx.vec' not found" simply because `mathx` had not been built as a `.kbc` first — the build order must be explicit (builder task or clear error message).
+9. Old examples used things the language does **not** have: `:=`, `const`, leading `.` chains (now **added** by decision), `panic` as non-diverging.
+10. Console encoding: Russian printed as `?` until UTF-8 was forced before first write.
+11. SQLite native loading from a library folder needed `ResolvingUnmanagedDll` handling and `SQLitePCL.Batteries_V2.Init()` (stage 2).
+12. `.NET` exceptions inside natives must become Kern panics with the inner-exception chain in the message.
+
+## C. Design traps
+- **Thread safety**: `Interpreter.Fork()` shares Module/Info/types/statics. Lazy caches in shared structures need locks (enum value cache, type factory, reflection `AddType`). KTask/Scheduler belong to the owner thread only; results come back via `Scheduler.BeginExternal/EndExternal`. `await` only on the thread that owns the task.
+- `static` mutable state in the compiler/catalog (e.g. `NativeType.CollectionRoot`) breaks parallel xunit tests: avoid statics or make the harness serial.
+- Native generics: a bare `T` in a C# signature must not be treated as `T?`; only explicit `T?`/`[Nullable]` means nullable. Reified type args via `[KernTypeArgs] KType[]`.
+- `list<T>` element type is `object` for `snapshot()/keys()/values()` of generic native classes — pass element types explicitly.
+- Do not use `MethodInfo.Invoke` on hot paths (compile delegates/expression trees).
+- Text-expansion macros shift line numbers; keep a line map so diagnostics point to the original source.
+- `.kbc` linker matches stubs by key; generated constructors and `<static-init>` have no source spans — design stable keys for them from day one; type matching by simple name conflicts for same-named types (decide a qualified key).
+- `kbc` cache hash must include `.kbc` dependencies.
+- Peephole optimizer must not merge an instruction that is a jump target with its predecessor; recompute line tables.
+
+## D. Things that were only designed (never run): treat with extra care
+Threads/`conc_*`/`parallel.*`, `.kbc` stubs+linker, macros, compile-time reflection, `define_type`, typed HTTP proxy, mocks, builder hash-skip, formatter token verification, `-O2`.
+
+## E. Open gaps in the current implementation (as of 2026-10-27)
+- **Required fields (`!`) are not enforced.** `FieldSymbol.IsRequired` is collected and mapped to `MemberFlags.Readonly` in codegen, but no binder pass checks that every construction path assigns the field and the VM never reads the flag. A `!str name` field left unassigned reads `none` as `str`. Question Q18 in `DECISIONS_NEEDED.md`.
+- **`unit!` field stores are rejected inside their own ctor** (`Binder.cs:541`, `KRN2105`), so a hand-written `init $._x = value` accessor on a `unit!` type cannot compile even though the VM's construction window permits the write. Question Q17.
+- **Uninitialized fields and statics read as `none`.** There is no zero-initialisation, so `#i32 counter` without an initializer is `KValue.None` and arithmetic on it panics (`несовпадение типов операндов`). Static initializers run in declaration order, so a type declared before its dependency reads `none` - order the declarations accordingly (spec §8).
+- **`panic(...)` has no bytecode yet** (`KRN2201`), so tests use `KernPanic`-producing operations instead; lambdas and local functions are still unbound (`KRN2109`), which weakens the "no `init` write inside a lambda declared in a ctor" test (it currently passes on the generic lambda error).
+- **Constant literal conversion is not applied on assignment (found 2026-10-27, B1).** `u8 b = 1` reports `KRN2102` although a literal in range should convert implicitly (§15); the workaround in tests is a suffix (`1u8`). Same family as the numeric-literal conversion gap, not a bitwise bug.
+- **A one-line block cannot hold a generic local declaration (found 2026-10-27, B1).** `fun f() { list<list<i32>> x }` fails the local-declaration lookahead at the missing statement terminator, while the multiline form works; the closing `>>` is counted correctly now. Low severity (formatting-sensitive), but it is a lookahead edge, not a language rule.
+
+- **`result`/`task` have no runtime representation yet** (found 2026-10-27, B2): there are no `Ok`/`Err` constructors, no VM value type for `result<T, E>` and no `KResult` marshalling, so a Kern program cannot create or inspect a `result` value at runtime. `KRN2305` is still meaningful for declared return types and the discard path (`_ = expr`) is type-agnostic, but end-to-end result tests must wait for the result/std slice.
+- **Native generic member return types are not substituted** (found 2026-10-27, B3a): `list<T>.first()`/`last()` bind with the static return type `object` (the native catalog maps `KValue` to `object` without substituting `T`), so `xs.first() + 1` and `m.first().len` do not bind; tests read the runtime `KList` directly instead. Fixing this needs `T` substitution in the native member catalog/binder - it blocks ergonomic std work for B9/M14 collections.
+- **Contextual `str <-> list<char>` conversions are not implemented** (spec §3): neither `list<char> c = "text"` nor `str s = <char>['h', 'i']` has binder support yet.
+- **Expected-type-driven literal kinds reach only some positions** (found 2026-10-27, B3b1): the hint is threaded to local initializers, assignments and the function's final expression; `if`/`match` branches and block expressions do not forward it, so an array literal inside them stays a `list` and needs an explicit local.
+- **`array<T>[...]` prefix syntax is not parsed** (spec §3 corrected 2026-10-27, B3b1): the approved form is `<T>[...]` with an expected `array<T>`; the old "Сохраняется синтаксис `array<i32>[1, 2, 3]`" wording was replaced.
+- **Open ranges in slices are parser errors** (found 2026-10-27, B5b2): `xs[..3]` and `xs[1..]` are not parsed; the implemented slice forms require both bounds (`xs[1..3]`, `xs[1..=3]`, negative bounds included).
+- **`str` offsets are UTF-16 code units** (found 2026-10-27, B5b2): `s[i]`, slices and `str.len` count UTF-16 units, so a non-BMP character occupies two positions.
+- **`op TypeName.[]` extension form is not parsed** (found 2026-10-27, B5a): only the member form inside `unit`/`type` works; the extension spelling from spec 10 is unsupported.
+- **Same-arity indexer overloads pick the first convertible candidate** (found 2026-10-27, B5a): an exact type match wins, otherwise the first candidate decides and `Convert` may report `KRN2102`; there is no ambiguity diagnostic.
+- **`op hash`/`op compare` protocol gaps** (found 2026-10-29, B6b1): declarations with a wrong arity are silently ignored (a `unit` then falls back to the structural default, a `type` reports `KRN2101`); `==`/`!=` do not consult `compare` yet (B6b2); ordering a `type` without `op compare` is `KRN2101` pending Q24; `x.hash()`/`x.compare(y)` are only member calls (no unqualified form), and `op hash`/`op compare` declarations are validated at the call site rather than at the declaration.
+- **Grouped attribute syntax is not parsed** (found 2026-10-27, B7): spec §7 promises `#[Inline, Deprecated("msg")]`, but the parser accepts exactly one name per `#[…]`; a comma inside the brackets is a parse error.
+- **Member attributes are dropped by the parser** (found 2026-10-27, B7): attributes before fields, properties, operators, constructors and extension members are parsed and then discarded, so neither `KRN2307` nor `KRN2306` can see them; only `fun`, `type`, `unit` and nested types keep attributes.
+- **Attribute arguments/arity/targets are not validated** (found 2026-10-27, B7): `#[deprecated("msg")]` keeps the raw token text (quotes stripped for the diagnostic), `#[cfg]` accepts anything, and an attribute on a wrong target is not diagnosed.
+- **Attributes are not emitted into `.kbc`** (found 2026-10-27, B7): `AttributeUse` exists in `Kern.Bytecode` and the writer/reader round-trip it, but the compiler never fills `TypeDef.Attributes`/`FunctionDef.Attributes`; runtime reflection cannot see attributes yet (M4 item).
+- **Dict key hashability is checked only at literal binding** (found 2026-10-27, B6a): `dict<K, V>` declarations, native constructors and other non-literal paths do not re-check that `K` is hashable; only `[...]`/`<K: V>[...]` report `KRN2101`.
+- **Derived `hash`/`compare`/`clone` are not materialized as members** (found 2026-10-30, B8a; extended 2026-10-31, B8c): `#[derive(hash)]`/`#[derive(compare)]`/`#[derive(clone)]` are applied by the protocol binder path (`BoundHashExpression`/`BoundCompareExpression` with `Structural: true` → `ValueHashFields`/`ValueCompareFields`; `BoundCloneExpression` → `CloneObject`), not by synthesizing methods. The derived members therefore never appear in `MemberTable`, in `.kbc` type definitions or in reflection, and the `derive` attribute itself is not emitted into `.kbc` (same emission gap as B7). A later slice may synthesize real methods/attributes if reflection or other languages need them.
+- **Native Kern type names are unusable** (found 2026-10-31, `kern.test`/`kern.io` slice): `NativeSymbolBuilder.Import` resolves native return/self types through `module.FindType`, but `NativeCatalog.Types` is never merged into `ModuleSymbol.Types`, so a `[KernType("streamwriter")]` member or factory returning it aborts compilation with «неизвестный Kern-тип». Workaround in place: stream members are registered on `object` and factories return `object`; remove the bridge when native types land.
+- **`use` cannot dispose native members** (found 2026-10-31): `Binder.Use.FindDispose` requires `!IsStatic`, while every native type member has `IsStatic = true`; `use var sw = streamwriter(…)` reports `KRN2101`. Direct `sw.dispose()` works.
+- **`fail` from `kern.test` is `void`, not `never`** (found 2026-10-31): `TypeMapping` has no CLR→`never` mapping, so code after `fail(…)` is not treated as unreachable.
+- **`1e-6` is a lexer error** (found 2026-10-31): numeric literals with an exponent are rejected (`LEX005`); use `0.000001` until the lexer accepts exponents.
+- **Iteration loop is limited to ranges and `list`/`array`** (found 2026-10-31 after implementing it): `loop var x in …` over `dict`/`str` and the loop-as-expression form (`list<…> xs = loop … in … …`) are not implemented yet and report `KRN2101`/`KRN2109`; the loop variable is declared in the loop's own scope, `next` performs the counter increment first.
+- **`main` must be void (2026-10-31, CLI).** The binder rejects `fun main() -> i32` with `KRN2107` («Функция main не может возвращать значение»), so `kernc run` cannot show that a returned value is ignored: there is no legal non-void `main` yet. The command always discards what `Interpreter.Run("main")` returns. Allowing a return value is a language rule change (binder), not a CLI decision. (`fun main(list<str> args)` *is* legal and receives the command-line arguments, spec §13.) Async `main` (`async fun main`) also cannot be exercised end-to-end because `await delay(ms)` hits `KRN2109` (the native returns a non-generic C# `Task`).
+- **Directory mode is one module (2026-10-31, CLI).** `kernc run|build|check <dir>` concatenates all project files into a single module, so per-file module names, `use path.module[…]` imports between project files and a `project a.b:` header in a non-first file are not supported yet (imports are M3-F/M10).
+## F. Files in `reference/` that are *not* part of stage 1
+`libs/*` (Db, Ui, Ffi, Transpile, Di, Backend) - stage 2; use as design material only.
+`reference/src/Kern.Cli/Kbc` and `Build` depend on `kern.toml` — redesign for `build.kern`.
+`reference/src/Kern.Tests/Examples/ExamplesCompileTests.cs` enumerates `kern.toml` files — replace with convention-based discovery.

@@ -1,0 +1,22 @@
+// Подстановки для транспилятора. Любая из функций может отсутствовать; nil = «правила нет, использовать стандартное».
+// target — "csharp" или "kotlin".
+
+fun map_type(str target, str kern_type, list<str> args) -> str? {
+	if kern_type == "duration" {
+		ret if target == "csharp" { "System.TimeSpan" } else { "kotlin.time.Duration" }
+	}
+	nil
+}
+
+fun map_call(str target, str owner, str name, str receiver, list<str> args) -> str? {
+	// println → собственный логгер
+	if owner == "" && name == "println" {
+		str joined = args.join(", ")
+		ret if target == "csharp" { f"Log.Info(${joined})" } else { f"logger.info(${joined})" }
+	}
+	nil
+}
+
+fun map_member(str target, str owner, str name, str receiver) -> str? {
+	nil
+}

@@ -1,0 +1,52 @@
+// Наследование нативных типов: set/queue/stack/observable — потомки collection<T>; streamwriter/streamreader — потомки stream.
+use kern.collections[collection, set, queue, stack, observable]
+use kern.io[stream, streamwriter, streamreader]
+
+fun describe(collection<i32> c) -> str {
+	ret f"элементов: ${c.len}, пусто: ${c.is_empty}, есть 2: ${2 in c}"
+}
+
+fun total(collection<i32> c) -> i32 {
+	var sum = 0
+	loop var x in c {
+		sum += x
+	}
+	ret sum
+}
+
+fun main {
+	set<i32> s = set<i32>()
+	s.add(1)
+	s.add(2)
+
+	queue<i32> q = queue<i32>()
+	q.enqueue(10)
+	q.enqueue(20)
+
+	stack<i32> st = stack<i32>()
+	st.push(5)
+
+	observable<i32> o = observable<i32>()
+	o.add(7)
+	o.add(8)
+
+	// любая из них приводится к collection<i32>
+	println(describe(s))
+	println(describe(q))
+	println(describe(st))
+	println(describe(o))
+	println(total(s) + total(q) + total(st) + total(o))   // 3 + 30 + 5 + 15 = 53
+
+	// встроенные list / str тоже потомки collection<T> (str — collection<char>)
+	println(describe([1, 2, 3]))
+	println(total([4, 5, 6]))                              // 15
+	collection<char> word = "привет"
+	println(word.len)                                      // 6
+	println('в' in word)                                   // true
+
+	// stream — общий базовый тип потоков
+	use streamwriter w = streamwriter("demo23.txt")
+	w.write_line("привет")
+	stream base = w
+	println(base is streamwriter)                          // true
+}

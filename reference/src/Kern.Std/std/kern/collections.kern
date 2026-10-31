@@ -1,0 +1,13 @@
+// Протоколы итерации на самом Kern. set/queue/stack/list/dict/array/range/result — нативные (Kern.Runtime/Collections).
+
+/// Итерируемый тип: `type Bag[iter<i32>] { ~fun next -> i32? { … } }`, затем `loop var x in bag …`.
+/// Цикл вызывает next(), пока не вернётся nil. (Также работает `iter()`, возвращающий list/array/dict.)
+pub @type iter<T> {
+	@fun next -> T?
+}
+
+/// Асинхронный поток значений для `async loop var x in stream`: тип обязан наследовать async_iter<T>
+/// и реализовать `next() -> task<T?>` (nil — конец потока).
+pub @type async_iter<T> {
+	@fun next -> task<T?>
+}

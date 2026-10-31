@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><RootNamespace>Kern.Std</RootNamespace><AssemblyName>Kern.Std</AssemblyName></PropertyGroup>
+  <ItemGroup>
+	<EmbeddedResource Include="std/**/*.kern" LogicalName="std/%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+</Project>

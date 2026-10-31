@@ -1,0 +1,70 @@
+// Функции, значения по умолчанию, именованные аргументы, лямбды/замыкания, локальные функции, расширения
+// Без `-> T` функция возвращает void
+fun get_five -> i32 5
+
+fun greet(str name = "Guest", i32 age = 18) -> str
+	f"${name}, ${age}"
+
+fun make_counter -> fun -> i32 {
+	i32 count = 0
+	fun -> i32 {
+		count += 1
+		count
+	}
+}
+
+fun apply(i32 x, fun(i32) -> i32 f) -> i32
+	f(x)
+
+// вместо variadic (`..`) — обычный список
+fun sum(list<i32> values) -> i32 {
+	i32 total = 0
+	loop var v in values { total += v }
+	total
+}
+
+// расширения
+fun str.shout -> str
+	f"${$}!"
+
+i32 i32.double
+	$ * 2
+
+unit Point(i32 x, i32 y)
+
+// оператор-расширение для своего типа (повтор `i32 * str` для строк встроен)
+op i32.*(Point p) -> Point {
+	Point($ * p.x, $ * p.y)
+}
+
+// локальная функция: видна во всём блоке, вызывать можно до объявления; последнее выражение — результат
+fun twice_random_like(i32 seed) -> i32 {
+	i32 r = helper()
+	fun helper -> i32 seed * 2
+	r
+}
+
+// без `-> T` — void
+fun say(str text) println(text)
+
+fun main {
+	say("запуск")
+	println(get_five())
+	println(greet())
+	println(greet(age: 25, name: "Bob"))
+
+	var next_id = make_counter()
+	println(next_id())
+	println(next_id())
+
+	println(apply(5, fun(i32 n) -> i32 n * n))
+	println(apply(5, fun(i32 n) -> i32 n + 1))       // последняя лямбда за скобками
+
+	println(sum([1, 2, 3, 4]))
+	println(twice_random_like(21))
+	println("hey".shout())
+	println(21.double)
+	println(3 * "Ha")                                // HaHaHa (встроенный повтор)
+	println('-' * 3)                                  // ---
+	println((2 * Point(1, 2)).y)                      // 4
+}

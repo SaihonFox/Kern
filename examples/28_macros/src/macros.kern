@@ -1,0 +1,38 @@
+// Макросы компилируются отдельно и исполняются во время сборки. Файл с макросами может использовать
+// только std, библиотеки и другие файлы с макросами. Макрос принимает macro_ctx и «пишет» код Kern как текст.
+use kern.macro[macro_ctx]
+
+// Атрибутный макрос: #[to_text] или #[derive(to_text)]. Добавляет в тип метод to_text().
+#[macro]
+fun to_text(macro_ctx m) {
+	var t = m.decl
+	var body = ""
+	var sep = ""
+	loop var f in t.fields {
+		body = body + sep + f.name + "=${" + f.name + "}"
+		sep = ", "
+	}
+	m.member("fun to_text() -> str f\"" + t.name + "(" + body + ")\"")
+}
+
+// Генерирует новую функцию верхнего уровня: <тип>_field_count().
+#[macro]
+fun field_count(macro_ctx m) {
+	var t = m.decl
+	m.top(f"fun ${t.name}_field_count() -> i32 ${t.fields.len}")
+}
+
+// Диагностика: ошибка компиляции, если в типе нет поля id.
+#[macro]
+fun require_id(macro_ctx m) {
+	if m.decl.field("id") == nil {
+		m.error(f"в типе ${m.decl.name} нет поля id")
+	}
+}
+
+// Макрос-выражение: sq!(x + 1) → ((x + 1) * (x + 1)). Аргументы приходят как исходный текст.
+#[macro("expr")]
+fun sq(macro_ctx m) -> str {
+	var a = m.args[0]
+	f"(${a}) * (${a})"
+}

@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><RootNamespace>Kern.Lib.Backend</RootNamespace><AssemblyName>Kern.Lib.Backend</AssemblyName></PropertyGroup>
+  <ItemGroup>
+	<ProjectReference Include="../../src/Kern.Runtime/Kern.Runtime.csproj"><Private>false</Private></ProjectReference>
+	<ProjectReference Include="../Kern.Lib.Di/Kern.Lib.Di.csproj"><Private>false</Private></ProjectReference>
+  </ItemGroup>
+</Project>

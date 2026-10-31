@@ -1,0 +1,5 @@
+// Сгенерировано tools/apply-models.mjs — правьте models.json и запускайте скрипт заново.
+// Ключ API здесь НЕ хранится: он вводится через `opencode auth login` (лежит в ~/.local/share/opencode/auth.json).
+{
+	
+}

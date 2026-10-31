@@ -1,0 +1,4 @@
+use geometry.shapes[Shape, area]
+
+pub fun report(Shape s) -> str
+	f"площадь: ${area(s):.2f}"

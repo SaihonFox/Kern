@@ -1,0 +1,23 @@
+// Серверный цикл для kern.backend: HTTP-запросы и события WebSocket приходят в `app.accept()`,
+// а исполняются по одному в потоке VM.
+//
+//   use kern.backend[app, ctx, res, middleware]
+//   use kern.backend.server
+//   async fun main {
+//       app a(8080)
+//       a.get("/hi") fun (ctx c) -> res res.text("привет")
+//       await a.serve()
+//   }
+use kern.backend[app, work]
+
+/// Поток единиц работы сервера для `async loop`; завершается после `a.stop()`.
+pub type work_stream(app server)[async_iter<work>] {
+	~async fun next -> work? {
+		await server.accept()
+	}
+}
+
+/// Обрабатывает работу по одной, пока сервер не остановят.
+pub async fun app.serve {
+	async loop var w in work_stream($) $.handle(w)
+}

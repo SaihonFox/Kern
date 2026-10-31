@@ -1,0 +1,74 @@
+// Раунд 23: расширенный async и параллелизм (kern.tasks). kernc run examples/29_async
+use kern.tasks[tasks, parallel, pool, pipe, cancel_token]
+use kern.pipes[pipe_stream]
+
+async fun fetch(i32 id, i32 ms) -> i32 {
+	await delay(ms)
+	id * 10
+}
+
+async fun failing -> i32 {
+	await delay(5)
+	panic("не вышло")
+	0
+}
+
+// глобальная функция: её можно отправить в другой поток
+fun square(i32 x) -> i32 x * x
+
+async fun ticker(cancel_token tok) -> i32 {
+	i32 n = 0
+	loop {
+		tok.check()
+		await tok.delay(10)
+		n = n + 1
+	}
+	n
+}
+
+async fun main {
+	// all / any / race
+	var all = await tasks.all([fetch(1, 30), fetch(2, 10), fetch(3, 20)])
+	println(f"all: ${all}")
+	println(f"any: ${await tasks.any([failing(), fetch(7, 20)])}")
+	println(f"race: ${await tasks.race([fetch(1, 50), fetch(2, 5)])}")
+
+	// settled: ошибки не прерывают ожидание
+	var settled = await tasks.settled([fetch(4, 5), failing()])
+	println(f"settled: ${settled.len} результата")
+
+	// timeout
+	match await tasks.timeout(fetch(9, 500), 50) {
+		Ok(v) => println(f"успели: ${v}")
+		Err(e) => println(f"таймаут: ${e}")
+	}
+
+	// select: индекс первой готовой
+	println(f"select: ${await tasks.select([fetch(1, 40), fetch(2, 5), fetch(3, 20)])}")
+
+	// отмена: токен + таймер
+	var tok = cancel_token()
+	var t = ticker(tok)
+	tok.cancel_after(55)
+	await delay(100)
+	println(f"тикер отменён: ${tok.cancelled}, упал: ${t.failed}")
+
+	// retry
+	println(f"retry: ${await tasks.retry(fun { fetch(5, 1) }, 3, 10)}")
+
+	// pipe: асинхронный канал с обратным давлением
+	var p = pipe<i32>(2)
+	tasks.run(async fun {
+		loop i32 i in 0..5 { await p.send(i) }
+		p.close()
+	})
+	async loop var x in pipe_stream(p) {
+		println(f"pipe: ${x}")
+	}
+
+	// параллелизм на ядрах: рабочие потоки с общей памятью (раунд 24)
+	println(f"parallel.map: ${await parallel.map([1, 2, 3, 4, 5, 6], square)}")
+	var workers = pool(2)
+	println(f"pool: ${await workers.submit(square, 12)}")
+	workers.close()
+}

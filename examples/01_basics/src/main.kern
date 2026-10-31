@@ -1,0 +1,61 @@
+// Переменные, строки, интерполяция, nil/none, Elvis, smart cast, ! (одноразовое присваивание), swap, if без скобок
+fun main {
+	i32 a = 10
+	var b = 3.5
+	str name = "Мир"
+	char c = 'k'
+	bool ready = true
+
+	println(f"Привет, ${name}! a=${a}, b=${b:.2f}, c=${c}, ready=${ready}")
+	println(f"${a=}")                  // a=10
+	println(f"[${a:08d}] [${name:<8}]") // нули и выравнивание
+
+	// несколько переменных одного типа в строке
+	i32 first = 397, second = 4, third
+	third = first + second
+	println(f"${first} ${second} ${third}")
+
+	// обмен значений
+	first, second = second, first
+	println(f"${first} ${second}")
+
+	// арифметика и степень
+	println(2 ** 10)        // 1024
+	println(2 ** 3 ** 2)    // правоассоциативно: 2 ** 9 = 512
+	i32 p = 3
+	p **= 2
+	println(p)              // 9
+
+	// литералы
+	println(0x1F)
+	println(0b1010)
+	println(0h17)
+	println(.5)
+	u8 small = 5            // константа вмещается в u8, как в C#
+
+	// none / nil / ?:
+	i32? x
+	println(x ?: 42)        // x в состоянии none -> 42
+	x = nil
+	println(x ?: 43)        // nil -> 43
+	x = 7
+	println(x ?: 0)         // 7
+
+	// smart cast
+	i32? y
+	if !y { y = 100 }
+	println(y + 1)          // здесь y рассматривается как i32
+
+	// одноразовое присваивание
+	i32! total
+	if a > 5 { total = 1 } else { total = 2 }
+	println(total)
+
+	// safe call
+	str? maybe = nil
+	println(maybe?.to_str() ?: "пусто")
+
+	// одно выражение — фигурные скобки не нужны
+	if ready println("готово") else println("не готово")
+	loop i32 i in 1..6 if i % 2 == 0 println(f"${i} чётное")
+}

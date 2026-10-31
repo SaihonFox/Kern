@@ -1,0 +1,53 @@
+// GUI на Avalonia: kern.ui. Элементы создаются фабриками ui.*, собираются в column/row, окно запускает ui.run.
+// Обработчики — обычные функции Kern; свойства (text, value, is_checked…) читаются и пишутся прямо на элементе.
+use kern.ui[ui, widget]
+
+fun main {
+	i32 clicks = 0
+
+	widget info = ui.label("Нажатий: 0")
+	info.font_size = 20.0
+
+	widget plus = ui.button("+1")
+	widget reset = ui.button("Сброс")
+
+	widget name = ui.input("")
+	widget greeting = ui.label("")
+	widget loud = ui.checkbox("КАПСОМ")
+
+	widget volume = ui.slider(0.0, 100.0, 30.0)
+	widget bar = ui.progress(0.0, 100.0, 30.0)
+
+	widget fruits = ui.list(["яблоки", "груши", "сливы"])
+	widget picked = ui.label("Ничего не выбрано")
+
+	plus.on_click(fun {
+		clicks += 1
+		info.text = f"Нажатий: ${clicks}"
+	})
+	reset.on_click(fun {
+		clicks = 0
+		info.text = "Нажатий: 0"
+	})
+
+	// одно и то же действие на изменение поля и флажка
+	fun refresh {
+		str who = name.text
+		greeting.text = if loud.is_checked { f"ПРИВЕТ, ${who.uppercase}!" } else { f"Привет, ${who}!" }
+	}
+	name.on_change(fun { refresh() })
+	loud.on_change(fun { refresh() })
+
+	volume.on_change(fun { bar.value = volume.value })
+	fruits.on_change(fun { picked.text = f"Выбрано: ${fruits.selected}" })
+
+	widget buttons = ui.row([plus, reset])
+	buttons.spacing = 8.0
+
+	widget content = ui.column([info, buttons, name, loud, greeting, volume, bar, fruits, picked])
+	content.spacing = 10.0
+	content.margin = 16.0
+
+	widget win = ui.window("Kern GUI", 420, 560, content)
+	println(f"окно закрыто, код ${ui.run(win)}")
+}

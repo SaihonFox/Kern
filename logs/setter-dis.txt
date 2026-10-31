@@ -1,0 +1,53 @@
+; KBC2 версия 1
+.module "main"
+.refs 0
+.strings 0
+.consts 0
+.typeSigs 0
+.typeSigLists 0
+.types 1
+  [0] unit "P" full="main.P" generic=0 parents=0 fields=1 props=0 methods=2 ctors=1 union=0 flags=None attrs=0
+    field "x": i32 slot=0 flags=None attrs=0
+.fields 0
+.properties 0
+.functions 4
+  #0 "f" params=0 locals=1 stack=256 owner=-1 -> i32 flags=Static
+    0000  NewObject 0
+    0002  Dup
+    0003  PushI32 1
+    0005  ConvI32
+    0006  Call 1 2  ; -> "ctor"
+    0009  Pop
+    0010  CopyUnit
+    0011  StoreLocal 0
+    0013  LoadLocal 0
+    0015  PushI32 5
+    0017  ConvI32
+    0018  Call 3 2  ; -> "d"
+    0021  Pop
+    0022  LoadLocal 0
+    0024  LoadField 0
+    0026  Ret
+  #1 "ctor" params=2 [main.P, i32] locals=2 stack=256 owner=0 -> void flags=Ctor
+    0000  LoadLocal 0
+    0002  LoadLocal 1
+    0004  StoreField 0
+    0006  Pop
+    0007  PushVoid
+    0008  Ret
+  #2 "d" params=1 [main.P] locals=1 stack=256 owner=0 -> i32 flags=None
+    0000  LoadLocal 0
+    0002  LoadField 0
+    0004  Ret
+  #3 "d" params=2 [main.P, i32] locals=2 stack=256 owner=0 -> void flags=None
+    0000  LoadLocal 0
+    0002  LoadLocal 1
+    0004  PushI32 2
+    0006  ConvI32
+    0007  Mul
+    0008  StoreField 0
+    0010  Pop
+    0011  PushVoid
+    0012  Ret
+.entry -1
+.attrs 0

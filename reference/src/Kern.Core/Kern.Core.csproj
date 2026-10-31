@@ -1,0 +1,3 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><RootNamespace>Kern.Core</RootNamespace><AssemblyName>Kern.Core</AssemblyName></PropertyGroup>
+</Project>

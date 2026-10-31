@@ -1,0 +1,33 @@
+// Раунд 19: транспилятор Kern → C# / Kotlin (библиотека kern.transpile, собирается отдельно: libs/Kern.Libs.slnx)
+use kern.transpile
+
+fun show(str title, result<str, str> r) {
+	match r {
+		Ok(code) => {
+			println(f"===== ${title} =====")
+			println(code)
+		}
+		Err(e) => println(f"ошибка ${title}: ${e}")
+	}
+}
+
+fun main {
+	str source = "sample/shapes.kern"
+
+	// без своих правил: имена нативных членов берутся из встроенной таблицы или по соглашению языка
+	var cs = transpiler("csharp")
+	show("C#", cs.file(source))
+
+	var kt = transpiler("kotlin")
+	show("Kotlin", kt.file(source))
+
+	// пользовательские подстановки — обычный Kern-скрипт (map_type / map_call / map_member)
+	var custom = transpiler("csharp").map_script("sample/mappings.kern")
+	show("C# со своими правилами", custom.file(source))
+
+	// запись проекта целиком (файлы модулей + KernRuntime.cs / KernRuntime.kt)
+	match transpiler("kotlin").project("sample", "out/kotlin") {
+		Ok(files) => println(f"записано файлов: ${files.len}")
+		Err(e) => println(f"ошибка: ${e}")
+	}
+}

@@ -1,0 +1,10 @@
+// модуль geometry.shapes (путь файла = пространство имён)
+pub unit Circle(f64 radius)
+pub unit Rect(f64 w, f64 h)
+pub type Shape = [Circle, Rect]
+
+pub fun area(Shape shape) -> f64
+	match shape {
+		Circle c => 3.14159 * c.radius ** 2
+		Rect r => r.w * r.h
+	}

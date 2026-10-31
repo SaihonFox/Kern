@@ -1,0 +1,25 @@
+// Библиотека mathx: после `kernc dll examples/31_kbc/mathx` получается out/mathx.kbc
+unit Vec2(f64 x, f64 y) {
+	f64 len => ($x ** 2 + $y ** 2) ** 0.5
+
+	op +(Vec2 other) -> Vec2 {
+		Vec2($x + other.x, $y + other.y)
+	}
+}
+
+type Counter {
+	i32 value = 0
+
+	fun bump(i32 by) -> i32 {
+		value += by
+		value
+	}
+}
+
+fun dot(Vec2 a, Vec2 b) -> f64 {
+	a.x * b.x + a.y * b.y
+}
+
+fun lerp(f64 a, f64 b, f64 t) -> f64 {
+	a + (b - a) * t
+}

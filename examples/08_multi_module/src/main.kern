@@ -1,0 +1,7 @@
+use geometry.shapes[Circle, Rect]
+use geometry.format.*
+
+fun main {
+	println(report(Circle(1.5)))
+	println(report(Rect(2.0, 3.0)))
+}

@@ -1,0 +1,15 @@
+<Solution>
+  <Folder Name="/src/">
+	<Project Path="src/Kern.Core/Kern.Core.csproj" />
+	<Project Path="src/Kern.Bytecode/Kern.Bytecode.csproj" />
+	<Project Path="src/Kern.Vm/Kern.Vm.csproj" />
+	<Project Path="src/Kern.Binding/Kern.Binding.csproj" />
+	<Project Path="src/Kern.Runtime/Kern.Runtime.csproj" />
+	<Project Path="src/Kern.Compiler/Kern.Compiler.csproj" />
+	<Project Path="src/Kern.Std/Kern.Std.csproj" />
+	<Project Path="src/Kern.Cli/Kern.Cli.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+	<Project Path="src/Kern.Tests/Kern.Tests.csproj" />
+  </Folder>
+</Solution>

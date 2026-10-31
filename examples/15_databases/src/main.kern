@@ -1,0 +1,63 @@
+// SQLite, PostgreSQL и MySQL: один и тот же интерфейс (exec/query/scalar/begin/commit/rollback + *_async) и мини-ORM.
+// Запуск: kernc run examples/15_databases  — работает с SQLite; для PostgreSQL/MySQL задайте адреса в переменных окружения
+// KERN_PG_URL (postgres://user:pass@host:5432/db) и KERN_MYSQL_URL (mysql://user:pass@host:3306/db).
+use kern.db.sqlite[sqlite]
+use kern.db.postgres[postgres]
+use kern.db.mysql[mysql]
+use kern.db[orm, table]
+use kern.env[env]
+
+unit User(i64 id, str name, i32 age)
+
+fun demo_sqlite {
+	sqlite db(":memory:")
+	table<User> users = orm.table<User>(db)
+	users.create()
+	users.insert(User(0, "Аня", 25))
+	users.insert(User(0, "Борис", 31))
+	match users.where("age > ?", [26]) {
+		Ok(list) => println(f"sqlite: ${list}")
+		Err(e) => println(f"sqlite: ошибка ${e}")
+	}
+}
+
+fun demo_postgres(str url) {
+	match postgres.connect(url) {
+		Err(e) => println(f"postgres недоступен: ${e}")
+		Ok(db) => {
+			table<User> users = orm.table<User>(db)
+			users.create()
+			users.insert(User(0, "Аня", 25))
+			db.begin()
+			db.exec("update users set age = age + ? where name = ?", [1, "Аня"])
+			db.commit()
+			match users.all() {
+				Ok(list) => println(f"postgres: ${list}")
+				Err(e) => println(f"postgres: ошибка ${e}")
+			}
+		}
+	}
+}
+
+async fun demo_mysql(str url) {
+	match mysql.connect(url) {
+		Err(e) => println(f"mysql недоступен: ${e}")
+		Ok(db) => {
+			table<User> users = orm.table<User>(db)
+			users.create()
+			users.insert(User(0, "Борис", 31))
+			match await db.query_async("select name, age from users where age > ?", [20]) {
+				Ok(rows) => println(f"mysql: ${rows}")
+				Err(e) => println(f"mysql: ошибка ${e}")
+			}
+		}
+	}
+}
+
+async fun main {
+	demo_sqlite()
+	str? pg = env.get("KERN_PG_URL")
+	if pg != nil { demo_postgres(pg) }
+	str? my = env.get("KERN_MYSQL_URL")
+	if my != nil { await demo_mysql(my) }
+}

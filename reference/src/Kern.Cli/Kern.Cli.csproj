@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+	<OutputType>Exe</OutputType><RootNamespace>Kern.Cli</RootNamespace><AssemblyName>kernc</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+	<ProjectReference Include="../Kern.Compiler/Kern.Compiler.csproj" />
+	<ProjectReference Include="../Kern.Runtime/Kern.Runtime.csproj" />
+	<ProjectReference Include="../Kern.Std/Kern.Std.csproj" />
+  </ItemGroup>
+</Project>

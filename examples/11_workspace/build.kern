@@ -1,0 +1,20 @@
+// Сценарий сборки (как build.gradle.kts): kernc build / kernc run . app / kernc tasks
+use kern.build[workspace, target]
+
+fun build(workspace w) {
+	w.name = "demo"
+	w.version = "1.0.0"
+
+	w.target("core", fun (target t) {
+		t.kind = "lib"                 // библиотека: исходники подключаются к зависимым целям
+	})
+
+	w.target("app", fun (target t) {
+		t.deps = ["core"]
+		t.entry = "main"
+		t.task("hello", fun println("привет из цели app"))
+	})
+
+	// своя задача с зависимостью: kernc do release
+	w.task("release", ["app:exe", "app:test"], fun println("релиз собран: build/dist/app"))
+}

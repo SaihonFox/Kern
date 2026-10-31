@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><RootNamespace>Kern.Lib.Ui</RootNamespace><AssemblyName>Kern.Lib.Ui</AssemblyName></PropertyGroup>
+  <ItemGroup>
+	<!-- "*" — всегда последняя стабильная версия при restore -->
+	<PackageReference Include="Avalonia" Version="*" />
+	<PackageReference Include="Avalonia.Desktop" Version="*" />
+	<PackageReference Include="Avalonia.Themes.Fluent" Version="*" />
+	<ProjectReference Include="../../src/Kern.Runtime/Kern.Runtime.csproj"><Private>false</Private></ProjectReference>
+  </ItemGroup>
+</Project>

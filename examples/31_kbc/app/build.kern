@@ -1,0 +1,9 @@
+// Зависимость от .kbc-библиотеки: сначала `kernc dll ../mathx`, затем `kernc run .`
+use kern.build[workspace, target]
+
+fun build(workspace w) {
+	w.target("app", fun (target t) {
+		t.entry = "main"
+		t.kbc("../mathx/out/mathx.kbc")
+	})
+}

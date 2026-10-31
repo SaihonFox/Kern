@@ -1,0 +1,36 @@
+using Kern.Binding.Catalog;
+using Kern.Bytecode;
+using Kern.Core.Diagnostics;
+using Kern.Core.Text;
+
+namespace Kern.Cli.Infrastructure;
+
+/// <summary>Скомпилированный файл: байткод модуля и каталог нативов для запуска.</summary>
+internal sealed record CompiledProgram(KbcModule Module, NativeCatalog Catalog);
+
+/// <summary>
+/// Результат компиляции одного исходника: либо готовый <see cref="Program"/>, либо
+/// диагностики, либо сообщение о сбое чтения/внутренней ошибке (<see cref="FailureMessage"/>).
+/// Предупреждения модуль не отменяют.
+/// </summary>
+internal sealed class CompileResult
+{
+	public CompiledProgram? Program { get; init; }
+
+	public IReadOnlyList<Diagnostic> Diagnostics { get; init; } = [];
+
+	/// <summary>Ошибки импорта нативов: строки без span'а.</summary>
+	public IReadOnlyList<string> NativeProblems { get; init; } = [];
+
+	public string? FailureMessage { get; init; }
+
+	public SourceText? Source { get; init; }
+
+	/// <summary>
+	/// Карта файлов проекта: заполнена только в режиме папки. Диагностики печатаются по ней,
+	/// чтобы путь и строка были локальны исходному файлу.
+	/// </summary>
+	public SourceBundle? Sources { get; init; }
+
+	public bool Success => Program is not null;
+}

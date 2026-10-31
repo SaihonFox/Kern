@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><RootNamespace>Kern.Runtime</RootNamespace><AssemblyName>Kern.Runtime</AssemblyName></PropertyGroup>
+  <ItemGroup>
+	<ProjectReference Include="../Kern.Binding/Kern.Binding.csproj" />
+  </ItemGroup>
+</Project>

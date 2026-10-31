@@ -1,0 +1,41 @@
+// Раунд 15: префиксы строк, do-while, ветки match с охраной через `:`, use + dispose.
+use kern.io[streamwriter, streamreader]
+
+fun status(i32 code) -> str {
+	match code {
+		i32 n: n == 200 => "OK"
+		i32 n: n >= 500 => "Server error"
+		_ => "Unknown"
+	}
+}
+
+fun main {
+	// строки с префиксами
+	var digits = x"\d+"                          // тип regex, без escape
+	println(digits.is_match("abc 123"))           // true
+	println(r"C:\temp\new")                     // без escape
+	println(v"он сказал ""привет""")              // verbatim: "" = "
+	var n = 5
+	println(fr"путь \n=${n}")                  // fr = raw + интерполяция (\n не escape)
+	println(fx"^${n}$".is_match("5"))            // regex с интерполяцией
+
+	// do-while: тело выполняется минимум один раз
+	i32 i = 0
+	loop {
+		println(f"i = ${i}")
+		i += 1
+	}: i < 3
+
+	println(status(200))
+	println(status(503))
+	println(status(404))
+
+	// use: dispose() при выходе из блока
+	{
+		use streamwriter sw = streamwriter("demo.txt")
+		sw.write_line("первая")
+		sw.write_line("вторая")
+	}
+	use streamreader sr = streamreader("demo.txt")
+	println(sr.read_all())
+}

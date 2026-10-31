@@ -1,0 +1,105 @@
+{
+	"common": {
+		"bash": {
+			"*": "ask",
+			"dotnet build*": "allow",
+			"dotnet test*": "allow",
+			"dotnet run*": "allow",
+			"dotnet format*": "allow",
+			"dotnet restore*": "allow",
+			"dotnet new*": "allow",
+			"dotnet sln*": "allow",
+			"dotnet add*": "allow",
+			"dotnet clean*": "allow",
+			"dotnet --info": "allow",
+			"node tools/*": "allow",
+			"dir*": "allow",
+			"ls*": "allow",
+			"type *": "allow",
+			"cat *": "allow",
+			"grep *": "allow",
+			"rg *": "allow",
+			"findstr *": "allow",
+			"mkdir *": "allow",
+			"git *": "deny",
+			"rm -rf*": "deny",
+			"del /s*": "deny",
+			"rmdir /s*": "deny",
+			"Remove-Item*-Recurse*": "deny"
+		}
+	},
+	"agents": [
+		{
+			"name": "lead",
+			"mode": "primary",
+			"role": "lead",
+			"description": "Lead architect and orchestrator: plans milestones, delegates, reviews, keeps STATUS/DECISIONS in order",
+			"temperature": 0.2,
+			"steps": 60,
+			"edit": "allow"
+		},
+		{
+			"name": "compiler-dev",
+			"mode": "subagent",
+			"role": "dev",
+			"description": "Implements lexer, parser, AST, declarations, binder, type system, codegen, optimizer, formatter",
+			"temperature": 0.1,
+			"steps": 80,
+			"edit": "allow"
+		},
+		{
+			"name": "vm-dev",
+			"mode": "subagent",
+			"role": "dev",
+			"description": "Implements bytecode, .kbc format, VM/interpreter, async scheduler, threads, reflection runtime, native binding framework",
+			"temperature": 0.1,
+			"steps": 80,
+			"edit": "allow"
+		},
+		{
+			"name": "std-dev",
+			"mode": "subagent",
+			"role": "dev",
+			"description": "Implements the standard library (Kern.Runtime domains and Kern.Std .kern files) on top of the native binding attributes",
+			"temperature": 0.1,
+			"steps": 80,
+			"edit": "allow"
+		},
+		{
+			"name": "cli-dev",
+			"mode": "subagent",
+			"role": "dev",
+			"description": "Implements kernc CLI, project model, build.kern builder, kbc stubs/linker, macros pipeline, fmt, repl",
+			"temperature": 0.1,
+			"steps": 80,
+			"edit": "allow"
+		},
+		{
+			"name": "qa",
+			"mode": "subagent",
+			"role": "dev",
+			"description": "Writes xunit tests and golden-test expectations from the spec, runs examples, triages failures",
+			"temperature": 0.1,
+			"steps": 60,
+			"edit": "allow"
+		},
+		{
+			"name": "reviewer",
+			"mode": "subagent",
+			"role": "lead",
+			"description": "Read-only reviewer: checks a change against the spec and DECISIONS, finds bugs and spec drift",
+			"temperature": 0.1,
+			"steps": 30,
+			"edit": "deny"
+		},
+		{
+			"name": "mechanic",
+			"mode": "subagent",
+			"role": "cheap",
+			"description": "Cheap mechanical fixes: missing usings, CRLF/tabs, renames, doc sync, formatting, repetitive edits",
+			"temperature": 0,
+			"steps": 40,
+			"edit": "allow"
+		}
+	]
+}

@@ -1,0 +1,17 @@
+// Раунд 25: .kbc через use.
+// 1) kernc dll examples/31_kbc/mathx      -> examples/31_kbc/mathx/out/mathx.kbc
+// 2) kernc run examples/31_kbc/app
+use mathx.vec[Vec2, Counter, dot, lerp]
+
+fun main {
+	var a = Vec2(3.0, 4.0)
+	var b = Vec2(1.0, 2.0)
+	println(f"len = ${a.len}")              // 5
+	println(f"dot = ${dot(a, b)}")          // 11
+	println(f"sum = ${a + b}")
+	println(f"lerp = ${lerp(0.0, 10.0, 0.25)}")   // 2.5
+
+	var c = Counter()
+	c.bump(2)
+	println(f"counter = ${c.bump(3)}")      // 5
+}

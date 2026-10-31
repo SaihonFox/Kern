@@ -1,0 +1,9 @@
+bin/
+obj/
+out/
+dist/
+.vs/
+*.user
+node_modules/
+logs/*.log
+libs/_out/

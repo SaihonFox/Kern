@@ -1,0 +1,12 @@
+// Асинхронный поток поверх pipe<T> из kern.tasks:
+//   use kern.tasks[pipe]
+//   use kern.pipes[pipe_stream]
+//   async loop var x in pipe_stream(p) { println(x) }
+use kern.tasks[pipe]
+
+/// Поток значений канала для `async loop`; завершается, когда канал закрыт и опустошён.
+pub type pipe_stream<T>(pipe<T> source)[async_iter<T>] {
+	~async fun next -> T? {
+		await source.recv()
+	}
+}
