@@ -17,7 +17,9 @@ public sealed partial class DeclarationCollector
 
 		var receiverName = declaration.Name[..dot];
 		var memberName = declaration.Name[(dot + 1)..];
-		var receiver = _resolver.Resolve(NamedTypeSyntax.Plain(receiverName, declaration.Span), TypeParameterScope.Empty);
+		var receiver = declaration.ExtensionReceiver is { } receiverSyntax
+			? _resolver.Resolve(receiverSyntax, TypeParameterScope.Empty)
+			: _resolver.Resolve(NamedTypeSyntax.Plain(receiverName, declaration.Span), TypeParameterScope.Empty);
 		if (receiver is ErrorType)
 			return;
 

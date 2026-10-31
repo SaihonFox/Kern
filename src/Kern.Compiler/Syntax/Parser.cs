@@ -210,11 +210,72 @@ public sealed partial class Parser
 			Attributes: attributes);
 	}
 
-	private bool LooksLikeExtensionProperty() =>
-		_position + 3 < _tokens.Count &&
-		_tokens[_position + 1].Kind == TokenKind.Identifier &&
-		_tokens[_position + 2].Kind == TokenKind.Dot &&
-		_tokens[_position + 3].Kind == TokenKind.Identifier;
+	private bool LooksLikeGenericExtensionFunction()
+	{
+		var index = _position;
+		var depth = 0;
+		for (; index < _tokens.Count; index++)
+		{
+			var token = _tokens[index];
+			if (token.Kind == TokenKind.Operator && token.Text == "<")
+			{
+				depth++;
+				continue;
+			}
+			if (token.Kind == TokenKind.Operator && token.Text is ">" or ">>")
+			{
+				depth -= token.Text == ">>" ? 2 : 1;
+				if (depth <= 0)
+				{
+					index++;
+					break;
+				}
+				continue;
+			}
+			if (token.Kind is TokenKind.Semicolon or TokenKind.LeftBrace or TokenKind.RightBrace or TokenKind.Equals)
+				return false;
+		}
+
+		return index < _tokens.Count && _tokens[index].Kind == TokenKind.Dot;
+	}
+
+	private bool LooksLikeExtensionProperty()
+	{
+		var index = _position + 1;
+		if (index >= _tokens.Count || _tokens[index].Kind != TokenKind.Identifier)
+			return false;
+		index++;
+		// Приёмник с generic-аргументами: `i32 list<i32>.count …` — `>` может прийти как `>>`.
+		if (index < _tokens.Count && _tokens[index].Kind == TokenKind.Operator && _tokens[index].Text == "<")
+		{
+			var depth = 0;
+			for (; index < _tokens.Count; index++)
+			{
+				var token = _tokens[index];
+				if (token.Kind == TokenKind.Operator && token.Text == "<")
+				{
+					depth++;
+					continue;
+				}
+				if (token.Kind == TokenKind.Operator && token.Text is ">" or ">>")
+				{
+					depth -= token.Text == ">>" ? 2 : 1;
+					if (depth <= 0)
+					{
+						index++;
+						break;
+					}
+					continue;
+				}
+				if (token.Kind is TokenKind.Semicolon or TokenKind.LeftBrace or TokenKind.RightBrace)
+					return false;
+			}
+		}
+
+		return index + 1 < _tokens.Count &&
+			_tokens[index].Kind == TokenKind.Dot &&
+			_tokens[index + 1].Kind == TokenKind.Identifier;
+	}
 
 	private ExtensionPropertyDeclaration ParseExtensionProperty(
 		IReadOnlyList<AttributeNode> attributes,
@@ -320,8 +381,25 @@ public sealed partial class Parser
 		var start = Consume(TokenKind.Fun, "Ожидалось ключевое слово fun").Span.Start;
 		var name = ConsumeMemberName("Ожидалось имя функции");
 		var functionName = name.Text;
-		var genericParameters = IsOperator("<") ? ParseGenericParameterList() : [];
-		if (Match(TokenKind.Dot))
+		TypeSyntax? extensionReceiver = null;
+		IReadOnlyList<GenericParameterNode> genericParameters = [];
+		if (IsOperator("<"))
+		{
+			// `fun list<i32>.total(...)`: generic-приёмник расширения, а не generic-параметры.
+			if (LooksLikeGenericExtensionFunction())
+			{
+				extensionReceiver = ParseTypeSyntaxFrom(name);
+				Consume(TokenKind.Dot, "Ожидалась точка перед именем расширяемого члена");
+				var member = Consume(TokenKind.Identifier, "Ожидалось имя расширяемого члена");
+				functionName = $"{extensionReceiver}.{member.Text}";
+			}
+			else
+			{
+				genericParameters = ParseGenericParameterList();
+			}
+		}
+
+		if (extensionReceiver is null && Match(TokenKind.Dot))
 			functionName = $"{functionName}.{Consume(TokenKind.Identifier, "Ожидалось имя расширяемого члена").Text}";
 		var parameters = ParseParameters();
 		TypeSyntax? returnType = null;
@@ -337,12 +415,12 @@ public sealed partial class Parser
 		var isAsync = modifiers?.IsAsync ?? false;
 		var isOpen = modifiers?.IsOpen ?? false;
 		if (isAbstract && Current.Kind != TokenKind.LeftBrace)
-			return new FunctionDeclaration(functionName, parameters, new BlockStatement([], new TextSpan(name.Span.End, 0)), new TextSpan(start, Previous.Span.End - start), returnType, attributes, true, isStatic, accessibility, isOverride, isAsync, isOpen)
+			return new FunctionDeclaration(functionName, parameters, new BlockStatement([], new TextSpan(name.Span.End, 0)), new TextSpan(start, Previous.Span.End - start), returnType, attributes, true, isStatic, accessibility, isOverride, isAsync, isOpen, ExtensionReceiver: extensionReceiver)
 			{
 				GenericParameters = genericParameters
 			};
 		var body = ParseFunctionBody();
-		return new FunctionDeclaration(functionName, parameters, body, new TextSpan(start, body.Span.End - start), returnType, attributes, isAbstract, isStatic, accessibility, isOverride, isAsync, isOpen)
+		return new FunctionDeclaration(functionName, parameters, body, new TextSpan(start, body.Span.End - start), returnType, attributes, isAbstract, isStatic, accessibility, isOverride, isAsync, isOpen, ExtensionReceiver: extensionReceiver)
 		{
 			GenericParameters = genericParameters
 		};

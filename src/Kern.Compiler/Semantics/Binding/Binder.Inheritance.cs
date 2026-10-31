@@ -84,9 +84,11 @@ public sealed partial class Binder
 	/// Нужен ли динамический диспатч (spec §8): метод экземпляра класса, у которого есть
 	/// собственный объявленный владелец-класс. Статические и нативные члены, расширения,
 	/// методы <c>unit</c>/<c>unit!</c> и конструкторы остаются обычным <c>Call</c>.
+	/// Выбор родителя <c>$[A].member</c> всегда статический: вызывается реализация A.
 	/// </summary>
-	private static bool IsVirtualCall(KernType receiverType, FunctionSymbol function) =>
-		receiverType is ClassType &&
+	private static bool IsVirtualCall(BoundExpression receiver, FunctionSymbol function) =>
+		receiver is not BoundSuperExpression &&
+		receiver.Type is ClassType &&
 		function is
 		{
 			IsStatic: false,

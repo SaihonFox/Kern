@@ -609,7 +609,7 @@ public sealed partial class Binder
 		{
 			// Q30: accessor'ы класса диспатчатся по типу получателя, как и методы.
 			// init-запись (Binder.InitWrites.cs) остаётся статической: это конструкция объекта.
-			Virtual = IsVirtualCall(receiver.Type, setter),
+			Virtual = IsVirtualCall(receiver, setter),
 		};
 		return new BoundExpressionStatement(call, assignment.Span);
 	}

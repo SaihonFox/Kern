@@ -15,7 +15,8 @@ public sealed record FunctionDeclaration(
 	Accessibility Accessibility = Accessibility.Private,
 	bool IsOverride = false,
 	bool IsAsync = false,
-	bool IsOpen = false) : DeclarationNode(Span), ITypeMember
+	bool IsOpen = false,
+	TypeSyntax? ExtensionReceiver = null) : DeclarationNode(Span), ITypeMember
 {
 	public IReadOnlyList<AttributeNode> DeclaredAttributes { get; } = Attributes ?? [];
 

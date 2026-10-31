@@ -266,7 +266,20 @@ public sealed partial class Parser
 		if (Current.Kind == TokenKind.Dollar)
 		{
 			var dollar = Advance();
-			if (Current.Kind == TokenKind.Identifier)
+			// `$[A].member` — выбор родителя в выражении (spec §2): член после точки
+			// разбирается обычным постфиксным путём.
+			if (Current.Kind == TokenKind.LeftBracket)
+			{
+				Advance();
+				var parent = Consume(TokenKind.Identifier, "Ожидалось имя родительского типа после $[");
+				Consume(TokenKind.RightBracket, "Ожидалась ] после имени родителя");
+				var superSpan = new TextSpan(dollar.Span.Start, Previous.Span.End - dollar.Span.Start);
+				if (Current.Kind != TokenKind.Dot)
+					Report("PAR003", "После выбора родителя ожидалась точка и имя члена", superSpan);
+				return new SuperExpression(parent.Text, superSpan);
+			}
+			if (Current.Kind == TokenKind.Identifier &&
+				!HasNewlineBetween(dollar.Span.End, Current.Span.Start))
 			{
 				var member = Advance();
 				return new MemberAccessExpression(new SelfExpression(dollar.Span), member.Text, false,

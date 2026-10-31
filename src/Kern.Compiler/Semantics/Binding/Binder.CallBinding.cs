@@ -269,7 +269,7 @@ public sealed partial class Binder
 			span,
 			receiver)
 		{
-			Virtual = IsVirtualCall(receiver.Type, resolution.Function!) && !isParentSelection,
+			Virtual = IsVirtualCall(receiver, resolution.Function!) && !isParentSelection,
 		};
 	}
 

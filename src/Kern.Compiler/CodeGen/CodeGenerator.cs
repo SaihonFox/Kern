@@ -197,6 +197,11 @@ public sealed partial class CodeGenerator
 					Emit(OpCode.LoadCell);
 				break;
 
+			// `$[A]` — это тот же получатель `$`; тип-предок уже учтён при привязке членов.
+			case BoundSuperExpression super:
+				EmitExpression(super.Self);
+				break;
+
 			case BoundNilExpression:
 				Emit(OpCode.PushNil);
 				break;

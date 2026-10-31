@@ -53,6 +53,7 @@ public sealed partial class Binder
 		CharLiteralExpression literal => BindCharLiteral(literal.Text, literal.Span),
 		IdentifierExpression identifier => BindIdentifier(identifier),
 		SelfExpression self => BindSelf(self),
+		SuperExpression super => BindSuper(super),
 		MemberAccessExpression member => BindMemberAccess(member),
 		IndexExpression index => BindIndexExpression(index),
 		UnaryExpression { Operator: "ret" } ret => BindReturnExpression(ret),
@@ -436,6 +437,38 @@ public sealed partial class Binder
 		return AccessVariable(_selfVariable, self.Span);
 	}
 
+	/// <summary>
+	/// <c>$[A]</c> в выражении (spec §2): выбирает предка получателя по имени. Член после
+	/// точки привязывается к реализации <c>A</c> статически; вне метода типа выбора нет.
+	/// </summary>
+	private BoundExpression BindSuper(SuperExpression super)
+	{
+		if (_selfVariable is null || _selfType is null)
+		{
+			Report("KRN2106", "Выбор родителя '$[A]' допустим только в методе или конструкторе типа", super.Span);
+			return new BoundErrorExpression(super.Span);
+		}
+
+		ClassType? parent = null;
+		if (_selfType is ClassType receiver)
+		{
+			foreach (var link in Inheritance.Lineage(receiver))
+				if (link.Symbol.Name == super.ParentName)
+				{
+					parent = link;
+					break;
+				}
+		}
+
+		if (parent is null)
+		{
+			Report("KRN2103", $"Неизвестный родитель '{super.ParentName}' у типа '{_selfType}'", super.Span);
+			return new BoundErrorExpression(super.Span);
+		}
+
+		return new BoundSuperExpression(BindSelf(new SelfExpression(super.Span)), parent, super.Span);
+	}
+
 	private BoundExpression BindMemberAccess(MemberAccessExpression member)
 	{
 		// `T.field`: приёмник — имя типа, а не выражение (M3-D3b).
@@ -492,7 +525,7 @@ public sealed partial class Binder
 				if (property.Getter is { } getter)
 					return new BoundCallExpression(getter, [], propertyType, member.Span, receiver)
 					{
-						Virtual = IsVirtualCall(receiver.Type, getter),
+						Virtual = IsVirtualCall(receiver, getter),
 					};
 			}
 		}

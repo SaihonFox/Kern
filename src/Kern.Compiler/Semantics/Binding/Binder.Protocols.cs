@@ -73,7 +73,7 @@ public sealed partial class Binder
 
 				return new BoundCallExpression(function, [], function.ReturnType, span, receiver)
 				{
-					Virtual = IsVirtualCall(receiver.Type, function),
+					Virtual = IsVirtualCall(receiver, function),
 				};
 			}
 		}
@@ -249,7 +249,7 @@ public sealed partial class Binder
 
 				return new BoundCallExpression(function, [], function.ReturnType, span, receiver)
 				{
-					Virtual = IsVirtualCall(receiver.Type, function),
+					Virtual = IsVirtualCall(receiver, function),
 				};
 			}
 		}
@@ -296,7 +296,7 @@ public sealed partial class Binder
 		return new BoundCallExpression(selected, [converted], PrimitiveType.I32, span, receiver)
 		{
 			// Q30: пользовательский op compare класса диспатчится по типу получателя.
-			Virtual = IsVirtualCall(receiver.Type, selected),
+			Virtual = IsVirtualCall(receiver, selected),
 		};
 	}
 

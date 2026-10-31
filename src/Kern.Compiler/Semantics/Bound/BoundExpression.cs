@@ -25,6 +25,17 @@ public sealed record BoundVariableExpression(
 	KernType Type,
 	TextSpan Span) : BoundExpression(Type, Span);
 
+/// <summary>
+/// Выбор родителя в выражении <c>$[A]</c> (spec §2): приёмник — обычный <c>$</c>
+/// (<see cref="Self"/>), статический тип — выбранный родитель <see cref="ParentType"/>.
+/// Доступ к членам через этот узел привязывается к реализации родителя статически,
+/// без <c>CallVirtual</c>.
+/// </summary>
+public sealed record BoundSuperExpression(
+	BoundExpression Self,
+	KernType ParentType,
+	TextSpan Span) : BoundExpression(ParentType, Span);
+
 /// <summary>Явное значение <c>nil</c>; тип — <see cref="NilType"/>.</summary>
 public sealed record BoundNilExpression(TextSpan Span) : BoundExpression(NilType.Instance, Span);
 

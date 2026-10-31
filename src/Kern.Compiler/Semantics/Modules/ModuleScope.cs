@@ -205,6 +205,15 @@ public static class ModuleResolver
 				found = true;
 			}
 
+			// Имя может быть членом расширения: расширения импортируются модулем целиком
+			// (см. ниже), поэтому достаточно признать имя существующим.
+			if (!found && source.Extensions.Values.Any(group =>
+				group.Functions.Any(function => function.Name == item) ||
+				group.Properties.Any(property => property.Name == item)))
+			{
+				found = true;
+			}
+
 			if (!found)
 			{
 				diagnostics.Add(new ModuleDiagnostic(

@@ -94,7 +94,7 @@ public sealed partial class Binder
 		// статическими (IsVirtualCall отсекает IsExtension), unit-типы — тоже.
 		return new BoundCallExpression(function, [converted], CallResultType(function, function.ReturnType), span, receiver)
 		{
-			Virtual = IsVirtualCall(receiver.Type, function),
+			Virtual = IsVirtualCall(receiver, function),
 		};
 	}
 }

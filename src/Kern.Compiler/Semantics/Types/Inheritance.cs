@@ -72,6 +72,35 @@ public static class Inheritance
 		return ordered;
 	}
 
+	/// <summary>
+	/// Цепочка получателя и всех его предков-классов с подставленными аргументами: сам тип,
+	/// прямые родители в порядке объявления, затем их родители (обход в ширину). Повтор
+	/// (ромб) отсекается по символу, поэтому имя предка встречается один раз. Нужна для
+	/// выбора родителя в выражении <c>$[A].member</c>: член ищется в типе с аргументами,
+	/// а не в объявлении <c>A&lt;T&gt;</c>.
+	/// </summary>
+	public static IReadOnlyList<ClassType> Lineage(ClassType receiver)
+	{
+		ArgumentNullException.ThrowIfNull(receiver);
+		var ordered = new List<ClassType>();
+		var visited = new HashSet<TypeSymbol>(ReferenceEqualityComparer.Instance);
+		var queue = new Queue<ClassType>();
+		queue.Enqueue(receiver);
+		while (queue.Count > 0)
+		{
+			var current = queue.Dequeue();
+			if (!visited.Add(current.Symbol))
+				continue;
+			ordered.Add(current);
+			var map = ArgumentsMap(current);
+			foreach (var baseType in current.Symbol.Bases)
+				if (TypeSubstitution.Apply(baseType, map) is ClassType @class)
+					queue.Enqueue(@class);
+		}
+
+		return ordered;
+	}
+
 	private static void AddAncestors(TypeSymbol symbol, List<TypeSymbol> ordered, HashSet<TypeSymbol> visited)
 	{
 		if (!visited.Add(symbol))
