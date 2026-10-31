@@ -45,13 +45,16 @@ public sealed partial class Binder
 		BoundExpression right,
 		TextSpan span)
 	{
-		if (_moduleScope.FindExtensions(left.Type) is { } group)
+		foreach (var group in _moduleScope.FindExtensionsFor(left.Type))
 		{
+			if (!TypePatternMatcher.TryMatch(group.ReceiverType, left.Type, out var bindings))
+				continue;
+
 			foreach (var function in group.Functions)
 			{
 				if (!IsUnaryOrBinaryOperator(function, symbol, arity: 1))
 					continue;
-				if (TryBindOperatorCall(function, left, right, span) is { } call)
+				if (TryBindOperatorCall(function, left, right, span, bindings) is { } call)
 					return call;
 			}
 		}
@@ -80,19 +83,27 @@ public sealed partial class Binder
 		FunctionSymbol function,
 		BoundExpression receiver,
 		BoundExpression argument,
-		TextSpan span)
+		TextSpan span,
+		IReadOnlyDictionary<string, KernType>? bindings = null)
 	{
 		if (function.ReturnType is null)
 			return null;
 
 		var target = function.Parameters[0].Type;
+		var returnType = function.ReturnType;
+		if (bindings is { Count: > 0 })
+		{
+			target = TypeSubstitution.Apply(target, bindings);
+			returnType = TypeSubstitution.Apply(returnType, bindings);
+		}
+
 		if (!Conversions.TryClassify(argument.Type, target, out var conversion))
 			return null;
 
 		var converted = ConvertWithConversion(argument, target, conversion, argument.Span);
 		// Q30: операторы класса диспатчатся по типу получателя; расширения остаются
 		// статическими (IsVirtualCall отсекает IsExtension), unit-типы — тоже.
-		return new BoundCallExpression(function, [converted], CallResultType(function, function.ReturnType), span, receiver)
+		return new BoundCallExpression(function, [converted], CallResultType(function, returnType), span, receiver)
 		{
 			Virtual = IsVirtualCall(receiver, function),
 		};

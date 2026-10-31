@@ -55,6 +55,17 @@ public sealed class TypeResolver
 	public IReadOnlyList<KernType> ResolveAll(IEnumerable<TypeSyntax> syntaxes, TypeParameterScope? scope = null) =>
 		[.. syntaxes.Select(syntax => Resolve(syntax, scope))];
 
+	/// <summary>
+	/// Имя обозначает тип в этом модуле, каталоге или импорте (spec §10): нужно, чтобы
+	/// отличить свободную переменную приёмника расширения от настоящего типа.
+	/// </summary>
+	public bool IsTypeName(string name) =>
+		TypeCatalog.TryGetPrimitive(name, out _) ||
+		TypeCatalog.TryGetBuiltin(name, out _) ||
+		_table.GetSymbols(name).Any(symbol => symbol.Declaration is TypeDeclaration or UnitDeclaration) ||
+		(_knownTypes is not null && _knownTypes.ContainsKey(name)) ||
+		_fallback?.Invoke(name) is not null;
+
 	/// <summary>Строит область параметров объявления; ограничения разрешаются в уже собранной области.</summary>
 	public TypeParameterScope CreateScope(IEnumerable<GenericParameterNode> parameters)
 	{
@@ -162,8 +173,8 @@ public sealed class TypeResolver
 				SymbolKind.ImmutableUnit => new UnitType(known, arguments, true),
 				SymbolKind.Class or SymbolKind.AbstractClass or SymbolKind.Native =>
 					new ClassType(known, arguments),
-				SymbolKind.UnionAlias when arguments.Count == 0 && known.UnionAlternatives.Count > 0 =>
-					UnionType.Create(known.UnionAlternatives),
+				SymbolKind.UnionAlias when known.UnionAlternatives.Count > 0 =>
+					ResolveGenericUnionAlias(known, arguments, syntax),
 				_ => ReportUnknown(syntax),
 			};
 		}
@@ -181,8 +192,8 @@ public sealed class TypeResolver
 				SymbolKind.ImmutableUnit => new UnitType(imported, arguments ?? [], true),
 				SymbolKind.Class or SymbolKind.AbstractClass or SymbolKind.Native =>
 					new ClassType(imported, arguments ?? []),
-				SymbolKind.UnionAlias when syntax.Arguments.Count == 0 && imported.UnionAlternatives.Count > 0 =>
-					UnionType.Create(imported.UnionAlternatives),
+				SymbolKind.UnionAlias when imported.UnionAlternatives.Count > 0 =>
+					ResolveGenericUnionAlias(imported, arguments ?? [], syntax),
 				_ => ReportUnknown(syntax),
 			};
 		}
@@ -205,18 +216,7 @@ public sealed class TypeResolver
 	private KernType ResolveTypeDeclaration(TypeDeclaration declaration, NamedTypeSyntax syntax, TypeParameterScope scope)
 	{
 		if (declaration.DeclaredUnionVariants.Count > 0)
-		{
-			if (syntax.Arguments.Count > 0)
-				return ReportNotGeneric(syntax);
-
-			GetOrCreateSymbol(declaration);
-			var aliasScope = scope;
-			foreach (var parameter in declaration.GenericParameters)
-				aliasScope = aliasScope.Add(parameter.Name);
-
-			var alternatives = ResolveAll(declaration.DeclaredUnionVariants, aliasScope);
-			return UnionType.Create(alternatives);
-		}
+			return ResolveUnionAliasDeclaration(declaration, syntax, scope);
 
 		if (declaration.GenericArity == 0 && syntax.Arguments.Count > 0)
 			return ReportNotGeneric(syntax);
@@ -246,6 +246,56 @@ public sealed class TypeResolver
 			return ErrorType.Instance;
 
 		return new UnitType(GetOrCreateSymbol(declaration), arguments, declaration.IsImmutable);
+	}
+
+	/// <summary>
+	/// Generic union-алиас <c>type Option&lt;T&gt; = [Some&lt;T&gt;, Nothing]</c> (spec §14):
+	/// альтернативы подставляются с аргументами (<c>Option&lt;i32&gt;</c> → <c>Some&lt;i32&gt; | Nothing</c>).
+	/// </summary>
+	private KernType ResolveUnionAliasDeclaration(TypeDeclaration declaration, NamedTypeSyntax syntax, TypeParameterScope scope)
+	{
+		if (declaration.GenericArity == 0 && syntax.Arguments.Count > 0)
+			return ReportNotGeneric(syntax);
+
+		var arity = declaration.GenericArity;
+		if (syntax.Arguments.Count != arity)
+			return ReportArity(syntax.Name, arity, syntax.Arguments.Count, syntax);
+
+		var symbol = GetOrCreateSymbol(declaration);
+		var arguments = syntax.Arguments.Count == 0 ? [] : ResolveArguments(syntax, scope);
+		if (arguments is null)
+			return ErrorType.Instance;
+
+		var alternatives = symbol.UnionAlternatives.Count > 0
+			? symbol.UnionAlternatives
+			: ResolveAll(declaration.DeclaredUnionVariants, CreateScope(declaration.GenericParameters));
+		return UnionType.Create(SubstituteAlias(alternatives, symbol.GenericParameterNames, arguments));
+	}
+
+	/// <summary>Union-алиас из каталога/импорта: арность и подстановка как у объявленного.</summary>
+	private KernType ResolveGenericUnionAlias(TypeSymbol symbol, IReadOnlyList<KernType> arguments, NamedTypeSyntax syntax)
+	{
+		if (symbol.GenericArity != arguments.Count)
+			return ReportArity(syntax.Name, symbol.GenericArity, arguments.Count, syntax);
+
+		return UnionType.Create(SubstituteAlias(symbol.UnionAlternatives, symbol.GenericParameterNames, arguments));
+	}
+
+	/// <summary>Подстановка аргументов generic-алиаса в его альтернативы; пустые аргументы — без изменений.</summary>
+	private static IReadOnlyList<KernType> SubstituteAlias(
+		IReadOnlyList<KernType> alternatives,
+		IReadOnlyList<string> names,
+		IReadOnlyList<KernType> arguments)
+	{
+		var count = System.Math.Min(names.Count, arguments.Count);
+		if (count == 0)
+			return alternatives;
+
+		var substitution = new Dictionary<string, KernType>(count, StringComparer.Ordinal);
+		for (var index = 0; index < count; index++)
+			substitution[names[index]] = arguments[index];
+
+		return [.. alternatives.Select(alternative => TypeSubstitution.Apply(alternative, substitution))];
 	}
 
 	private KernType ResolveFunction(FunctionTypeSyntax syntax, TypeParameterScope scope)
@@ -372,6 +422,7 @@ public sealed class TypeResolver
 		if (_primes is not null && _primes.TryGetValue(declaration, out var primed))
 		{
 			_symbols.Add(declaration, primed);
+			EnsureGenericParameters(primed, declaration.GenericParameters);
 			if (declaration.DeclaredUnionVariants.Count == 0)
 				PopulateBases(declaration, primed);
 			return primed;
@@ -385,6 +436,7 @@ public sealed class TypeResolver
 			Name = declaration.Name,
 			Kind = kind,
 			GenericParameterNames = [.. declaration.GenericParameters.Select(parameter => parameter.Name)],
+			GenericParameters = [.. declaration.GenericParameters.Select(parameter => new TypeParameterType(parameter.Name, []))],
 			Declaration = declaration
 		};
 		_symbols.Add(declaration, symbol);
@@ -449,6 +501,7 @@ public sealed class TypeResolver
 		if (_primes is not null && _primes.TryGetValue(declaration, out var primed))
 		{
 			_symbols.Add(declaration, primed);
+			EnsureGenericParameters(primed, declaration.GenericParameters);
 			return primed;
 		}
 
@@ -457,10 +510,19 @@ public sealed class TypeResolver
 			Name = declaration.Name,
 			Kind = declaration.IsImmutable ? SymbolKind.ImmutableUnit : SymbolKind.Unit,
 			GenericParameterNames = [.. declaration.GenericParameters.Select(parameter => parameter.Name)],
+			GenericParameters = [.. declaration.GenericParameters.Select(parameter => new TypeParameterType(parameter.Name, []))],
 			Declaration = declaration
 		};
 		_symbols.Add(declaration, symbol);
 		return symbol;
+	}
+
+	private static void EnsureGenericParameters(TypeSymbol symbol, IReadOnlyList<GenericParameterNode> parameters)
+	{
+		if (symbol.GenericParameters.Count > 0 || parameters.Count == 0)
+			return;
+
+		symbol.GenericParameters = [.. parameters.Select(parameter => new TypeParameterType(parameter.Name, []))];
 	}
 
 	private bool TryGetKnownSymbol(DeclarationNode declaration, string name, out TypeSymbol symbol)

@@ -6,15 +6,23 @@ namespace Kern.Compiler.Semantics.Types;
 /// </summary>
 public sealed record TypeParameterType : KernType
 {
-	public TypeParameterType(string name, IReadOnlyList<KernType> constraints) : base(TypeKind.TypeParameter)
+	public TypeParameterType(string name, IReadOnlyList<KernType> constraints, bool requiresConstructor = false)
+		: base(TypeKind.TypeParameter)
 	{
 		Name = name;
 		Constraints = StructuralList<KernType>.From(constraints);
+		RequiresConstructor = requiresConstructor;
 	}
 
 	public string Name { get; }
 
 	public IReadOnlyList<KernType> Constraints { get; }
+
+	/// <summary>
+	/// Ограничение <c>ctor()</c> (spec §14): тип-аргумент обязан иметь конструктор и
+	/// (для классов) не быть абстрактным. Проверяется в <c>GenericInference</c>.
+	/// </summary>
+	public bool RequiresConstructor { get; }
 
 	/// <summary>
 	/// Параметр удовлетворяет ограничению, если оно универсальное числовое

@@ -370,7 +370,13 @@ public sealed partial class Binder
 		KernType? subject,
 		List<BoundPatternBinding> bindings)
 	{
-		var type = _resolver.Resolve(NamedTypeSyntax.Plain(pattern.Name, pattern.Span), _typeScope);
+		var unionAlternative = subject is UnionType subjectUnionForPattern
+			? subjectUnionForPattern.Alternatives
+				.OfType<UnitType>()
+				.FirstOrDefault(item => item.Symbol.Name == pattern.Name)
+			: null;
+		var type = unionAlternative ??
+			_resolver.Resolve(NamedTypeSyntax.Plain(pattern.Name, pattern.Span), _typeScope);
 		if (IsError(type))
 			return new BoundUnsupportedPattern(pattern.Span);
 

@@ -189,8 +189,9 @@ public sealed partial class Binder
 			fromNative = true;
 			candidates.AddRange(NativeMembers(receiver.Type, member.Member));
 		}
-		if (candidates.Count == 0 && _moduleScope.FindExtensions(receiver.Type) is { } extensions)
-			candidates.AddRange(extensions.GetFunctions(member.Member));
+		if (candidates.Count == 0)
+			foreach (var extensions in _moduleScope.FindExtensionsFor(receiver.Type))
+				candidates.AddRange(extensions.GetFunctions(member.Member));
 		if (candidates.Count == 0)
 		{
 			// B6b1/B8a/B8c: протоколы hash/compare/clone идут после обычных и нативных членов, но до KRN2103.

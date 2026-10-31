@@ -530,8 +530,16 @@ public sealed partial class Binder
 			}
 		}
 
-		if (_moduleScope.FindExtensions(receiver.Type)?.FindProperty(member.Member) is { Getter: { } extensionGetter } extensionProperty)
-			return new BoundCallExpression(extensionGetter, [], extensionProperty.Type, member.Span, receiver);
+		foreach (var group in _moduleScope.FindExtensionsFor(receiver.Type))
+		{
+			if (group.FindProperty(member.Member) is not { Getter: { } extensionGetter } extensionProperty)
+				continue;
+
+			var propertyType = extensionProperty.Type;
+			if (TypePatternMatcher.TryMatch(group.ReceiverType, receiver.Type, out var extensionBindings))
+				propertyType = TypeSubstitution.Apply(propertyType, extensionBindings);
+			return new BoundCallExpression(extensionGetter, [], propertyType, member.Span, receiver);
+		}
 
 		foreach (FunctionSymbol native in NativeMembers(receiver.Type, member.Member))
 		{

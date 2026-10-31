@@ -340,6 +340,17 @@ public sealed partial class Parser
 				IsStatic: isStatic, Accessibility: accessibility);
 		}
 		var genericParameters = IsOperator("<") ? ParseGenericParameterList() : [];
+		if (Match(TokenKind.Equals))
+		{
+			// Generic union-алиас: `type Option<T> = [Some<T>, Nothing]`.
+			var genericUnion = ParseUnionTypeSyntax();
+			return new TypeDeclaration(name.Text, new TextSpan(start, Previous.Span.End - start),
+				Attributes: attributes, IsAbstract: isAbstract, IsOpen: isOpen,
+				UnionVariants: genericUnion.Alternatives, IsStatic: isStatic, Accessibility: accessibility)
+			{
+				GenericParameters = genericParameters
+			};
+		}
 		var primaryParameters = Current.Kind == TokenKind.LeftParen ? ParseParameters() : [];
 		var parents = Current.Kind == TokenKind.LeftBracket ? ParseParentList() : [];
 		var members = ParseTypeMembers();

@@ -18,7 +18,7 @@ public sealed partial class DeclarationCollector
 		{
 			CheckGenericParameter(parameter, seen, ownerDescription);
 			var constraints = parameter.Constraints.Select(constraint => _resolver.Resolve(constraint, scope)).ToArray();
-			var typeParameter = new TypeParameterType(parameter.Name, constraints);
+			var typeParameter = new TypeParameterType(parameter.Name, constraints, parameter.HasCtorConstraint);
 			scope = scope.Add(typeParameter);
 			resolved.Add(typeParameter);
 		}
@@ -31,16 +31,17 @@ public sealed partial class DeclarationCollector
 	private (IReadOnlyList<TypeParameterType> Parameters, TypeParameterScope Scope) BuildFunctionScope(
 		IReadOnlyList<GenericParameterNode> parameters,
 		TypeParameterScope outer,
-		string ownerDescription)
+		string ownerDescription,
+		HashSet<string>? seen = null)
 	{
 		var scope = outer;
 		var resolved = new List<TypeParameterType>(parameters.Count);
-		var seen = new HashSet<string>(StringComparer.Ordinal);
+		seen ??= new HashSet<string>(StringComparer.Ordinal);
 		foreach (var parameter in parameters)
 		{
 			CheckGenericParameter(parameter, seen, ownerDescription);
 			var constraints = parameter.Constraints.Select(constraint => _resolver.Resolve(constraint, scope)).ToArray();
-			var typeParameter = new TypeParameterType(parameter.Name, constraints);
+			var typeParameter = new TypeParameterType(parameter.Name, constraints, parameter.HasCtorConstraint);
 			scope = scope.Add(typeParameter);
 			resolved.Add(typeParameter);
 		}
@@ -62,10 +63,7 @@ public sealed partial class DeclarationCollector
 		}
 	}
 
-	private bool IsKnownTypeName(string name) =>
-		TypeCatalog.TryGetPrimitive(name, out _) ||
-		TypeCatalog.TryGetBuiltin(name, out _) ||
-		_table.GetSymbols(name).Any(symbol => symbol.Declaration is TypeDeclaration or UnitDeclaration);
+	private bool IsKnownTypeName(string name) => _resolver.IsTypeName(name);
 
 	private void CheckMemberConflicts(
 		TypeSymbol owner,

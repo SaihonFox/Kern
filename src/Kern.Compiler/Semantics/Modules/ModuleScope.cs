@@ -59,6 +59,33 @@ public sealed class ModuleScope
 
 	public ExtensionGroup? FindExtensions(KernType receiverType) =>
 		_extensions.TryGetValue(receiverType.ToString(), out var group) ? group : null;
+
+	/// <summary>
+	/// Группы расширений, применимые к фактическому типу (spec §10): точный ключ, затем
+	/// образцы вида <c>list&lt;T&gt;</c> с унификацией свободных параметров. Точная группа
+	/// идёт первой, чтобы конкретное расширение выигрывало у обобщённого.
+	/// </summary>
+	public IReadOnlyList<ExtensionGroup> FindExtensionsFor(KernType receiverType)
+	{
+		ArgumentNullException.ThrowIfNull(receiverType);
+		if (_extensions.Count == 0)
+			return [];
+
+		var key = receiverType.ToString();
+		var result = new List<ExtensionGroup>(1);
+		if (_extensions.TryGetValue(key, out var exact))
+			result.Add(exact);
+
+		foreach (var (patternKey, group) in _extensions)
+		{
+			if (patternKey == key)
+				continue;
+			if (TypePatternMatcher.TryMatch(group.ReceiverType, receiverType, out _))
+				result.Add(group);
+		}
+
+		return result;
+	}
 }
 
 /// <summary>

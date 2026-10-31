@@ -389,13 +389,12 @@ public sealed partial class Binder
 	/// </summary>
 	private static bool HintFits(IReadOnlyList<BoundCollectionItem> items, KernType elementHint)
 	{
-		if (!IsNumeric(elementHint))
-			return false;
-
 		foreach (BoundCollectionItem item in items)
 		{
 			if (item.IsSpread)
 			{
+				// Spread копирует список целиком: элемент обязан совпасть с подсказкой точно
+				// (иначе пришлось бы конвертировать каждый элемент, что меняет семантику копии).
 				if (CollectionElementType(item.Value.Type) is not { } spreadElement ||
 					!spreadElement.Equals(elementHint))
 					return false;

@@ -46,7 +46,7 @@ M1 verdict: **🟡 complete for stage 1 except regex literal values (M7).**
 | Builtin generics: `list/array/dict/set/collection` | ✅ | `collection<T>` upcast exists |
 | `result<T,E>` type | ✅ | M3 (2026-10-31): union of built-in `Ok<T>`/`Err<E>`; `Ok`/`Err` construction, patterns, coverage, `KRN2305`, `ok`/`error` labels |
 | `task<T>` type | ✅ | 2026-11-01: `async fun -> T` is `task<T>`, calls return a completed `KTask`, `await` yields `T`; parallel spawn/combinators are library-stage |
-| Generic constraints, union alias substitution | 🟡 | basic constraints; substitution edge cases unverified |
+| Generic constraints, union alias substitution | ✅ | 2026-11-01: `ctor()` enforced (abstract/ctorless → `KRN1401`), class/abstract constraints via upcast, `T[num]`; generic union aliases substitute arguments, nest and import (`Option<i32>`, `KRN1002` on arity); `ctor(args)` argument matching not checked |
 | Native generic member substitution (`list<T>.first() -> T`) | ✅ | 2026-11-01: binder substitutes receiver arguments in native member call results (`list`/`array`: `first`/`last`/`get`/`remove_at` → `T`, `reverse`/`slice`/`filter` → `list<T>`, `map` → `list<U>`; `dict`: `get` → `V`, `keys`/`values` → `list<K>`/`list<V>`); `set`/`collection`/`iter` have no native APIs yet |
 | Conversions (widening, nullable, boxing, collection upcast, constant narrowing) | ✅ | constant literal narrowing added in Batch 0 |
 | Overload resolution per spec §15 (`KRN1401/1402`) | ✅ | resolver + tests |

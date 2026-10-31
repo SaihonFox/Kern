@@ -63,6 +63,9 @@ internal static class GenericInference
 			if (!substitution.TryGetValue(parameter.Name, out var actual))
 				return false;
 
+			if (parameter.RequiresConstructor && !HasUsableConstructor(actual))
+				return false;
+
 			foreach (var constraint in parameter.Constraints)
 			{
 				var substituted = TypeSubstitution.Apply(constraint, substitution);
@@ -234,6 +237,27 @@ internal static class GenericInference
 			return SatisfiesUniversal(actual, primitive.Primitive);
 
 		return Conversions.TryClassify(actual, constraint, out _);
+	}
+
+	/// <summary>
+	/// Ограничение <c>ctor()</c> (spec §14): нужен нестатический конструктор; класс не должен
+	/// быть абстрактным. Встроенные (<c>list&lt;T&gt;</c>) и статические типы не подходят.
+	/// </summary>
+	private static bool HasUsableConstructor(KernType actual)
+	{
+		if (actual is ErrorType)
+			return true;
+
+		TypeSymbol? symbol = actual switch
+		{
+			ClassType @class => @class.Symbol,
+			UnitType unit => unit.Symbol,
+			_ => null
+		};
+		if (symbol is null || symbol.IsAbstract || symbol.IsStatic)
+			return false;
+
+		return symbol.Members.Constructors.Any(constructor => !constructor.IsStatic);
 	}
 
 	private static bool SatisfiesUniversal(KernType actual, PrimitiveKind universal)

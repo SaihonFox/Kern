@@ -17,16 +17,16 @@ public sealed partial class DeclarationCollector
 
 		var receiverName = declaration.Name[..dot];
 		var memberName = declaration.Name[(dot + 1)..];
-		var receiver = declaration.ExtensionReceiver is { } receiverSyntax
-			? _resolver.Resolve(receiverSyntax, TypeParameterScope.Empty)
-			: _resolver.Resolve(NamedTypeSyntax.Plain(receiverName, declaration.Span), TypeParameterScope.Empty);
+		var receiverSyntax = declaration.ExtensionReceiver
+			?? NamedTypeSyntax.Plain(receiverName, declaration.Span);
+		var (genericParameters, scope) = BuildExtensionScope(
+			receiverSyntax,
+			declaration.GenericParameters,
+			$"расширения '{declaration.Name}'");
+		var receiver = _resolver.Resolve(receiverSyntax, scope);
 		if (receiver is ErrorType)
 			return;
 
-		var (genericParameters, scope) = BuildFunctionScope(
-			declaration.GenericParameters,
-			TypeParameterScope.Empty,
-			$"расширения '{declaration.Name}'");
 		var function = new FunctionSymbol(memberName, FunctionKind.Method)
 		{
 			GenericParameters = genericParameters,
@@ -45,13 +45,18 @@ public sealed partial class DeclarationCollector
 
 	private void CollectExtensionProperty(ExtensionPropertyDeclaration declaration)
 	{
-		var receiver = _resolver.Resolve(declaration.ReceiverType, TypeParameterScope.Empty);
+		var (genericParameters, scope) = BuildExtensionScope(
+			declaration.ReceiverType,
+			[],
+			$"свойства-расширения '{declaration.Name}'");
+		var receiver = _resolver.Resolve(declaration.ReceiverType, scope);
 		if (receiver is ErrorType)
 			return;
 
-		var type = _resolver.Resolve(declaration.PropertyType, TypeParameterScope.Empty);
+		var type = _resolver.Resolve(declaration.PropertyType, scope);
 		var getter = new FunctionSymbol(declaration.Name, FunctionKind.Getter)
 		{
+			GenericParameters = genericParameters,
 			ReturnType = type,
 			ReceiverType = receiver,
 			Accessibility = declaration.Accessibility,
@@ -84,14 +89,19 @@ public sealed partial class DeclarationCollector
 
 	private void CollectExtensionOperator(ExtensionOperatorDeclaration declaration)
 	{
-		var receiver = _resolver.Resolve(declaration.ReceiverType, TypeParameterScope.Empty);
+		var (genericParameters, scope) = BuildExtensionScope(
+			declaration.ReceiverType,
+			[],
+			$"оператора-расширения '{declaration.Operator}'");
+		var receiver = _resolver.Resolve(declaration.ReceiverType, scope);
 		if (receiver is ErrorType)
 			return;
 
 		var function = new FunctionSymbol(declaration.Operator, FunctionKind.Operator)
 		{
-			Parameters = ResolveParameters(declaration.Parameters, TypeParameterScope.Empty),
-			ReturnType = ResolveReturnType(declaration.ReturnType, TypeParameterScope.Empty),
+			GenericParameters = genericParameters,
+			Parameters = ResolveParameters(declaration.Parameters, scope),
+			ReturnType = ResolveReturnType(declaration.ReturnType, scope),
 			ReceiverType = receiver,
 			Accessibility = declaration.Accessibility,
 			OpSymbol = declaration.Operator,
@@ -130,6 +140,83 @@ public sealed partial class DeclarationCollector
 			Attributes = AttributeValues.Build(declaration.DeclaredAttributes)
 		};
 		AddExtension(receiver, function);
+	}
+
+	/// <summary>
+	/// Область generic-параметров расширения (spec §10): свободные переменные приёмника
+	/// (<c>fun list&lt;T&gt;.first_or(...)</c>) становятся неявными параметрами и идут
+	/// перед объявленными <c>&lt;...&gt;</c>, затем в этой области разрешаются приёмник,
+	/// параметры и результат.
+	/// </summary>
+	private (IReadOnlyList<TypeParameterType> Parameters, TypeParameterScope Scope) BuildExtensionScope(
+		TypeSyntax? receiverSyntax,
+		IReadOnlyList<GenericParameterNode> declared,
+		string ownerDescription)
+	{
+		var implicitParameters = new List<TypeParameterType>();
+		var scope = TypeParameterScope.Empty;
+		var declaredNames = new HashSet<string>(
+			declared.Select(parameter => parameter.Name),
+			StringComparer.Ordinal);
+		foreach (var name in FreeTypeVariables(receiverSyntax, declaredNames))
+		{
+			var parameter = new TypeParameterType(name, []);
+			scope = scope.Add(parameter);
+			implicitParameters.Add(parameter);
+		}
+
+		var seen = new HashSet<string>(
+			implicitParameters.Select(parameter => parameter.Name),
+			StringComparer.Ordinal);
+		var (declaredParameters, combined) = BuildFunctionScope(declared, scope, ownerDescription, seen);
+		return ([.. implicitParameters, .. declaredParameters], combined);
+	}
+
+	/// <summary>
+	/// Свободные имена в аргументах типа-приёмника, не являющиеся известными типами:
+	/// <c>list&lt;T&gt;</c> → <c>T</c>, <c>dict&lt;K, V&gt;</c> → <c>K</c>, <c>V</c>.
+	/// Голова приёмника (<c>list</c>, <c>Box</c>) обязана быть настоящим типом.
+	/// </summary>
+	private List<string> FreeTypeVariables(TypeSyntax? syntax, HashSet<string> declaredNames)
+	{
+		var result = new List<string>();
+		var seen = new HashSet<string>(StringComparer.Ordinal);
+		Collect(syntax);
+		return result;
+
+		void Collect(TypeSyntax? node)
+		{
+			switch (node)
+			{
+				case NamedTypeSyntax named when named.Arguments.Count > 0:
+					foreach (var argument in named.Arguments)
+						Collect(argument);
+					break;
+
+				case NamedTypeSyntax named:
+					if (IsKnownTypeName(named.Name) || declaredNames.Contains(named.Name))
+						break;
+					if (seen.Add(named.Name))
+						result.Add(named.Name);
+					break;
+
+				case FunctionTypeSyntax function:
+					foreach (var parameter in function.Parameters)
+						Collect(parameter);
+					Collect(function.ReturnType);
+					break;
+
+				case TupleTypeSyntax tuple:
+					foreach (var element in tuple.Elements)
+						Collect(element.Type);
+					break;
+
+				case UnionTypeSyntax union:
+					foreach (var alternative in union.Alternatives)
+						Collect(alternative);
+					break;
+			}
+		}
 	}
 
 	private void AddExtension(KernType receiver, FunctionSymbol function)
