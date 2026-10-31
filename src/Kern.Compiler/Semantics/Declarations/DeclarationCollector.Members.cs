@@ -118,14 +118,6 @@ public sealed partial class DeclarationCollector
 		var directBases = Inheritance.DirectBases(owner);
 		if (directBases.Count > 0)
 			owner.Members.SetInheritedBases([.. directBases.Select(baseType => baseType.Symbol)]);
-
-		// Ромб (общий предок по двум путям) требует одной общей подобъектной части и
-		// единственного вызова общего конструктора — это следующий срез, сейчас честная ошибка.
-		if (Inheritance.DiamondAncestor(owner) is { } sharedAncestor)
-			Report(
-				"KRN2101",
-				$"Ромбовидное наследование типа '{owner.Name}' пока не поддержано: предок '{sharedAncestor.Name}' достижим по нескольким путям (общий предок будет храниться один раз в следующем срезе)",
-				owner.Declaration?.Span ?? default);
 	}
 
 	private static string GetDeclaredName(DeclarationNode declaration) => declaration switch

@@ -250,7 +250,7 @@ public sealed partial class Interpreter
 						}
 
 					// ---------- вызовы ----------
-					case OpCode.Call or OpCode.CallVirtual:
+					case OpCode.Call or OpCode.CallVirtual or OpCode.CallBase:
 						{
 							int calleeIndex = code[pc++];
 							int argc = code[pc++];
@@ -265,6 +265,29 @@ public sealed partial class Interpreter
 									: KValue.None;
 								callee = ResolveVirtualTarget(callee, receiver);
 							}
+							else if (op == OpCode.CallBase &&
+								argc > 0 && stack.Count - argc >= stackBase &&
+								stack.At(stack.Count - argc).Ref is KObject baseReceiver &&
+								callee.OwnerType >= 0 &&
+								baseReceiver.IsConstructed(_module.TypePool[callee.OwnerType]))
+							{
+								// Ромб наследования: конструктор общего предка уже выполнился
+								// на этом объекте — повторный вызов пропускается (объект один).
+								stack.Truncate(stack.Count - argc);
+								stack.Push(KValue.Void);
+								break;
+							}
+
+							// Ромб: отметить выполняемый конструктор, чтобы повторный CallBase
+							// того же типа не инициализировал общий подобъект второй раз.
+							if ((callee.Flags & MemberFlags.Ctor) != 0 &&
+								callee.OwnerType >= 0 &&
+								argc > 0 && stack.Count - argc >= stackBase &&
+								stack.At(stack.Count - argc).Ref is KObject constructed)
+							{
+								constructed.MarkConstructed(_module.TypePool[callee.OwnerType]);
+							}
+
 							CallStart start = BeginCall(
 								callee, argc, function, locals, captures, pc, stackBase,
 								ref stack, ref frames, ref frameCount);

@@ -21,6 +21,12 @@ public sealed class KObject
 	/// </summary>
 	private int _constructionDepth;
 
+	/// <summary>
+	/// Типы, чей конструктор уже выполнился на этом объекте (ромб наследования: общий предок
+	/// инициализируется один раз). Создаётся лениво — у объектов без ромба пусто.
+	/// </summary>
+	private HashSet<TypeDef>? _constructedSubobjects;
+
 	public KObject(KClassType type, KValue[] fields)
 		: this(type, fields, type.Definition.Kind is TypeDefKind.Unit or TypeDefKind.ImmutableUnit)
 	{
@@ -82,6 +88,12 @@ public sealed class KObject
 				$"закрытие окна создания без открытия у '{Type.Canonical}': конструктор не вызывался");
 		_constructionDepth--;
 	}
+
+	/// <summary>Отметить, что конструктор типа уже выполнился на этом объекте.</summary>
+	public void MarkConstructed(TypeDef type) => (_constructedSubobjects ??= new()).Add(type);
+
+	/// <summary>Выполнялся ли конструктор типа на этом объекте (ромб: общий предок — один раз).</summary>
+	public bool IsConstructed(TypeDef type) => _constructedSubobjects?.Contains(type) == true;
 
 	/// <summary>
 	/// Копия значения unit: вложенные unit копируются рекурсивно, list/dict/прочие объекты

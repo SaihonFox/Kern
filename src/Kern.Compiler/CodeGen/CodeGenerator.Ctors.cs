@@ -95,7 +95,7 @@ public sealed partial class CodeGenerator
 			return;
 		}
 
-		Emit(OpCode.Call);
+		Emit(OpCode.CallBase);
 		EmitOperand(index);
 		EmitOperand(call.Arguments.Count + 1);
 		Emit(OpCode.Pop);

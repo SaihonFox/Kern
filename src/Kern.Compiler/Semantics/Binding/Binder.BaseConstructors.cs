@@ -25,8 +25,6 @@ public sealed partial class Binder
 	{
 		if (constructor.Owner is not { } owner || owner.IsStatic)
 			return [];
-		if (Inheritance.DiamondAncestor(owner) is not null)
-			return [];
 
 		var result = new List<BoundBaseConstructorCall>();
 		foreach (var baseType in Inheritance.DirectBases(owner))

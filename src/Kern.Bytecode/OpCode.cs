@@ -168,6 +168,9 @@ public enum OpCode
 
 	// --- динамический диспатч методов класса (spec §8) ---
 	CallVirtual,      // functionIdx, argc: как Call, но цель — ближайшее переопределение по типу получателя
+
+	// --- вызов конструктора предка (ромб наследования) ---
+	CallBase,         // functionIdx, argc: как Call, но повторный конструктор того же типа пропускается
 }
 
 /// <summary>Раскладка операндов и вспомогательные проверки для <see cref="OpCode"/>.</summary>
@@ -186,7 +189,7 @@ public static class OpCodeInfo
 			or OpCode.Slice or OpCode.TupleGet => 1,
 		OpCode.PushI64 or OpCode.PushF64 or OpCode.Call or OpCode.CallVirtual
 			or OpCode.NewList or OpCode.NewArray or OpCode.NewDict
-			or OpCode.MakeClosure or OpCode.NewObjectGeneric => 2,
+			or OpCode.MakeClosure or OpCode.NewObjectGeneric or OpCode.CallBase => 2,
 		_ => 0,
 	};
 
@@ -196,7 +199,7 @@ public static class OpCodeInfo
 	public static bool IsJump(OpCode op) => op is OpCode.Jmp or OpCode.JmpIf or OpCode.JmpIfNot;
 
 	/// <summary>Известен ли номер опкода (защита от мусора в .kbc).</summary>
-	public static bool IsDefined(int value) => value >= 0 && value <= (int)OpCode.CallVirtual;
+	public static bool IsDefined(int value) => value >= 0 && value <= (int)OpCode.CallBase;
 
 	public static bool IsDefined(OpCode op) => IsDefined((int)op);
 }

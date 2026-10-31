@@ -125,24 +125,61 @@ public sealed class MultipleInheritanceTests
 	}
 
 	[Fact]
-	public void Diamond_reports_the_staged_diagnostic()
+	public void Diamond_shares_one_ancestor_and_runs_its_constructor_once()
 	{
 		const string source = """
-			open type A { str name = "a" }
+			open type A {
+				str name = "a"
+				#i32 made = 0
+				ctor() { A.made += 1 }
+			}
+
 			type B()[A] { }
 			type C()[A, B] { }
 
-			fun main {
+			fun made() -> i32 {
 				C c()
-				println(c.name)
+				A.made
+			}
+
+			fun name() -> str {
+				C c()
+				c.name
+			}
+
+			fun both() -> bool {
+				C c()
+				c is A && c is B
 			}
 			""";
 
-		var outcome = CompileWithDiagnostics(source);
-		Assert.Contains(
-			outcome.Diagnostics,
-			diagnostic => diagnostic.Code == "KRN2101" &&
-				diagnostic.Message.Contains("Ромбовидное наследование", StringComparison.Ordinal));
+		Assert.Equal(KValue.I32(1), Run(source, "made"));
+		Assert.Equal(KValue.Str("a"), Run(source, "name"));
+		Assert.Equal(KValue.Bool(true), Run(source, "both"));
+	}
+
+	[Fact]
+	public void Diamond_selector_through_indirect_path_finds_the_shared_member()
+	{
+		const string source = """
+			open type A { str name = "a" }
+			type B1()[A] { }
+			type B2()[A] { }
+			type C()[B1, B2] { str $[B1].name }
+
+			fun name() -> str {
+				C c()
+				c.name
+			}
+
+			fun is_a() -> bool {
+				C c()
+				c is A
+			}
+			""";
+
+		Assert.Equal(KValue.Str("a"), Run(source, "name"));
+		Assert.Equal(KValue.Bool(true), Run(source, "is_a"));
 	}
 
 	[Fact]

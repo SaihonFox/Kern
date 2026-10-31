@@ -135,12 +135,19 @@ public sealed class MemberTable
 		if (_selectedFields is not null && _selectedFields.ContainsKey(name))
 			return [];
 
+		var members = new HashSet<object>(ReferenceEqualityComparer.Instance);
 		var owners = new List<string>(2);
 		foreach (var type in _inheritedBases)
 		{
 			var field = type.Members.FindField(name);
 			var property = type.Members.FindProperty(name);
-			if (field is { IsStatic: false } || property is { IsStatic: false })
+			object? member = field is { IsStatic: false }
+				? field
+				: property is { IsStatic: false } ? property : null;
+			if (member is null)
+				continue;
+			// Общий предок ромба даёт один и тот же символ через разные пути — не конфликт.
+			if (members.Add(member))
 				owners.Add(type.Name);
 		}
 
