@@ -14,6 +14,7 @@
       Kern.Lib.Ffi/           — kern.ffi (вызов C/C++ DLL; замысел)
       Kern.Lib.Transpile/     — kern.transpile (Kern → C# / Kotlin; замысел)
       Kern.Lib.Di/            — kern.di (контейнер внедрения зависимостей; реализовано)
+      Kern.Lib.Backend/       — kern.backend, kern.backend.server (HTTP, middleware, JWT, WS/SSE; реализовано)
 
 Сборка: `dotnet build libs/Kern.Libs.slnx`. Ядро: `dotnet build Kern.slnx` — без пакетов СУБД и Avalonia.
 
@@ -77,8 +78,19 @@
 - **Конструктор:** помеченный `#[inject]`, иначе единственный/самый длинный; зависимости разрешаются по типу, цикл даёт panic с цепочкой.
 - **Проверка:** `examples/26_di` проходит `check` и `run`: фабрики, named, scan, inject, scope, dispose, try_get.
 
-## Kern.Lib.Backend (kern.backend)
-Backend-фреймворк: роутер (`app`, `route_group`), middleware, атрибутные контроллеры, JWT/сессии/роли, WebSocket и SSE. Зависит от `Kern.Lib.Di` (контроллеры создаются через `container`). Типы: `app`, `ctx`, `res`, `chain`, `middleware`, `jwt`, `claims`, `session`, `socket`, `sse`, `work`. Std-модуль `kern.backend.server` даёт `app.serve()`. Подробности — kern.md, «Раунд 21».
+## Kern.Lib.Backend (kern.backend, kern.backend.server)
+
+Реализована (2026-11-02). Внешняя библиотека `libs/Kern.Lib.Backend` (зависит от `Kern.Lib.Di`) собирается в `libs/_out/Kern.Lib.Backend`. CLI разрешает зависимость `Kern.Lib.Di` из соседнего каталога `libs/_out/Kern.Lib.Di`.
+
+- **Маршруты:** `app a(port[, host])`, `a.get/post/put/patch/delete/route(pattern, fun(ctx)->res)`, `a.group(prefix)` → `route_group`, `a.static_files(url, dir)`. Шаблоны: литералы, `{name}`, хвост `{*path}`; specificity выбирает самый точный маршрут; 404/405.
+- **Middleware:** `a.use(fun(ctx c, chain n) -> res { n.next() })` и готовые `middleware.logger/recover/cors/bearer/basic/jwt_auth/jwt_optional/require_role/sessions/rate_limit`. Middleware группы применяется к её маршрутам; OPTIONS обрабатывает CORS.
+- **Контекст:** `ctx` — `method/path/body/ip/user/roles/session/claims`, `param/query/header/cookie/has_role`, `json<T>()` → `result<T, str>`, `set/get`.
+- **Ответ:** `res` — `text/html/json/json_status/send/redirect/no_content/not_found/error/bad_request/unauthorized/forbidden/file`, свойства `status/content_type/body`, `header(name, value)`, `cookie(name, value[, max_age])`.
+- **Контроллеры:** `#[controller("/api")] type ... { #[get("/{id}")] fun show(i64 id) -> ... }`, `#[auth]`, `#[roles("admin")]`; регистрация `a.controller<T>()` или `a.scan_controllers()`. Параметры-примитивы — из `{name}`/query, остальные — JSON-тело; `ctx`/`session`/`claims` внедряются; инстанс создаётся через `a.services(container)` (scope на запрос, `dispose` в конце).
+- **Auth/realtime:** `jwt.sign/verify` (HS256), сессии на cookie `kern_sid`, `a.ws(pattern, fun(socket s, str text) {...})`, `a.sse(pattern, fun(sse s) {...})`, `a.ws_broadcast/sse_broadcast`, `a.stop()`.
+- **Запуск:** `await a.serve()` (модуль `kern.backend.server.*`; `serve` — член `app`). Цикл блокирующий: HTTP-поток складывает запросы в очередь, VM обрабатывает их в своём потоке; `accept()`/`handle()` доступны для ручного цикла.
+- **Проверка:** `examples/13_db_web` (SQLite + ORM + HTTP) и `examples/27_backend` (DI, контроллеры, JWT, middleware, SSE, WebSocket, `/stop`) проходят `check` и `run`.
+- **Ограничения:** сервер на `HttpListener` (Windows без admin для `localhost` проверен; на других ОС нужен префикс/права), сессии и rate limit — в памяти процесса, SSE-буферы не переживают перезапуск, контроллеры не поддерживают async-методы с собственным `await` в ответе (адаптер умеет дождаться `task`), статические файлы без кэширования/диапазонов.
 
 ## Версии NuGet (проверено 2026-10-15)
 

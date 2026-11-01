@@ -1,0 +1,8 @@
+use kern.build[workspace, target]
+
+fun build(workspace w) {
+	w.target("backend", fun (target t) {
+		t.lib("kern.backend")
+		t.lib("kern.di")
+	})
+}

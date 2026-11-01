@@ -150,8 +150,8 @@ Accept: each slice green (build 0 errors, full `dotnet test`, style), spec + `CH
 
 ## Examples status for stage 1 (golden)
 Run + golden: 01-12, 14, 18, 21-24, 28-31 (04 is active since Q25). Compile-only: 16 (`#[test]` is run by `kernc test`; `kernc run` prints only a hint), 17 (needs the internet; the typed clients are covered by loopback xunit tests), 31-mathx (library; covered by `ExampleCompileTests`).
-4. **Stage-2 examples:** 13, 19, 20, 25, and 27 still require external libraries to run. 15 (DB/ORM) and 26 (DI) now run with `libs/Kern.Lib.Db` / `libs/Kern.Lib.Di` (built via `dotnet build libs/Kern.Libs.slnx`).
+4. **Stage-2 examples:** 19, 20, and 25 still require external libraries to run. 13, 15, 26 and 27 now run: DB/ORM (`libs/Kern.Lib.Db`), DI (`libs/Kern.Lib.Di`), backend (`libs/Kern.Lib.Backend`) built via `dotnet build libs/Kern.Libs.slnx`.
 
-**Status 2026-11-02 - DB/DI libraries implemented:** `libs/Kern.Lib.Db` (SQLite/PostgreSQL/MySQL + `orm.table<T>`) and `libs/Kern.Lib.Di` (`container`: singleton/transient/scoped, factories, scan/inject, scope/dispose) build into `libs/_out`; examples 15 and 26 check and run (SQLite end-to-end; PG/MySQL need live servers). Native `e_sqlite3` is resolved from the library's `runtimes/<rid>/native`. Examples clean **25/31**.
+**Status 2026-11-02 - DB/DI/backend libraries implemented:** `libs/Kern.Lib.Db` (SQLite/PostgreSQL/MySQL + `orm.table<T>`), `libs/Kern.Lib.Di` (`container`: singleton/transient/scoped, factories, scan/inject, scope/dispose) and `libs/Kern.Lib.Backend` (`app`/`route_group`, middleware, controllers, JWT/sessions, WebSocket/SSE, `await a.serve()`) build into `libs/_out`. Examples 13, 15, 26, 27 check; 13/15/26/27 run (SQLite end-to-end; PG/MySQL need live servers; backend verified over localhost including controllers/JWT/WS/SSE). Native `e_sqlite3` is resolved from the library's `runtimes/<rid>/native`; `Kern.Lib.Di` is resolved from a sibling `libs/_out` folder. Examples clean **27/31**.
 
 ## Stage 2 (needs explicit owner go-ahead) — see `docs/WISHLIST.md`

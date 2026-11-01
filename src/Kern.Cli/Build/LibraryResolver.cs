@@ -14,7 +14,9 @@ internal static class LibraryResolver
 {
 	private static readonly Dictionary<string, Assembly> Cache = new(StringComparer.OrdinalIgnoreCase);
 	private static readonly Lock Gate = new();
+	private static readonly HashSet<string> SearchDirectories = new(StringComparer.OrdinalIgnoreCase);
 	private static bool _nativeResolverInstalled;
+	private static bool _managedResolverInstalled;
 
 	public static IReadOnlyList<Assembly> Resolve(BuildSession session, TargetModel target)
 	{
@@ -23,6 +25,12 @@ internal static class LibraryResolver
 
 		InstallNativeResolver();
 		var roots = SearchRoots(session, target);
+		lock (Gate)
+		{
+			foreach (string root in roots)
+				SearchDirectories.Add(root);
+		}
+
 		var assemblies = new List<Assembly>(target.Libs.Count);
 		foreach (string library in target.Libs)
 		{
@@ -31,6 +39,7 @@ internal static class LibraryResolver
 					$"библиотека '{library}' не найдена; искали в: {string.Join(", ", roots)}");
 			lock (Gate)
 			{
+				SearchDirectories.Add(Path.GetDirectoryName(path) ?? "");
 				if (!Cache.TryGetValue(path, out Assembly? assembly))
 				{
 					try
@@ -56,12 +65,58 @@ internal static class LibraryResolver
 	{
 		lock (Gate)
 		{
-			if (_nativeResolverInstalled)
-				return;
-			_nativeResolverInstalled = true;
-			NativeLibrary.SetDllImportResolver(typeof(LibraryResolver).Assembly, ResolveDll);
-			AssemblyLoadContext.Default.ResolvingUnmanagedDll += (assembly, name) => ResolveNative(assembly, name);
+			if (!_nativeResolverInstalled)
+			{
+				_nativeResolverInstalled = true;
+				NativeLibrary.SetDllImportResolver(typeof(LibraryResolver).Assembly, ResolveDll);
+				AssemblyLoadContext.Default.ResolvingUnmanagedDll += (assembly, name) => ResolveNative(assembly, name);
+			}
+
+			if (!_managedResolverInstalled)
+			{
+				_managedResolverInstalled = true;
+				AssemblyLoadContext.Default.Resolving += ResolveManaged;
+			}
 		}
+	}
+
+	/// <summary>
+	/// Разрешает зависимости внешних библиотек (<c>Kern.Lib.Backend</c> → <c>Kern.Lib.Di</c>):
+	/// ищет DLL в известных каталогах и на уровень ниже (<c>libs/_out/&lt;имя&gt;/</c>).
+	/// </summary>
+	private static Assembly? ResolveManaged(AssemblyLoadContext context, AssemblyName name)
+	{
+		if (name.Name is null)
+			return null;
+		List<string> directories;
+		lock (Gate)
+			directories = [.. SearchDirectories];
+
+		foreach (string directory in directories)
+		{
+			if (directory.Length == 0)
+				continue;
+			string direct = Path.Combine(directory, name.Name + ".dll");
+			if (File.Exists(direct))
+				return context.LoadFromAssemblyPath(Path.GetFullPath(direct));
+			if (!Directory.Exists(directory))
+				continue;
+			try
+			{
+				foreach (string nested in Directory.EnumerateDirectories(directory))
+				{
+					string candidate = Path.Combine(nested, name.Name + ".dll");
+					if (File.Exists(candidate))
+						return context.LoadFromAssemblyPath(Path.GetFullPath(candidate));
+				}
+			}
+			catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+			{
+				// Каталог недоступен — пробуем следующий корень.
+			}
+		}
+
+		return null;
 	}
 
 	private static IntPtr ResolveDll(string name, Assembly assembly, DllImportSearchPath? searchPath)

@@ -1,4 +1,5 @@
 <Solution>
 	<Project Path="Kern.Lib.Db/Kern.Lib.Db.csproj" />
 	<Project Path="Kern.Lib.Di/Kern.Lib.Di.csproj" />
+	<Project Path="Kern.Lib.Backend/Kern.Lib.Backend.csproj" />
 </Solution>

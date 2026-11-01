@@ -265,21 +265,30 @@ public sealed class KernContainer
 
 	[KernMember]
 	public static KernContainer Scope(Interpreter interpreter, KNativeBox self) =>
-		new(Require(self));
+		Require(self).CreateScope();
 
 	[KernMember]
-	public static void Dispose(Interpreter interpreter, KNativeBox self)
+	public static void Dispose(Interpreter interpreter, KNativeBox self) =>
+		Require(self).DisposeAll(interpreter);
+
+	/// <summary>Для backend: корневой контейнер без Kern-значения.</summary>
+	public static KernContainer CreateRoot() => new();
+
+	/// <summary>Дочерняя область (scoped-сервисы живут в ней).</summary>
+	public KernContainer CreateScope() => new(this);
+
+	/// <summary>Вызвать <c>dispose()</c> у созданных в области объектов в обратном порядке.</summary>
+	public void DisposeAll(Interpreter interpreter)
 	{
-		KernContainer container = Require(self);
-		for (var index = container._disposables.Count - 1; index >= 0; index--)
+		for (var index = _disposables.Count - 1; index >= 0; index--)
 		{
-			KValue value = container._disposables[index];
+			KValue value = _disposables[index];
 			if (DisposeMethod(interpreter, value) is { } dispose)
 				_ = interpreter.RunValue(KValue.Obj(dispose), [value]);
 		}
 
-		container._disposables.Clear();
-		container._cache.Clear();
+		_disposables.Clear();
+		_cache.Clear();
 	}
 
 	/// <summary>Для backend/CLI: получить зарегистрированный сервис или создать конкретный тип.</summary>

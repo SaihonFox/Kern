@@ -8,15 +8,13 @@
 //   curl -N localhost:8080/events                                                       (SSE; события шлёт POST /notify)
 //   curl localhost:8080/stop                                                            (останавливает сервер)
 use kern.backend[app, ctx, res, chain, middleware, jwt, sse, socket]
-use kern.backend.server
+use kern.backend.server.*
 use kern.di[container]
 
 unit todo(i64 id, str title, bool done)
 unit todo_dto(str title)
 unit login_dto(str user, str password)
 unit token_dto(str token)
-
-str secret = "kern-secret"
 
 // --- хранилище (singleton в контейнере) ---
 type todo_repo {
@@ -73,7 +71,7 @@ type todo_controller(todo_repo repo) {
 fun issue_token(login_dto d) -> res {
 	if d.password != "secret" { ret res.unauthorized("неверный пароль") }
 	str role = if d.user == "admin" { "admin" } else { "user" }
-	res.json(token_dto(jwt.sign(d.user, [role], secret, 3600)))
+	res.json(token_dto(jwt.sign(d.user, [role], "kern-secret", 3600)))
 }
 
 async fun main {
@@ -87,7 +85,7 @@ async fun main {
 	a.use(middleware.recover())
 	a.use(middleware.logger())
 	a.use(middleware.cors())
-	a.use(middleware.jwt_optional(secret))          // если токен есть — ctx.user и роли заполнены
+	a.use(middleware.jwt_optional("kern-secret"))          // если токен есть — ctx.user и роли заполнены
 	a.use(fun(ctx c, chain n) -> res {              // свой middleware
 		var r = n.next()
 		r.header("X-Powered-By", "kern")

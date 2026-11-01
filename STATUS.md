@@ -1,6 +1,15 @@
 # STATUS
 
 ## Now
+- **Backend library implemented (2026-11-02, owner request):** external `libs/Kern.Lib.Backend`
+  (`kern.backend`, `kern.backend.server.*`) with `app`/`route_group` router, middleware, `ctx`/`res`,
+  attribute controllers (`#[controller]`, `#[get]`, `#[auth]`, `#[roles]`), DI-scoped controller
+  instances, JWT HS256/sessions/roles, WebSocket/SSE and `await a.serve()`. Example 13 was rewritten
+  from the nonexistent `kern.web`/`kern.server` to `kern.backend` + `kern.db` and now checks/runs
+  (SQLite + ORM + HTTP); example 27 (DI, controllers, JWT, middleware, SSE, WebSocket, `/stop`)
+  checks/runs too. Verified over `localhost` (users, login, todos CRUD, roles, WS echo, SSE hello).
+  `LibraryResolver` now resolves sibling library dependencies (`Kern.Lib.Backend` → `Kern.Lib.Di`).
+  Examples clean **27/31**.
 - **DB and DI libraries implemented (2026-11-02, owner request):** external `libs/Kern.Lib.Db`
   (SQLite/PostgreSQL/MySQL + `orm.table<T>`) and `libs/Kern.Lib.Di` (`container`) now build via
   `dotnet build libs/Kern.Libs.slnx` into `libs/_out`. SQLite CRUD/query/scalar/transactions and
@@ -8,7 +17,7 @@
   named, factories, `scan`, `#[inject]`, scope, dispose) by example 26. PostgreSQL/MySQL compile
   and connect APIs are present but need live servers for integration; native `e_sqlite3` is
   resolved from the library's `runtimes/<rid>/native`. Examples 15/26 check and run; clean
-  examples **25/31**.
+  examples **27/31**.
 - **Owner batch "доделай всё" closed (2026-11-01):** Q17 (unit! ctor writes), Q18 (`KRN2192`
   required fields), Q19 (`$.field` and `$[A].member` rejected; `$[A]member` is the new form),
   Q23 (op `==` + dict hash/equality overrides),
@@ -17,7 +26,7 @@
   RHS, bindings under `&&`/then-branch, smart casts, `KRN2101` for bindings under negation/`||`.
   Tests added: `SelfAndImmutableTests`, `RequiredFieldTests`, `EqualityOperatorTests`,
   `FormattingConventionTests`, `IsPatternTests` (7). Suite **370/370**; style clean; goldens
-  **21 active**; examples clean **25/31**.
+  **21 active**; examples clean **27/31**.
 - **`kernc test` added (2026-11-01, owner request):** command `kernc test <файл.kern|папка>`
   compiles and runs every `#[test]` function without arguments; a panic/assert failure counts
   as a failed test, the rest continue. For a `build.kern` project all targets are tested, for a
@@ -34,7 +43,7 @@
   generators/`seq<T>`, tail calls, data structures, docs/CLI.
 - **M12 hardening (2026-11-01, nearly closed):** goldens for 09/18/23 plus 04 (all active),
   formatter idempotence over every example, compile-only checks for 16/17/31-mathx, CI matrix
-  enabled. Suite **370/370**; style clean; goldens **21 active**; examples clean **25/31**. Only CI needs an actual push
+  enabled. Suite **370/370**; style clean; goldens **21 active**; examples clean **27/31**. Only CI needs an actual push
   by the owner.
 - **M9 closed (2026-11-01, owner request):** reflection and macros finished. Runtime: the `type`
   value exposes `name/full_name/args/parents/fields/properties/methods/constructors/attributes`,

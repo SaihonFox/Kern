@@ -21,7 +21,7 @@ Language details live in `docs/spec/kern.en.md`; this file is the index of *why*
 - [FINAL] Std binding: **C# classes with attributes** (`[KernType]`, `[KernMember]`, `[KernProperty]`, `[KernStatic]`, `[KernCtor]`, …) plus interop `use dotnet.X[...]`.
   FORBIDDEN: ExternRegistry style, `#[extern]` on every member, string registries like `"len.get"`, merging overloads/generics/return types. Real property/setter/overload/generic support is required.
 - [FINAL] Console is always UTF-8 (the old bug: Russian text printed as `?`).
-- [FINAL] Libraries beyond BCL (stage 2): web server/backend, DB/ORM (SQLite/PostgreSQL/MySQL), ui, ffi, transpiler, DI. They are **external** libs (not built into the language, no extra DLLs in kernc output). DB/ORM and DI are implemented in `libs/` (2026-11-02); the rest remain external stage-2. Std stage-1 still has xml/yaml/csv, json, regex, crypto, uuid, compression, http client, time, test+mocks.
+- [FINAL] Libraries beyond BCL (stage 2): web server/backend, DB/ORM (SQLite/PostgreSQL/MySQL), ui, ffi, transpiler, DI. They are **external** libs (not built into the language, no extra DLLs in kernc output). DB/ORM, DI and backend are implemented in `libs/` (2026-11-02); ui/ffi/transpiler remain external stage-2. Std stage-1 still has xml/yaml/csv, json, regex, crypto, uuid, compression, http client, time, test+mocks.
 
 ## C. Language (see spec for syntax)
 - [FINAL] `snake_case` for everything; short names (`len`, `is_empty`, `first`, `last`); prefer properties over getters (`stack.size`).
@@ -78,7 +78,7 @@ Language details live in `docs/spec/kern.en.md`; this file is the index of *why*
 ## G. UI, architecture examples, tooling (stage 2)
 - [DEFERRED] UI is NOT in the first pass. Wishes: own UI base (not Avalonia-only), desktop + mobile + web, React-like routing, widget hierarchy (`button/label/…` with a common base), Compose-style state. Avalonia may be one backend.
 - [DEFERRED] Architecture examples: mvvm, mvc, mvp, mvi, viper, state.
-- [DEFERRED] LSP; transpiler (Kern → C# and Kotlin, user mapping scripts, external library); backend library (middleware+router, `#[controller]`, auth/sessions, WebSocket+SSE; function-based and attribute-based over one pipeline); ffi (`use` C/C++ DLLs). DB/ORM (`kern.db*`) and DI (`kern.di`) are implemented 2026-11-02.
+- [DEFERRED] LSP; transpiler (Kern → C# and Kotlin, user mapping scripts, external library); ffi (`use` C/C++ DLLs). DB/ORM (`kern.db*`), DI (`kern.di`) and backend (`kern.backend*`) are implemented 2026-11-02.
 - Design of stage-2 libraries is documented in `docs/spec/kern.en.md` (rounds 13–21) and `docs/LIBRARIES.md`.
 
 ## H. Owner preferences (apply always)

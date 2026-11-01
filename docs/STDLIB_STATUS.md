@@ -25,10 +25,11 @@
 | `kern.reflection` / `kern.macro` | `type` (`name/full_name/args/parents/fields/properties/methods/constructors/attributes`, `is_*`, `enum_names`, `get_*/get/set/create/is_instance/is_assignable_from`), `field_info/property_info/method_info/param_info/attribute_info`, `reflect.*`, `define_type`; `macro_ctx` + `#[macro]`/`#[macro("expr")]`/`#[derive]`/`name!(...)` | `define_type` без generics/родителей/методов; `instantiate()` атрибута нет; макросы не раскрываются в одиночном `CompileCore` |
 | `kern.db.*` / `kern.db` | внешняя `libs/Kern.Lib.Db`: `sqlite`, `postgres`, `mysql` (`exec/query/scalar/begin/commit/rollback`, async, `last_id`, `close`), `orm.table<T>` (`create/drop/insert/update/delete/all/where/find/count`, `name`) | SQLite проверен end-to-end; PostgreSQL/MySQL только компиляция/API без живого сервера; ORM хранит не-примитивные поля текстом (`to_str`), без JSON-round-trip |
 | `kern.di` | внешняя `libs/Kern.Lib.Di`: `container` (`singleton/transient/scoped`, `*_as`, `instance`, `scan`, `get/try_get/has/create/inject/scope/dispose`, `count`) | фабрики требуют явного типа результата лямбды (`fun -> T`); `#[singleton]/#[inject]` остаются библиотечными атрибутами и дают `KRN2307` |
+| `kern.backend` / `kern.backend.server` | внешняя `libs/Kern.Lib.Backend`: `app`/`route_group`/`ctx`/`res`/`chain`/`middleware`/`jwt`/`session`/`claims`/`socket`/`sse`/`work`; маршруты, middleware, контроллеры (`#[controller]`, `#[get]`, `#[auth]`, `#[roles]`), DI-scope на запрос, JWT HS256, сессии, WebSocket, SSE, `await a.serve()` | `kern.backend.server.*` — импорт модуля; `serve` объявлен членом `app`; SSE/сессии/rate limit в памяти; сервер на `HttpListener` |
 
 ## Отсутствует (stage-2 и другие этапы)
 
-`kern.ui`, `kern.ffi`, `kern.transpile`, `kern.backend`, `kern.mod`,
+`kern.ui`, `kern.ffi`, `kern.transpile`, `kern.mod`,
 `kern.stub`, `kern.web`/`kern.server` (stage-2).
 
 M7 закрыт 2026-11-01: `kern.events`, `kern.compress`, `kern.http` (оба варианта), `kern.threading`,
@@ -45,7 +46,7 @@ M12 почти закрыт: эталоны 09/18/23 и 04_flow, форматт�
 по всем примерам, `.compile-only` примеры 16/17/31-mathx проверяются отдельным тестом.
 Остался только реальный прогон CI после push владельца.
 
-## Блокеры примеров (6 из 31 не проходят `kernc check`; 25 чистых — на 2026-11-02)
+## Блокеры примеров (4 из 31 не проходят `kernc check`; 27 чистых — на 2026-11-02)
 
 | Пример | Первый блокер | Что нужно |
 |---|---|---|
@@ -53,7 +54,7 @@ M12 почти закрыт: эталоны 09/18/23 и 04_flow, форматт�
 | 09_collections_json | ✅ clean+run 2026-11-01 | — |
 | 11_workspace | `build.kern`/`workspace` | M8 builder |
 | 12_text_data | ✅ clean+run 2026-11-01 | — |
-| 13_db_web | старый `use path` | refresh примеров + `kern.db` |
+| 13_db_web | ✅ clean+run 2026-11-02 (`kern.backend` + `kern.db`; SQLite/ORM/HTTP) | — |
 | 14_threads_compress | ✅ clean+run 2026-11-01 | — |
 | 15_databases | ✅ clean+run 2026-11-02 (`kern.db.sqlite` + ORM); PostgreSQL/MySQL — compile-only | нужны живые серверы для PG/MySQL |
 | 16_mocks | ✅ `kernc test` 2026-11-01 (2 теста); `kernc run` печатает подсказку | — |
@@ -67,7 +68,7 @@ M12 почти закрыт: эталоны 09/18/23 и 04_flow, форматт�
 | 24_reflection | ✅ clean+run 2026-11-01 (динамический builder минимален) | — |
 | 25_transpile | старый `use path` | refresh примеров + `kern.transpile` |
 | 26_di | ✅ clean+run 2026-11-02 (`kern.di`) | — |
-| 27_backend | stage-2 | вне первого прохода |
+| 27_backend | ✅ clean+run 2026-11-02 (`kern.backend` + `kern.di`: контроллеры, JWT, middleware, SSE, WebSocket, `/stop`) | — |
 | 28_macros | ✅ clean+run 2026-11-01 (M9 macros) | — |
 | 29_async | ✅ clean+run 2026-11-01 | — |
 | 30_threads | ✅ clean+run 2026-11-01 | — |

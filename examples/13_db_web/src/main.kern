@@ -1,34 +1,33 @@
-// SQLite + ORM и HTTP-сервер. Запуск: kernc run examples/13_db_web  (затем откройте http://localhost:8080/users)
+// SQLite + ORM + HTTP-сервер. Запуск: kernc run examples/13_db_web
+// (затем откройте http://localhost:8080/users и /users/1).
+use kern.backend[app, ctx, res]
+use kern.backend.server.*
 use kern.db.sqlite[sqlite]
 use kern.db[orm, table]
-use kern.web[web_server, web_request, web_response, web]
-use kern.server
-use kern.json[json]
 
 unit User(i64 id, str name, i32 age)
 
 async fun main {
 	sqlite db(":memory:")
 	table<User> users = orm.table<User>(db)
-	users.create()
-	users.insert(User(0, "Аня", 25))
-	users.insert(User(0, "Борис", 31))
+	_ = users.create()
+	_ = users.insert(User(0, "Аня", 25))
+	_ = users.insert(User(0, "Борис", 31))
 
-	web_server s(8080)
-	s.get("/users", fun (web_request r) -> web_response {
+	app a(8080)
+	a.get("/users", fun (ctx c) -> res {
 		match users.all() {
-			Ok(list) => web.json(list)
-			Err(e) => web.status(500, e)
+			Ok(rows) => res.json(rows)
+			Err(e) => res.send(500, e)
 		}
 	})
-	s.get("/users/{id}", fun (web_request r) -> web_response {
-		i64 id = r.param("id")?.to_i64() ?: 0
-		match users.find(id) {
-			Ok(nil) => web.not_found()
-			Ok(u) => web.json(u)
-			Err(e) => web.status(500, e)
+	a.get("/users/{id}", fun (ctx c) -> res {
+		i64 id = c.param("id")?.to_i64() ?: 0
+		match users.where("id = ?", <object>[id]) {
+			Ok(rows) => if rows.len == 0 { res.not_found() } else { res.json(rows[0]) }
+			Err(e) => res.send(500, e)
 		}
 	})
-	println("слушаю http://localhost:8080")
-	await s.serve()
+	println("сервер http://localhost:8080")
+	await a.serve()
 }

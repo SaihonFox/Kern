@@ -1207,7 +1207,7 @@ s.dispose()                                                             // dispo
 
 ## Раунд 21 — backend-фреймворк (kern.backend)
 
-Внешняя библиотека `libs/Kern.Lib.Backend` (зависит от `Kern.Lib.Di`). Импорт: `use kern.backend[app, ctx, res, chain, middleware, jwt, sse, socket]`, цикл сервера — `use kern.backend.server` (`await a.serve()`).
+Внешняя библиотека `libs/Kern.Lib.Backend` (зависит от `Kern.Lib.Di`). Импорт: `use kern.backend[app, ctx, res, chain, middleware, jwt, session, claims, sse, socket, work]`, цикл сервера — `use kern.backend.server.*` (`await a.serve()`).
 
 - **Два стиля, один конвейер.** Функции: `a.get("/x/{id}", fun (ctx c) -> res …)`, `post/put/patch/delete/route`, `a.group("/api")` (префикс + свои middleware), `static_files(url, dir)`. Атрибуты: `#[controller("/users")] type …`, методы `#[get("/{id}")]`, `#[post]`, `#[put]`, `#[patch]`, `#[delete]`, плюс `#[auth]` (401 без пользователя) и `#[roles("admin")]` (403). Регистрация: `a.controller<T>()` или `a.scan_controllers()`.
 - **Связывание параметров контроллера:** `ctx`/`session` — из запроса; примитивы — из параметров маршрута, затем query (`str?` — nil, если нет); остальные типы — JSON-тело. Результат: `res` как есть; `str` → text; nil → 404 при `T?`, иначе 204; `result` Ok → значение, Err → 400; прочее → JSON.
