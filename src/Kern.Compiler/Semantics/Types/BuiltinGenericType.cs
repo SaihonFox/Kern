@@ -40,6 +40,8 @@ public sealed record BuiltinGenericType : KernType
 		BuiltinGenericKind.Iter => "iter",
 		BuiltinGenericKind.AsyncIter => "async_iter",
 		BuiltinGenericKind.Collection => "collection",
+		BuiltinGenericKind.Queue => "queue",
+		BuiltinGenericKind.Stack => "stack",
 		_ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Неизвестный встроенный generic")
 	};
 

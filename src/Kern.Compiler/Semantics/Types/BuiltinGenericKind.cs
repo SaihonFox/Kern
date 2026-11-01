@@ -22,5 +22,11 @@ public enum BuiltinGenericKind
 	AsyncIter,
 
 	/// <summary>Единый корень коллекций (DECISIONS §C): <c>collection&lt;T&gt;</c>.</summary>
-	Collection
+	Collection,
+
+	/// <summary>Очередь FIFO (spec §16): <c>queue&lt;T&gt;</c>.</summary>
+	Queue,
+
+	/// <summary>Стек LIFO (spec §16): <c>stack&lt;T&gt;</c>.</summary>
+	Stack
 }

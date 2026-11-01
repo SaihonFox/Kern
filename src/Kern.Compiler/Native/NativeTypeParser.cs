@@ -55,6 +55,8 @@ internal static class NativeTypeParser
 			"array" => new BuiltinGenericType(BuiltinGenericKind.Array, arguments),
 			"dict" => new BuiltinGenericType(BuiltinGenericKind.Dict, arguments),
 			"set" => new BuiltinGenericType(BuiltinGenericKind.Set, arguments),
+			"queue" => new BuiltinGenericType(BuiltinGenericKind.Queue, arguments),
+			"stack" => new BuiltinGenericType(BuiltinGenericKind.Stack, arguments),
 			"result" => new BuiltinGenericType(BuiltinGenericKind.Result, arguments),
 			"task" => new BuiltinGenericType(BuiltinGenericKind.Task, arguments),
 			"event" => new BuiltinGenericType(BuiltinGenericKind.Event, arguments),

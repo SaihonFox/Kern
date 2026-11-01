@@ -260,7 +260,9 @@ public sealed class NativeCatalog
 		List<string> diagnostics)
 	{
 		var functions = new List<NativeFunctionDescriptor>();
-		List<string> typeParameters = BuiltinTypeParameters(attribute);
+		// Имена generic-параметров: у встроенных контейнеров исторические (T, K/V), иначе —
+		// по GenericArity. Self-тип обязан нести аргументы: `queue<T>`, а не `queue`.
+		List<string> typeParameters = NativeTypeParameters(attribute);
 		string selfType = attribute.Name + FormatTypeArguments(typeParameters);
 		string selfKey = attribute.Name + FormatTypeArguments(
 			[.. typeParameters.Select(_ => "object")]);

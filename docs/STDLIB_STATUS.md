@@ -11,7 +11,7 @@
 | `kern.io` | `streamwriter`/`streamreader` (`write`, `write_line`, `read_line`, `read_all`, `read_text`, `close`, `dispose`, `is_open`, `at_end`), `ConsoleModule` | файловые `file.*` ещё не добавлены |
 | `kern.test` | `assert`, `assert_eq`, `assert_ne`, `assert_near`, `assert_nil`, `assert_not_nil`, `fail` | `fail` типизирован `void`, а не `never` |
 | `kern.math` | базовые функции | — |
-| `kern.collections` | нативные `list`/`array`/`dict` (включая `first/last/get/set/map/filter/keys/values/get_or`), члены `str`/`char`; `set<T>` (add/remove/contains/clear/len/is_empty/to_list) | нет `queue/stack/observable`, нет `collection<T>`-протокола/адаптеров |
+| `kern.collections` | нативные `list`/`array`/`dict` (включая `first/last/get/set/map/filter/keys/values/get_or`), члены `str`/`char`; generic-контейнеры `set<T>` (add/remove/contains/clear/len/is_empty/to_list), `queue<T>` (enqueue/dequeue/peek/clear/len/is_empty/to_list), `stack<T>` (push/pop/peek/clear/len/is_empty/to_list) | нет `observable`, нет `collection<T>`-протокола/адаптеров |
 | `str`/`char` (встроенные) | `len`, `upper`, `lower`, `trim*`, `contains`, `starts_with`, `ends_with`, `index_of`, `substring`, `replace`, `split`, `chars`, `lines`, `join`, `pad_left/right`, `repeat`, `to_str`, `to_i32/to_i64/to_f64/to_bool` | `str` пока не все члены из старых примеров |
 | `kern.regex` | `regex(pattern[, flags])` → `regex` (panic по-русски на неверный шаблон/флаг), `try_new(pattern[, flags]) -> regex?`, члены `is_match/find/find_all/replace/split`, свойства `pattern/options`; `x"…"`/`fx"…"` lowering реализован | тип результата `match` не реализован (Q32); `regex.try_new(…)` пока только как `try_new(…)` |
 
@@ -28,7 +28,7 @@
 | Пример | Первый блокер | Что нужно |
 |---|---|---|
 | 07_async_errors | `async_iter<T>` loop, `await` вне async | M5 источник/`async_iter` + `kern.tasks` |
-| 09_collections_json | `queue`/`stack` | `queue<T>`/`stack<T>` (generic native types), затем `kern.json`, `kern.env`, `file.*` |
+| 09_collections_json | `json`/`env`/`file` | `kern.json`, `kern.env`, `file.*` (`set<T>`/`queue<T>`/`stack<T>` готовы) |
 | 11_workspace | `build.kern`/`workspace` | M8 builder |
 | 12_text_data | `regex`, `csv`, `yaml`, `loop` по `T` | `kern.regex` + `kern.csv`/`yaml` + `iter<T>` на generic-параметре |
 | 13_db_web | старый `use path` | refresh примеров + `kern.db` |
@@ -62,7 +62,7 @@
 
 ## Технические долги, влияющие на библиотеки
 
-- **Native generic types** (`set<T>`, `queue<T>`, `stack<T>`, `observable<T>`, `collection<T>`): базовый механизм реализован на `set<T>` 2026-11-01 (`[KernType(..., GenericArity = 1)]`, регистрация generic-символов, `[KernCtor]`-фабрика, подстановка `T` в членах); `queue<T>`/`stack<T>`/`observable<T>` и native inheritance/`collection<T>` остаются.
+- **Native generic types** (`set<T>`, `queue<T>`, `stack<T>`, `observable<T>`, `collection<T>`): базовый механизм реализован и обкатан на `set<T>`/`queue<T>`/`stack<T>` 2026-11-01 (`[KernType(..., GenericArity = 1)]`, регистрация generic-символов, `[KernCtor]`-фабрика, подстановка `T` в членах); `observable<T>` и native inheritance/`collection<T>` остаются.
 - **Native inheritance/adapters** (`collection<T>` как родитель для list/str/контейнеров) — M6.
 - **`iter<T>`/`async_iter<T>`** протоколы: sync-цикл реализован; async — M5.
 - `PropertyDef` не эмитится в `.kbc` (атрибуты свойств на аксессорах).

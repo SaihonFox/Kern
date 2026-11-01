@@ -31,19 +31,31 @@ internal static class BuiltinMemberSignatures
 				ResolveDict(receiver.Arguments[0], receiver.Arguments[1], member, out error),
 			BuiltinGenericKind.Set when receiver.Arguments.Count == 1 =>
 				ResolveSet(receiver.Arguments[0], member, out error),
+			BuiltinGenericKind.Queue when receiver.Arguments.Count == 1 =>
+				ResolveQueue(receiver.Arguments[0], member, out error),
+			BuiltinGenericKind.Stack when receiver.Arguments.Count == 1 =>
+				ResolveStack(receiver.Arguments[0], member, out error),
 			_ => null
 		};
 	}
 
 	/// <summary>
 	/// Тип параметра нативного члена, который мост описывает как <c>object</c>, но по смыслу
-	/// это элемент контейнера: <c>set&lt;T&gt;.add/remove/contains(T)</c>.
+	/// это элемент контейнера: <c>set&lt;T&gt;.add/remove/contains(T)</c>,
+	/// <c>queue&lt;T&gt;.enqueue(T)</c>, <c>stack&lt;T&gt;.push(T)</c>.
 	/// </summary>
 	public static KernType? ElementParameterType(BuiltinGenericType receiver, string member)
 	{
-		if (receiver.BuiltinKind != BuiltinGenericKind.Set || receiver.Arguments.Count != 1)
+		if (receiver.Arguments.Count != 1)
 			return null;
-		return member is "add" or "remove" or "contains" ? receiver.Arguments[0] : null;
+
+		return receiver.BuiltinKind switch
+		{
+			BuiltinGenericKind.Set => member is "add" or "remove" or "contains" ? receiver.Arguments[0] : null,
+			BuiltinGenericKind.Queue => member is "enqueue" ? receiver.Arguments[0] : null,
+			BuiltinGenericKind.Stack => member is "push" ? receiver.Arguments[0] : null,
+			_ => null,
+		};
 	}
 
 	private static KernType? ResolveSequence(
@@ -103,6 +115,38 @@ internal static class BuiltinMemberSignatures
 		error = null;
 		return member switch
 		{
+			"to_list" => new BuiltinGenericType(BuiltinGenericKind.List, [element]),
+			_ => null
+		};
+	}
+
+	/// <summary>
+	/// <c>queue&lt;T&gt;</c>: <c>dequeue()</c>/<c>peek() -&gt; T</c>,
+	/// <c>to_list() -&gt; list&lt;T&gt;</c>; <c>len</c>/<c>is_empty</c>/<c>clear</c>
+	/// описываются мостом (int/bool/void).
+	/// </summary>
+	private static KernType? ResolveQueue(KernType element, string member, out string? error)
+	{
+		error = null;
+		return member switch
+		{
+			"dequeue" or "peek" => element,
+			"to_list" => new BuiltinGenericType(BuiltinGenericKind.List, [element]),
+			_ => null
+		};
+	}
+
+	/// <summary>
+	/// <c>stack&lt;T&gt;</c>: <c>pop()</c>/<c>peek() -&gt; T</c>,
+	/// <c>to_list() -&gt; list&lt;T&gt;</c>; <c>len</c>/<c>is_empty</c>/<c>clear</c>
+	/// описываются мостом (int/bool/void).
+	/// </summary>
+	private static KernType? ResolveStack(KernType element, string member, out string? error)
+	{
+		error = null;
+		return member switch
+		{
+			"pop" or "peek" => element,
 			"to_list" => new BuiltinGenericType(BuiltinGenericKind.List, [element]),
 			_ => null
 		};
