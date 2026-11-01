@@ -35,7 +35,10 @@ internal static class RunCommand
 		if (!result.Success)
 			return 1;
 
-		return Execute(result.Program!, kind, programArguments, stderr);
+		string workingDirectory = kind == SourceKind.Project
+			? Path.GetFullPath(path)
+			: Path.GetDirectoryName(Path.GetFullPath(path)) ?? Environment.CurrentDirectory;
+		return Execute(result.Program!, kind, programArguments, stderr, workingDirectory: workingDirectory);
 	}
 
 	/// <summary><c>run</c> проекта с <c>build.kern</c>: компилирует app-цель без записи .kbc.</summary>
@@ -47,6 +50,7 @@ internal static class RunCommand
 	{
 		BuildTargetResult built;
 		IReadOnlyDictionary<string, string> environment;
+		string projectRoot;
 		try
 		{
 			BuildSession session = BuildSession.Open(path);
@@ -54,6 +58,7 @@ internal static class RunCommand
 			session.ProfileName = options.Profile;
 			built = BuildTargetCompiler.CompileApp(session);
 			environment = session.EnvironmentFor(built.Target);
+			projectRoot = session.Root;
 		}
 		catch (BuildException exception)
 		{
@@ -66,7 +71,13 @@ internal static class RunCommand
 			return 1;
 
 		IReadOnlyList<string> arguments = programArguments.Count > 0 ? programArguments : built.Target.Args;
-		return Execute(built.Compile.Program!, SourceKind.Project, arguments, stderr, environment);
+		return Execute(
+			built.Compile.Program!,
+			SourceKind.Project,
+			arguments,
+			stderr,
+			environment,
+			workingDirectory: projectRoot);
 	}
 
 	/// <summary>Выполнить уже скомпилированный проект (встроенная задача <c>:run</c>).</summary>
@@ -74,15 +85,17 @@ internal static class RunCommand
 		CompiledProgram program,
 		IReadOnlyList<string> arguments,
 		IReadOnlyDictionary<string, string>? environment,
-		TextWriter stderr) =>
-		Execute(program, SourceKind.Project, arguments, stderr, environment);
+		TextWriter stderr,
+		string? workingDirectory = null) =>
+		Execute(program, SourceKind.Project, arguments, stderr, environment, workingDirectory);
 
 	private static int Execute(
 		CompiledProgram program,
 		SourceKind kind,
 		IReadOnlyList<string> programArguments,
 		TextWriter stderr,
-		IReadOnlyDictionary<string, string>? environment = null)
+		IReadOnlyDictionary<string, string>? environment = null,
+		string? workingDirectory = null)
 	{
 		int entry = program.Module.EntryPoint;
 		if (entry < 0)
@@ -95,8 +108,15 @@ internal static class RunCommand
 
 		FunctionDef entryPoint = program.Module.FunctionPool[entry];
 		var applied = new List<(string Name, string? Old)>();
+		string? previousDirectory = null;
 		try
 		{
+			if (workingDirectory is not null)
+			{
+				previousDirectory = Environment.CurrentDirectory;
+				Directory.SetCurrentDirectory(workingDirectory);
+			}
+
 			if (environment is not null)
 				foreach (var (name, value) in environment)
 				{
@@ -119,6 +139,8 @@ internal static class RunCommand
 		}
 		finally
 		{
+			if (previousDirectory is not null)
+				Directory.SetCurrentDirectory(previousDirectory);
 			for (var index = applied.Count - 1; index >= 0; index--)
 				Environment.SetEnvironmentVariable(applied[index].Name, applied[index].Old);
 		}

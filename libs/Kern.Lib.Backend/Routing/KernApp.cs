@@ -153,8 +153,21 @@ public sealed partial class KernApp : KernGroup
 
 	private async Task Pump()
 	{
-		while (_listener.IsListening)
+		while (!_stopping)
 		{
+			if (!_listener.IsListening)
+			{
+				try
+				{
+					_listener.Start();
+				}
+				catch (Exception exception) when (
+					exception is HttpListenerException or ObjectDisposedException or InvalidOperationException)
+				{
+					break;
+				}
+			}
+
 			HttpListenerContext context;
 			try
 			{
@@ -163,7 +176,12 @@ public sealed partial class KernApp : KernGroup
 			catch (Exception exception) when (
 				exception is HttpListenerException or ObjectDisposedException or InvalidOperationException)
 			{
-				break;
+				if (_stopping)
+					break;
+				// Транзиентная ошибка HTTP.sys (клиент оборвал запрос/неверный HTTP):
+				// слушатель перезапускается, сервер не завершается.
+				await Task.Delay(50).ConfigureAwait(false);
+				continue;
 			}
 
 			_ = Task.Run(() => Enqueue(context));

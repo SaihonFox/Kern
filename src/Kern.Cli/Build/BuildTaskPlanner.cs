@@ -335,7 +335,12 @@ internal static class BuildTaskRunner
 		SourceCompiler.Report(built.Compile, stderr);
 		if (!built.Compile.Success)
 			return 1;
-		return RunCommand.RunCompiled(built.Compile.Program!, target.Args, session.EnvironmentFor(target), stderr);
+		return RunCommand.RunCompiled(
+			built.Compile.Program!,
+			target.Args,
+			session.EnvironmentFor(target),
+			stderr,
+			session.Root);
 	}
 
 	private static int? RunExe(BuildSession session, ExeStep step, TextWriter stdout, TextWriter stderr)

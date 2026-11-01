@@ -1,6 +1,13 @@
 # STATUS
 
 ## Now
+- **CLI/backend runtime fixes (2026-11-02, owner report):** `kernc run` now sets the current
+  directory to the project root (or the source file's directory) for the program and restores it
+  afterwards; `<target>:run` uses the target root. Relative paths such as `sqlite db("app.db")`,
+  static files and `env.cwd` therefore resolve next to the program, not next to `kernc`. The
+  backend HTTP pump restarts `HttpListener` after transient HTTP.sys/listener errors and keeps the
+  server alive until `stop()`; verified by a >2-minute example-13 run and a CWD CLI test. Suite
+  **415/415**; examples clean **28/31**.
 - **DB PostgreSQL/MySQL and FFI finished (2026-11-02, owner request):** `libs/Kern.Lib.Db` now
   works end-to-end on PostgreSQL 18 and MySQL 8 (live CRUD/boolean columns/transactions/`last_id`,
   async query), not just SQLite; placeholders are rewritten to Npgsql-safe `@p1…`, and ORM emits
@@ -8,7 +15,7 @@
   (the latter run when `KERN_PG_URL`/`KERN_MYSQL_URL` are set). New external `libs/Kern.Lib.Ffi`
   (`kern.ffi`): `native_lib`/`native_fn`, `.dll/.so/.dylib` loading, `fn("strlen", "i64(str)")`,
   `call([...])`, `has`, `close`, cdecl `calli`, void/bool/ints/floats/`ptr`/UTF-8 `str`; example 20
-  checks and runs, `FfiTests` cover strlen/abs/atof and error paths. Full suite **414/414**;
+  checks and runs, `FfiTests` cover strlen/abs/atof and error paths. Full suite **415/415**;
   examples clean **28/31**.
 - **Backend library implemented (2026-11-02, owner request):** external `libs/Kern.Lib.Backend`
   (`kern.backend`, `kern.backend.server.*`) with `app`/`route_group` router, middleware, `ctx`/`res`,
@@ -24,7 +31,7 @@
   compiler catalog (no `KRN2307`). Backend tests: **26** unit/loopback tests in
   `src/Kern.Tests/Features/Backend` (routes, JWT, sessions/file, responses, controllers/DI,
   middleware, static files+range, WS/SSE+broadcast/replay, accept/handle).
-  Full suite **414/414**; examples clean **28/31**.
+  Full suite **415/415**; examples clean **28/31**.
 - **DB and DI libraries implemented (2026-11-02, owner request):** external `libs/Kern.Lib.Db`
   (SQLite/PostgreSQL/MySQL + `orm.table<T>`) and `libs/Kern.Lib.Di` (`container`) now build via
   `dotnet build libs/Kern.Libs.slnx` into `libs/_out`. SQLite/PostgreSQL/MySQL CRUD/query/scalar/
