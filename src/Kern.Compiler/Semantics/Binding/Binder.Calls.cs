@@ -65,7 +65,10 @@ public sealed partial class Binder
 
 		var returnType = CallResultType(resolution.Function!, resolution.ReturnType);
 		WarnDeprecated(resolution.Function!, span);
-		return new BoundCallExpression(resolution.Function!, ordered, returnType, span);
+		return new BoundCallExpression(resolution.Function!, ordered, returnType, span)
+		{
+			TypeArguments = resolution.TypeArguments,
+		};
 	}
 
 	/// <summary>

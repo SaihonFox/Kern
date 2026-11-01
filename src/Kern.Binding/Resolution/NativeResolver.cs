@@ -1,5 +1,6 @@
 using System.Linq.Expressions;
 using System.Reflection;
+using Kern.Binding.Attributes;
 using Kern.Binding.Catalog;
 using Kern.Binding.Marshalling;
 using Kern.Binding.Values;
@@ -52,11 +53,8 @@ public sealed class NativeResolver : INativeResolver
 		{
 			if (descriptor.Method is null)
 				continue;
-			if (descriptor.Method.IsGenericMethodDefinition)
-			{
-				_diagnostics.Add($"native '{descriptor.NativeKey}': generic-методы пока не поддержаны");
-				continue;
-			}
+			// Generic-метод закрывается в Build (реальные аргументы приходят через
+			// `[KernTypeArgs]`), поэтому здесь он допустим.
 
 			if (!descriptor.Method.IsStatic)
 			{
@@ -102,6 +100,13 @@ public sealed class NativeResolver : INativeResolver
 	{
 		MethodInfo method = descriptor.Method
 			?? throw new InvalidOperationException($"native '{descriptor.NativeKey}' не имеет CLR-метода");
+		if (method.IsGenericMethodDefinition)
+		{
+			// Реальные аргументы типа приходят через `[KernTypeArgs]`; закрытие `object`
+			// нужно только чтобы построить вызываемый delegate (сам T в теле не используется).
+			method = method.MakeGenericMethod([.. method.GetGenericArguments().Select(_ => typeof(object))]);
+		}
+
 		ParameterInfo[] parameters = method.GetParameters();
 
 		ParameterExpression interpreter = Expression.Parameter(typeof(Interpreter), "interpreter");
@@ -115,6 +120,12 @@ public sealed class NativeResolver : INativeResolver
 			if (parameter.ParameterType == typeof(Interpreter))
 			{
 				callArguments.Add(interpreter);
+				continue;
+			}
+
+			if (parameter.GetCustomAttribute<KernTypeArgsAttribute>() is not null)
+			{
+				callArguments.Add(typeArguments);
 				continue;
 			}
 

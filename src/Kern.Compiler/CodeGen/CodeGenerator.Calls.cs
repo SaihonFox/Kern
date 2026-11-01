@@ -19,7 +19,8 @@ public sealed partial class CodeGenerator
 			EmitCopyIfUnit(argument.Type);
 		}
 
-		if (!_functionIndices.TryGetValue(call.Function, out var index))
+		int index = NativeCallIndex(call);
+		if (index < 0)
 		{
 			Report("KRN2201", $"Функция '{call.Function.Name}' не имеет байткода (нативная привязка появится в M6)", call.Span);
 			for (var argument = 0; argument < call.Arguments.Count; argument++)

@@ -339,6 +339,7 @@ public sealed partial class Binder
 			receiver)
 		{
 			Virtual = IsVirtualCall(receiver, resolution.Function!) && !isParentSelection,
+			TypeArguments = resolution.TypeArguments,
 		};
 	}
 

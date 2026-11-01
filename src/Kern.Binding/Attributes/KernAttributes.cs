@@ -75,6 +75,17 @@ public sealed class KernTypeArgsAttribute : Attribute
 {
 }
 
+/// <summary>
+/// Переопределяет Kern-текст возвращаемого типа нативного метода (spec §12.4). Нужен там,
+/// где CLR-сигнатура не выражает Kern-тип: например <c>json.from_str&lt;T&gt;</c> собирает
+/// <c>Ok&lt;T&gt;</c>/<c>Err&lt;str&gt;</c> вручную и возвращает <c>KValue</c>.
+/// </summary>
+[AttributeUsage(AttributeTargets.Method, AllowMultiple = false, Inherited = false)]
+public sealed class KernReturnAttribute(string type) : Attribute
+{
+	public string Type { get; } = type;
+}
+
 /// <summary>Адаптер встроенного типа Kern к нативному представлению.</summary>
 [AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = false)]
 public sealed class KernAdapterAttribute(Type adapterType) : Attribute

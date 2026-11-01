@@ -179,6 +179,13 @@ public sealed record BoundCallExpression(
 	/// расширения и методы <c>unit</c>/<c>unit!</c> остаются статическими.
 	/// </summary>
 	public bool Virtual { get; init; }
+
+	/// <summary>
+	/// Фактические аргументы generic-параметров вызова (выведенные или явные). Для нативных
+	/// функций codegen создаёт отдельный <c>FunctionDef</c> с reified-аргументами
+	/// (<c>NativeTypeArgs</c>), например <c>json.from_str&lt;Person&gt;</c>.
+	/// </summary>
+	public IReadOnlyList<KernType> TypeArguments { get; init; } = [];
 }
 
 /// <summary>

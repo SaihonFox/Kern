@@ -159,7 +159,10 @@ public sealed partial class Binder
 			return BindNilPattern(pattern, subject);
 
 		// Голое имя типа (`str`, `Circle`) — паттерн проверки типа без связывания.
-		if (IsTypeName(pattern.Name))
+		// `ok`/`error` — служебные базовые типы меток result: в значении-паттерне это
+		// обычные имена связываний (`Err(error) => error.len`), а не проверка типа.
+		if (pattern.Name is not (ResultTypes.OkBaseName or ResultTypes.ErrBaseName) &&
+			IsTypeName(pattern.Name))
 		{
 			var type = _resolver.Resolve(NamedTypeSyntax.Plain(pattern.Name, pattern.Span), _typeScope);
 			return BindTypeOnlyPattern(type, subject, pattern.Span);

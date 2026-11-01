@@ -223,16 +223,14 @@ public sealed class NativeCatalog
 			KernStaticAttribute? staticAttribute = method.GetCustomAttribute<KernStaticAttribute>();
 			if (member is null && property is null && constructor is null && staticAttribute is null)
 				continue;
-			if (method.IsGenericMethodDefinition)
-			{
-				diagnostics.Add($"модульная функция '{type.Name}.{method.Name}' generic; поддержка появится позже");
-				continue;
-			}
 
-			NativeParameterDescriptor[]? parameters = MapParameters(method, typeParameters: null, skipFirst: 0, diagnostics, out _);
+			// Generic-метод модуля (`json.from_str<T>`): параметры типа метода участвуют в
+			// подписи, а reified-значения приходят через `[KernTypeArgs] KType[]`.
+			List<string> typeParameters = MethodTypeParameters(method);
+			NativeParameterDescriptor[]? parameters = MapParameters(method, typeParameters, skipFirst: 0, diagnostics, out _);
 			if (parameters is null)
 				continue;
-			string returnType = MapReturn(method, typeParameters: null, diagnostics);
+			string returnType = MapReturn(method, typeParameters, diagnostics);
 			if (returnType.Length == 0)
 				continue;
 
@@ -256,6 +254,7 @@ public sealed class NativeCatalog
 				ReturnType = returnType,
 				Parameters = parameters,
 				KeyTypes = [.. parameters.Select(parameter => parameter.Type)],
+				GenericParameters = typeParameters,
 				NativeKey = key,
 				Method = method,
 			});
@@ -287,21 +286,23 @@ public sealed class NativeCatalog
 			KernStaticAttribute? staticAttribute = method.GetCustomAttribute<KernStaticAttribute>();
 			if (member is null && property is null && constructor is null && staticAttribute is null)
 				continue;
-			if (method.IsGenericMethodDefinition)
-			{
-				diagnostics.Add($"метод '{type.Name}.{method.Name}' generic; для встроенных типов используйте KValue-сигнатуры");
-				continue;
-			}
+
+			// Параметры типа метода добавляются к параметрам типа владельца: сигнатура и
+			// reified-аргументы (`[KernTypeArgs]`) видны компилятору как одна группа.
+			List<string> methodParameters = MethodTypeParameters(method);
+			var allParameters = new List<string>(typeParameters.Count + methodParameters.Count);
+			allParameters.AddRange(typeParameters);
+			allParameters.AddRange(methodParameters);
 
 			// `[KernCtor]` на статическом методе — фабрика generic-контейнера (`set<T>()`):
 			// параметра self нет, вызов targetless, тип результата задаёт подсказка binder'а.
 			if (constructor is not null)
 			{
 				NativeParameterDescriptor[]? factoryParameters = MapParameters(
-					method, typeParameters, skipFirst: 0, diagnostics, out _);
+					method, allParameters, skipFirst: 0, diagnostics, out _);
 				if (factoryParameters is null)
 					continue;
-				string factoryReturn = MapReturn(method, typeParameters, diagnostics);
+				string factoryReturn = MapReturn(method, allParameters, diagnostics);
 				if (factoryReturn.Length == 0)
 					continue;
 
@@ -322,7 +323,7 @@ public sealed class NativeCatalog
 					ReturnType = factoryReturn,
 					Parameters = factoryParameters,
 					KeyTypes = [.. factoryParameters.Select(parameter => parameter.Type)],
-					GenericParameters = typeParameters,
+					GenericParameters = allParameters,
 					NativeKey = factoryKey,
 					Method = method,
 				});
@@ -335,10 +336,10 @@ public sealed class NativeCatalog
 			if (method.GetCustomAttribute<KernStaticAttribute>() is not null)
 			{
 				NativeParameterDescriptor[]? staticParameters = MapParameters(
-					method, typeParameters, skipFirst: 0, diagnostics, out _);
+					method, allParameters, skipFirst: 0, diagnostics, out _);
 				if (staticParameters is null)
 					continue;
-				string staticReturn = MapReturn(method, typeParameters, diagnostics);
+				string staticReturn = MapReturn(method, allParameters, diagnostics);
 				if (staticReturn.Length == 0)
 					continue;
 
@@ -346,7 +347,7 @@ public sealed class NativeCatalog
 					? NativeMemberKind.Method
 					: staticParameters.Length == 0 ? NativeMemberKind.PropertyGet : NativeMemberKind.PropertySet;
 				string staticName = KernName(method);
-				string[] staticKeyTypes = [.. staticParameters.Select(parameter => EraseGenerics(parameter.Type, typeParameters))];
+				string[] staticKeyTypes = [.. staticParameters.Select(parameter => EraseGenerics(parameter.Type, allParameters))];
 				string staticKey = NativeKey.Create(attribute.Name, staticName, staticKind, isStatic: true, staticKeyTypes);
 				functions.Add(new NativeFunctionDescriptor
 				{
@@ -359,7 +360,7 @@ public sealed class NativeCatalog
 					ReturnType = staticReturn,
 					Parameters = staticParameters,
 					KeyTypes = staticKeyTypes,
-					GenericParameters = typeParameters,
+					GenericParameters = allParameters,
 					NativeKey = staticKey,
 					Method = method,
 				});
@@ -368,7 +369,7 @@ public sealed class NativeCatalog
 
 			NativeParameterDescriptor[]? parameters = MapParameters(
 				method,
-				typeParameters,
+				allParameters,
 				skipFirst: 1,
 				diagnostics,
 				out bool hasSelf);
@@ -389,7 +390,7 @@ public sealed class NativeCatalog
 				kind = parameters.Length == 0 ? NativeMemberKind.PropertyGet : NativeMemberKind.PropertySet;
 
 			string name = KernName(method);
-			string[] keyTypes = [selfKey, .. parameters.Select(parameter => EraseGenerics(parameter.Type, typeParameters))];
+			string[] keyTypes = [selfKey, .. parameters.Select(parameter => EraseGenerics(parameter.Type, allParameters))];
 			string key = NativeKey.Create(attribute.Name, name, kind, isStatic: true, keyTypes);
 			functions.Add(new NativeFunctionDescriptor
 			{
@@ -403,7 +404,7 @@ public sealed class NativeCatalog
 				SelfType = selfType,
 				Parameters = parameters,
 				KeyTypes = keyTypes,
-				GenericParameters = typeParameters,
+				GenericParameters = allParameters,
 				NativeKey = key,
 				Method = method,
 			});
@@ -411,6 +412,12 @@ public sealed class NativeCatalog
 
 		return functions;
 	}
+
+	/// <summary>Имена generic-параметров метода; пусто у негенерического метода.</summary>
+	private static List<string> MethodTypeParameters(MethodInfo method) =>
+		method.IsGenericMethodDefinition
+			? [.. method.GetGenericArguments().Select(argument => argument.Name)]
+			: [];
 
 	private static NativeParameterDescriptor[]? MapParameters(
 		MethodInfo method,
@@ -426,6 +433,10 @@ public sealed class NativeCatalog
 		foreach (ParameterInfo parameter in all)
 		{
 			if (parameter.ParameterType == typeof(Kern.Vm.Execution.Interpreter))
+				continue;
+			// `[KernTypeArgs] KType[]` — служебный параметр: компилятор передаёт сюда
+			// reified-аргументы типа, в Kern-подписи его нет.
+			if (parameter.GetCustomAttribute<KernTypeArgsAttribute>() is not null)
 				continue;
 			if (skipped++ < skipFirst)
 				continue;
@@ -447,6 +458,9 @@ public sealed class NativeCatalog
 
 	private static string MapReturn(MethodInfo method, IReadOnlyList<string>? typeParameters, List<string> diagnostics)
 	{
+		if (method.GetCustomAttribute<KernReturnAttribute>() is { } declared)
+			return declared.Type;
+
 		if (!TypeMapping.TryToKern(method.ReturnType, typeParameters, out string returnType))
 		{
 			diagnostics.Add(
