@@ -41,6 +41,8 @@ public static class KernCli
 			"tasks" => TasksCommand.Run(args[1..], stdout, stderr),
 			"do" => DoCommand.Run(args[1..], stdout, stderr),
 			"clean" => CleanCommand.Run(args[1..], stdout, stderr),
+			"fmt" => FmtCommand.Run(args[1..], stdout, stderr),
+			"repl" => ReplCommand.Run(args[1..], stdout, stderr),
 			"dis" => DisCommand.Run(args[1..], stdout, stderr),
 			_ => Unknown(command, stderr),
 		};

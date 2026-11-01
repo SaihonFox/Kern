@@ -1,6 +1,25 @@
 # STATUS
 
 ## Now
+- **M4/M7/M8/M11/M12 wave (2026-11-01, owner request "finish M1–M9, M11, M12"):** `.kbc` now carries
+  `PropertyDef` (owner type, accessor/backing indices, attributes; round-trip + disassembler), `TypeSigMap`
+  keeps union/function/parameter signatures, `TypeFactory` resolves every builtin generic name
+  (`set/queue/stack/collection/iter/async_iter/…`). New `ConstantFolder` (`-O1`) and `PeepholeOptimizer`
+  (`-O2`: `Not;JmpIf`→`JmpIfNot`, jump threading, jump-to-next, load+Pop, unreachable code, target/line remap);
+  CLI accepts `-O0..-O2`, `--time`, `-p profile`. Std: `kern.json` (incl. `from_str<T>` via reified
+  `[KernTypeArgs]` + a new `[KernReturn]` override), `kern.env`, `file.*`, `kern.path`, `kern.csv`,
+  `kern.yaml`, `kern.xml`, `kern.crypto`, `kern.uuid`, `regex_match`/`find_match`. `kernc run|check` honour
+  `build.kern`; `kernc tasks|do`, `kernc fmt` (tabs/CRLF/trailing whitespace, token-verified),
+  `kernc repl` (declarations + state replay). Examples clean: **12/31** (01–06, 08, 09, 10, 11, 12, 18, 21),
+  all of them run end-to-end; goldens for 01,02,03,05,06,08,10,11,12,21 (04 parked on Q25).
+  Compiler fixes found on the way: generic parent ctor resolution (`[Base<T>]`), `result<T,E>` native types
+  are the `Ok/Err` union (pattern matching works), `error`/`ok` are binding names in value patterns,
+  `match` narrows `T?` after a `nil` arm, void loop bodies in expression position, single-statement loop
+  bodies that are assignments, `KMarshal` typed wrappers (`KList<T>`/`KDict<K,V>`/`KArray<T>`).
+  Suite **267/267**; style clean. Still open (honest): M6 collection adapters/native instance APIs beyond
+  handles, real threading/tasks/channels (`kern.threading`, `kern.tasks`, `kern.events`, `observable<T>`,
+  `async_iter<T>`), remaining M7 modules (http/web/db/mocks/di/log/cli/config/ansi/process/net/toml/ini/compress),
+  M8 hash-skip/`exe`/library discovery, M9 runtime reflection + macros, M12 goldens for the rest, M10/M14 untouched.
 - **`kern.regex` (2026-11-01, libraries):** native type `regex` + module `kern.regex`, no VM/`.kbc` change. `regex(pattern[, flags "imsx"])` (invalid pattern/flag → `KernPanic` по-русски), `try_new(pattern[, flags]) -> regex?` (`nil`), members `is_match -> bool`, `find -> str?`, `find_all -> list<str>`, `replace -> str`, `split -> list<str>`, properties `pattern`/`options`. Two binding fixes: a native type name without constructors no longer shadows a same-named factory (`BindCall` → module function), and `NativeCatalog.MapReturn` reads nullable-reference annotations so native `string?`/`T?` signatures become `str?`/`T?` (`kern.io` `read_line` is now `str?` too). Tests `RegexModuleTests` (8 facts, suite **178/178**); `x"…"`/`fx"…"` lowering and the `match` result type remain open; `examples/` untouched (01–06, 08, 10 `kernc check` clean).
 - **`str` numeric parsing + `dict.get_or` (2026-11-01, libraries):** native-only members on builtin types, no VM/`.kbc` change. `str.to_i32/to_i64/to_f64 -> i32?/i64?/f64?` (invariant; nil on failure, integer overflow, non-finite `f64`), `str.to_bool -> bool?` (exactly `"true"`/`"false"`, ordinal); `dict<K,V>.get_or(key, fallback) -> V` returns the value or the fallback without inserting (`BuiltinMemberSignatures` substitutes `V`). Tests `StdStringDictTests` (6 facts), suite **169/169**. `kernc check examples/07_async_errors` no longer reports `to_i32`; `09_collections_json` no longer reports `get_or` (stage-2 blockers remain).
 - **`queue<T>`/`stack<T>` native generics (2026-11-01):** same mechanism as `set<T>`; FIFO `enqueue/dequeue/peek` and LIFO `push/pop/peek` plus `clear/len/is_empty/to_list`, with `T` substituted in parameters and results and Russian panics on empty `dequeue`/`pop`/`peek`. `NativeCatalog` now derives the native self type from `GenericArity` (previously only the `list/array/set/dict` name table got `<T>`), so future native generics need no extra table entry. Tests `QueueStackTests` (8 facts, suite **196/196**); example 09 lost `queue`/`stack`, first remaining errors are `json`/`env`/`file`; examples 01–06, 08, 10, 21 check clean; style clean.
