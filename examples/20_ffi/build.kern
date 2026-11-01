@@ -1,0 +1,7 @@
+use kern.build[workspace, target]
+
+fun build(workspace w) {
+	w.target("ffi", fun (target t) {
+		t.lib("kern.ffi")
+	})
+}

@@ -1,6 +1,15 @@
 # STATUS
 
 ## Now
+- **DB PostgreSQL/MySQL and FFI finished (2026-11-02, owner request):** `libs/Kern.Lib.Db` now
+  works end-to-end on PostgreSQL 18 and MySQL 8 (live CRUD/boolean columns/transactions/`last_id`,
+  async query), not just SQLite; placeholders are rewritten to Npgsql-safe `@p1…`, and ORM emits
+  `BOOLEAN` for `bool`. `DbCommonTests` + `DbLiveTests` cover URLs/dialects/values and live servers
+  (the latter run when `KERN_PG_URL`/`KERN_MYSQL_URL` are set). New external `libs/Kern.Lib.Ffi`
+  (`kern.ffi`): `native_lib`/`native_fn`, `.dll/.so/.dylib` loading, `fn("strlen", "i64(str)")`,
+  `call([...])`, `has`, `close`, cdecl `calli`, void/bool/ints/floats/`ptr`/UTF-8 `str`; example 20
+  checks and runs, `FfiTests` cover strlen/abs/atof and error paths. Full suite **411/411**;
+  examples clean **28/31**.
 - **Backend library implemented (2026-11-02, owner request):** external `libs/Kern.Lib.Backend`
   (`kern.backend`, `kern.backend.server.*`) with `app`/`route_group` router, middleware, `ctx`/`res`,
   attribute controllers (`#[controller]`, `#[get]`, `#[auth]`, `#[roles]`), DI-scoped controller
@@ -11,15 +20,15 @@
   `LibraryResolver` now resolves sibling library dependencies (`Kern.Lib.Backend` → `Kern.Lib.Di`).
   Backend tests: **25** unit/loopback tests in `src/Kern.Tests/Features/Backend` (routes, JWT,
   sessions, responses, controllers/DI, middleware, static files, WS/SSE, broadcasts, accept/handle).
-  Full suite **395/395**; examples clean **27/31**.
+  Full suite **411/411**; examples clean **28/31**.
 - **DB and DI libraries implemented (2026-11-02, owner request):** external `libs/Kern.Lib.Db`
   (SQLite/PostgreSQL/MySQL + `orm.table<T>`) and `libs/Kern.Lib.Di` (`container`) now build via
-  `dotnet build libs/Kern.Libs.slnx` into `libs/_out`. SQLite CRUD/query/scalar/transactions and
-  the ORM are verified end-to-end by example 15; DI registrations (singleton/transient/scoped,
-  named, factories, `scan`, `#[inject]`, scope, dispose) by example 26. PostgreSQL/MySQL compile
-  and connect APIs are present but need live servers for integration; native `e_sqlite3` is
-  resolved from the library's `runtimes/<rid>/native`. Examples 15/26 check and run; clean
-  examples **27/31**.
+  `dotnet build libs/Kern.Libs.slnx` into `libs/_out`. SQLite/PostgreSQL/MySQL CRUD/query/scalar/
+  transactions and the ORM are verified end-to-end by example 15 and `DbLiveTests`; DI
+  registrations (singleton/transient/scoped, named, factories, `scan`, `#[inject]`, scope, dispose)
+  by example 26. Native `e_sqlite3` is
+  resolved from the library's `runtimes/<rid>/native`. Examples 15/20/26 check and run; clean
+  examples **28/31**.
 - **Owner batch "доделай всё" closed (2026-11-01):** Q17 (unit! ctor writes), Q18 (`KRN2192`
   required fields), Q19 (`$.field` and `$[A].member` rejected; `$[A]member` is the new form),
   Q23 (op `==` + dict hash/equality overrides),

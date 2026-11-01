@@ -18,5 +18,7 @@
 		<ProjectReference Include="../Kern.Cli/Kern.Cli.csproj" />
 		<ProjectReference Include="../../libs/Kern.Lib.Di/Kern.Lib.Di.csproj" />
 		<ProjectReference Include="../../libs/Kern.Lib.Backend/Kern.Lib.Backend.csproj" />
+		<ProjectReference Include="../../libs/Kern.Lib.Ffi/Kern.Lib.Ffi.csproj" />
+		<ProjectReference Include="../../libs/Kern.Lib.Db/Kern.Lib.Db.csproj" />
 	</ItemGroup>
 </Project>

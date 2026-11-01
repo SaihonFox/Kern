@@ -50,7 +50,7 @@ public sealed class OrmTable
 	{
 		KPrimType { Prim: PrimKind.F32 or PrimKind.F64 or PrimKind.F16 } => Dialect.RealType,
 		KPrimType { Prim: PrimKind.Str or PrimKind.Char } => Dialect.TextType,
-		KPrimType { Prim: PrimKind.Bool } => Dialect.IntegerType,
+		KPrimType { Prim: PrimKind.Bool } => Dialect.BoolType,
 		KPrimType { Prim: >= PrimKind.I8 and <= PrimKind.U64 } => Dialect.IntegerType,
 		KNullableType nullable => SqlType(nullable.Inner),
 		_ => Dialect.TextType,

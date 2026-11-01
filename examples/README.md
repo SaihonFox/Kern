@@ -4,7 +4,7 @@
 
 **Golden-тесты (первый этап):** рядом с `src/` лежит `expected.out` (создаёт QA-агент по спецификации; см. `docs/TESTING.md`). `.compile-only` означает только проверку типов, `.pending` — ожидаемый вывод ещё не согласован; `prebuild.txt` задаёт команды `kernc` для предварительной сборки.
 
-Примеры 19, 20, 25 по-прежнему требуют внешних библиотек (`kern.ui`, `kern.ffi`, `kern.transpile`). 13 (`kern.backend` + `kern.db`), 15 (`kern.db*`), 26 (`kern.di`) и 27 (`kern.backend` + `kern.di`) собираются внешними `libs/` и запускаются после `dotnet build libs/Kern.Libs.slnx`. `kernc build` кладёт `.kbc` в `<пример>/out/`.
+Примеры 19 и 25 по-прежнему требуют внешних библиотек (`kern.ui`, `kern.transpile`). 13 (`kern.backend` + `kern.db`), 15 (`kern.db*`), 20 (`kern.ffi`), 26 (`kern.di`) и 27 (`kern.backend` + `kern.di`) собираются внешними `libs/` и запускаются после `dotnet build libs/Kern.Libs.slnx`. `kernc build` кладёт `.kbc` в `<пример>/out/`.
 
 | Папка | Тема |
 |---|---|

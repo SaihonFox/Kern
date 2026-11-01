@@ -1,6 +1,6 @@
 # Внешние библиотеки Kern — частично реализованы
 
-> `Kern.Lib.Db` и `Kern.Lib.Di` реализованы и собираются в этом репозитории; `Ui`, `Ffi`, `Transpile` и `Backend` пока остаются замыслом (`reference/libs`). Поиск библиотек — без `kern.toml` (см. `docs/BUILDER.md` §6).
+> `Kern.Lib.Db`, `Kern.Lib.Di`, `Kern.Lib.Backend` и `Kern.Lib.Ffi` реализованы и собираются в этом репозитории; `Ui` и `Transpile` пока остаются замыслом (`reference/libs`). Поиск библиотек — без `kern.toml` (см. `docs/BUILDER.md` §6).
 
 Ядро (`src/`) содержит только язык, компилятор, VM и базовую стандартную библиотеку. Всё остальное — внешние библиотеки в `libs/`.
 
@@ -11,7 +11,7 @@
       Kern.Libs.slnx          — решение для сборки всех библиотек
       Kern.Lib.Db/            — kern.db, kern.db.sqlite, kern.db.postgres, kern.db.mysql (реализовано)
       Kern.Lib.Ui/            — kern.ui (Avalonia; замысел)
-      Kern.Lib.Ffi/           — kern.ffi (вызов C/C++ DLL; замысел)
+      Kern.Lib.Ffi/           — kern.ffi (вызов C/C++ DLL; реализовано)
       Kern.Lib.Transpile/     — kern.transpile (Kern → C# / Kotlin; замысел)
       Kern.Lib.Di/            — kern.di (контейнер внедрения зависимостей; реализовано)
       Kern.Lib.Backend/       — kern.backend, kern.backend.server (HTTP, middleware, JWT, WS/SSE; реализовано)
@@ -64,9 +64,20 @@
 Реализована (2026-11-02). Внешняя библиотека `libs/Kern.Lib.Db` (пакеты Microsoft.Data.Sqlite, Npgsql, MySqlConnector) собирается в `libs/_out/Kern.Lib.Db`.
 
 - **Базы:** `sqlite db(path)` (`:memory:`), `postgres db(url)` / `postgres db(host, port, database, user, password)`, `mysql db(...)`; также `postgres.connect(url)` / `mysql.connect(url)` → `result<..., str>`. URL: `postgres://user:pass@host:5432/db`, `mysql://user:pass@host:3306/db`.
-- **SQL:** `exec(sql[, args])`, `query(sql[, args])`, `scalar(sql[, args])`, `begin/commit/rollback`, `last_id`, `close`; async — `exec_async`, `query_async`. Плейсхолдеры — `?` (для PostgreSQL компилятор SQL заменяет на `$1, $2, …`), ошибки SQL возвращаются как `Err(str)`. `query` возвращает `list<dict<str, object>>`.
+- **SQL:** `exec(sql[, args])`, `query(sql[, args])`, `scalar(sql[, args])`, `begin/commit/rollback`, `last_id`, `close`; async — `exec_async`, `query_async`. Плейсхолдеры — `?` (для PostgreSQL внутренне заменяются на именованные `@p1, @p2…` — Npgsql переводит их в позиционные), ошибки SQL возвращаются как `Err(str)`. `query` возвращает `list<dict<str, object>>`; `bool` передаётся как boolean, а в ORM для PostgreSQL/MySQL создаётся колонка `BOOLEAN`.
 - **ORM:** `orm.table<T>(db)` → `table<T>` (`create/drop/insert/update/delete/all/where/find/count`, `name`). Имя таблицы — snake_case + `s`; поле `id` целого типа — автоинкрементный ключ. Поддерживаются примитивные поля и `str`/`char`/`bool`/числа; остальные значения хранятся текстом (`to_str`), без JSON-разбора обратно.
-- **Проверка:** `examples/15_databases` проходит `check` и `run` на SQLite (create/insert/ORM where). PostgreSQL/MySQL API компилируются, но для end-to-end нужны живые серверы. `e_sqlite3` ищется загрузчиком CLI в `runtimes/<rid>/native` рядом с DLL библиотеки.
+- **Проверка:** `examples/15_databases` проходит `check` и `run` на SQLite, а с `KERN_PG_URL`/`KERN_MYSQL_URL` — на PostgreSQL/MySQL (exec/query/ORM/async/транзакции). `DbLiveTests` проверяет живые CRUD/boolean/rollback/`last_id` при заданных URL и молча пропускается без них. `e_sqlite3` ищется загрузчиком CLI в `runtimes/<rid>/native` рядом с DLL библиотеки.
+
+## Kern.Lib.Ffi (kern.ffi)
+
+Реализована (2026-11-02). Внешняя библиотека `libs/Kern.Lib.Ffi`, типы `native_lib` и `native_fn`.
+
+- **Загрузка:** `native_lib c("msvcrt")` (Windows), `c("libc.so.6")` (Linux), `c("/usr/lib/libSystem.B.dylib")` (macOS), либо путь к файлу; ищутся имя как есть, `.dll`, `lib*.so`, `lib*.so.6`, `lib*.dylib`.
+- **Функции:** `c.fn("strlen", "i64(str)")` → `native_fn`, `c.has("name")`, `c.close()`. `f.call(["abc"])` принимает `list`, возвращает значение; `f.name`, `f.signature`.
+- **Типы:** `void bool i8 i16 i32 i64 u8 u16 u32 u64 f32 f64 ptr str`; `str` — UTF-8 (память аргумента освобождается после вызова), `ptr` — целое/nil; вызов cdecl через `calli`.
+- **Ошибки:** библиотека/символ не найдены, неверная сигнатура, неверное число/тип аргументов — `KernPanic`.
+- **Проверка:** `examples/20_ffi` (`check` + `run` на Windows: `strlen`, `abs`, `has`); `FfiTests` проверяют `strlen`, `abs`, `atof`, ошибки символа/сигнатуры/арности на текущей ОС.
+- **Ограничения:** только cdecl; нет callbacks, struct, массивов и автоматического освобождения возвращённых строк/указателей (владелец — вызывающий C-код).
 
 ## Kern.Lib.Di (kern.di)
 

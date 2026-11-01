@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<RootNamespace>Kern.Lib.Ffi</RootNamespace>
+		<AssemblyName>Kern.Lib.Ffi</AssemblyName>
+	</PropertyGroup>
+	<ItemGroup>
+		<ProjectReference Include="../../src/Kern.Runtime/Kern.Runtime.csproj">
+			<Private>false</Private>
+		</ProjectReference>
+	</ItemGroup>
+</Project>

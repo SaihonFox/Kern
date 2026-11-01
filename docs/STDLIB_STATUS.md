@@ -23,13 +23,14 @@
 | `kern.crypto` / `kern.uuid` | sha1/sha256/sha512/md5, hmac_sha256, base64, random_hex, hash_password/verify_password; `uuid.new()` | — |
 | `kern.time` | `duration` (parse/from_*/total_*/арифметика/сравнения/печать), `datetime` (of/now/поля/weekday/format/add_months/±/сравнения), `stopwatch` (запускается сразу), `time.sleep/measure/unix_*` | нативные параметры по умолчанию не поддерживаются: `datetime.of` требует все 6 аргументов |
 | `kern.reflection` / `kern.macro` | `type` (`name/full_name/args/parents/fields/properties/methods/constructors/attributes`, `is_*`, `enum_names`, `get_*/get/set/create/is_instance/is_assignable_from`), `field_info/property_info/method_info/param_info/attribute_info`, `reflect.*`, `define_type`; `macro_ctx` + `#[macro]`/`#[macro("expr")]`/`#[derive]`/`name!(...)` | `define_type` без generics/родителей/методов; `instantiate()` атрибута нет; макросы не раскрываются в одиночном `CompileCore` |
-| `kern.db.*` / `kern.db` | внешняя `libs/Kern.Lib.Db`: `sqlite`, `postgres`, `mysql` (`exec/query/scalar/begin/commit/rollback`, async, `last_id`, `close`), `orm.table<T>` (`create/drop/insert/update/delete/all/where/find/count`, `name`) | SQLite проверен end-to-end; PostgreSQL/MySQL только компиляция/API без живого сервера; ORM хранит не-примитивные поля текстом (`to_str`), без JSON-round-trip |
+| `kern.db.*` / `kern.db` | внешняя `libs/Kern.Lib.Db`: `sqlite`, `postgres`, `mysql` (`exec/query/scalar/begin/commit/rollback`, async, `last_id`, `close`), `orm.table<T>` (`create/drop/insert/update/delete/all/where/find/count`, `name`) | SQLite/PostgreSQL/MySQL проверены живыми CRUD/boolean/транзакциями (`DbLiveTests`); ORM хранит не-примитивные поля текстом (`to_str`), без JSON-round-trip |
+| `kern.ffi` | внешняя `libs/Kern.Lib.Ffi`: `native_lib`/`native_fn`, загрузка `.dll/.so/.dylib`, `fn(symbol, "i32(i32, str)")`, `call([...])`, `has`, `close`; cdecl, типы void/bool/i8…u64/f32/f64/ptr/str | только cdecl; без callbacks/struct/массивов; возвращённые строки/указатели освобождает C-код |
 | `kern.di` | внешняя `libs/Kern.Lib.Di`: `container` (`singleton/transient/scoped`, `*_as`, `instance`, `scan`, `get/try_get/has/create/inject/scope/dispose`, `count`) | фабрики требуют явного типа результата лямбды (`fun -> T`); `#[singleton]/#[inject]` остаются библиотечными атрибутами и дают `KRN2307` |
 | `kern.backend` / `kern.backend.server` | внешняя `libs/Kern.Lib.Backend`: `app`/`route_group`/`ctx`/`res`/`chain`/`middleware`/`jwt`/`session`/`claims`/`socket`/`sse`/`work`; маршруты, middleware, контроллеры (`#[controller]`, `#[get]`, `#[auth]`, `#[roles]`), DI-scope на запрос, JWT HS256, сессии, WebSocket, SSE, `await a.serve()` | `kern.backend.server.*` — импорт модуля; `serve` объявлен членом `app`; SSE/сессии/rate limit в памяти; сервер на `HttpListener` |
 
 ## Отсутствует (stage-2 и другие этапы)
 
-`kern.ui`, `kern.ffi`, `kern.transpile`, `kern.mod`,
+`kern.ui`, `kern.transpile`, `kern.mod`,
 `kern.stub`, `kern.web`/`kern.server` (stage-2).
 
 M7 закрыт 2026-11-01: `kern.events`, `kern.compress`, `kern.http` (оба варианта), `kern.threading`,
@@ -46,7 +47,7 @@ M12 почти закрыт: эталоны 09/18/23 и 04_flow, форматт�
 по всем примерам, `.compile-only` примеры 16/17/31-mathx проверяются отдельным тестом.
 Остался только реальный прогон CI после push владельца.
 
-## Блокеры примеров (4 из 31 не проходят `kernc check`; 27 чистых — на 2026-11-02)
+## Блокеры примеров (3 из 31 не проходят `kernc check`; 28 чистых — на 2026-11-02)
 
 | Пример | Первый блокер | Что нужно |
 |---|---|---|
@@ -61,7 +62,7 @@ M12 почти закрыт: эталоны 09/18/23 и 04_flow, форматт�
 | 17_http_clients | ✅ clean+run 2026-11-01 (оба клиента) | — |
 | 18_time | ✅ clean+run 2026-11-01 | — |
 | 19_gui | stage-2 UI | вне первого прохода |
-| 20_ffi | stage-2 FFI | вне первого прохода |
+| 20_ffi | ✅ clean+run 2026-11-02 (`kern.ffi`: msvcrt strlen/abs/has) | — |
 | 21_syntax_round15 | ✅ clean+run 2026-11-01 | — |
 | 22_events_patterns | ✅ clean+run 2026-11-01 | — |
 | 23_native_inheritance | ✅ clean+run 2026-11-01 (M6) | — |

@@ -73,6 +73,19 @@ public static class PostgresApi
 		}
 	}
 
+	[KernStatic]
+	[KernMember]
+	[KernName("connect")]
+	[KernReturn("result<postgres, str>")]
+	public static KResult<KernPostgres, string> Connect(
+		Interpreter interpreter,
+		string host,
+		int port,
+		string database,
+		string user,
+		string password) =>
+		Connect(interpreter, ConnectionStrings.Postgres(host, port, database, user, password));
+
 	[KernMember]
 	public static KResult<long, string> Exec(KNativeBox self, string sql) => Require(self).Exec(sql, KValue.Nil);
 

@@ -19,6 +19,9 @@ public interface IKernDb
 	Task<KResult<long, string>> ExecAsync(string sql, KValue args);
 	Task<KResult<KValue, string>> QueryAsync(string sql, KValue args);
 	Task<KValue> QueryAsyncValue(string sql, KValue args);
+	void Begin();
+	void Commit();
+	void Rollback();
 }
 
 /// <summary>SQL-диалект: кавычки, типы, плейсхолдеры, last-id.</summary>
@@ -30,6 +33,7 @@ public sealed class SqlDialect
 	public required string IntegerType { get; init; }
 	public required string RealType { get; init; }
 	public required string TextType { get; init; }
+	public required string BoolType { get; init; }
 	public required string AutoKey { get; init; }
 	public Func<int, string>? Placeholder { get; init; }
 	public Func<int, string>? ParameterName { get; init; }
@@ -43,13 +47,73 @@ public sealed class SqlDialect
 		if (Placeholder is null)
 			return sql;
 		var builder = new System.Text.StringBuilder(sql.Length + 8);
-		var quoted = false;
 		var index = 0;
-		foreach (char symbol in sql)
+		var quote = false;
+		var doubleQuote = false;
+		var lineComment = false;
+		var blockComment = false;
+		for (var position = 0; position < sql.Length; position++)
 		{
-			if (symbol == '\'')
-				quoted = !quoted;
-			if (symbol == '?' && !quoted)
+			char symbol = sql[position];
+			char next = position + 1 < sql.Length ? sql[position + 1] : '\0';
+			if (lineComment)
+			{
+				builder.Append(symbol);
+				if (symbol == '\n')
+					lineComment = false;
+				continue;
+			}
+
+			if (blockComment)
+			{
+				builder.Append(symbol);
+				if (symbol == '*' && next == '/')
+				{
+					builder.Append(next);
+					position++;
+					blockComment = false;
+				}
+				continue;
+			}
+
+			if (!quote && !doubleQuote && symbol == '-' && next == '-')
+			{
+				lineComment = true;
+				builder.Append(symbol);
+				continue;
+			}
+
+			if (!quote && !doubleQuote && symbol == '/' && next == '*')
+			{
+				blockComment = true;
+				builder.Append(symbol);
+				continue;
+			}
+
+			if (symbol == '\'' && !doubleQuote)
+			{
+				builder.Append(symbol);
+				if (quote && next == '\'')
+				{
+					builder.Append(next);
+					position++;
+				}
+				else
+				{
+					quote = !quote;
+				}
+
+				continue;
+			}
+
+			if (symbol == '"' && !quote)
+			{
+				doubleQuote = !doubleQuote;
+				builder.Append(symbol);
+				continue;
+			}
+
+			if (symbol == '?' && !quote && !doubleQuote)
 				builder.Append(Placeholder(index++));
 			else
 				builder.Append(symbol);
@@ -66,6 +130,7 @@ public sealed class SqlDialect
 		IntegerType = "INTEGER",
 		RealType = "REAL",
 		TextType = "TEXT",
+		BoolType = "INTEGER",
 		AutoKey = "INTEGER PRIMARY KEY AUTOINCREMENT",
 		Placeholder = index => "$" + index,
 		ParameterName = index => "$" + index,
@@ -80,9 +145,10 @@ public sealed class SqlDialect
 		IntegerType = "BIGINT",
 		RealType = "DOUBLE PRECISION",
 		TextType = "TEXT",
+		BoolType = "BOOLEAN",
 		AutoKey = "BIGSERIAL PRIMARY KEY",
-		Placeholder = index => "$" + (index + 1),
-		ParameterName = index => "$" + (index + 1),
+		Placeholder = index => "@p" + (index + 1),
+		ParameterName = index => "p" + (index + 1),
 		LastIdSql = "select lastval()",
 	};
 
@@ -94,6 +160,7 @@ public sealed class SqlDialect
 		IntegerType = "BIGINT",
 		RealType = "DOUBLE",
 		TextType = "TEXT",
+		BoolType = "BOOLEAN",
 		AutoKey = "BIGINT PRIMARY KEY AUTO_INCREMENT",
 		LastIdSql = "select last_insert_id()",
 	};
@@ -107,7 +174,8 @@ public static class ConnectionStrings
 		if (!TryUrl(text, ["postgres", "postgresql"], out Uri? uri))
 			return text;
 		(string user, string password) = Credentials(uri!);
-		return $"Host={uri!.Host};Port={(uri.Port > 0 ? uri.Port : 5432)};Database={uri.AbsolutePath.Trim('/')};Username={user};Password={password}";
+		string database = Uri.UnescapeDataString(uri!.AbsolutePath.Trim('/'));
+		return $"Host={uri.Host};Port={(uri.Port > 0 ? uri.Port : 5432)};Database={database};Username={user};Password={password}";
 	}
 
 	public static string Mysql(string text)
@@ -115,7 +183,8 @@ public static class ConnectionStrings
 		if (!TryUrl(text, ["mysql", "mariadb"], out Uri? uri))
 			return text;
 		(string user, string password) = Credentials(uri!);
-		return $"Server={uri!.Host};Port={(uri.Port > 0 ? uri.Port : 3306)};Database={uri.AbsolutePath.Trim('/')};User ID={user};Password={password}";
+		string database = Uri.UnescapeDataString(uri!.AbsolutePath.Trim('/'));
+		return $"Server={uri.Host};Port={(uri.Port > 0 ? uri.Port : 3306)};Database={database};User ID={user};Password={password}";
 	}
 
 	public static string Postgres(string host, int port, string database, string user, string password) =>
@@ -175,7 +244,7 @@ public sealed class DbCore(DbConnection connection, SqlDialect dialect, Interpre
 		ValueKind.Nil or ValueKind.None => DBNull.Value,
 		ValueKind.Str => value.AsStr,
 		ValueKind.Char => value.AsChar.ToString(),
-		ValueKind.Bool => value.AsBool ? 1L : 0L,
+		ValueKind.Bool => value.AsBool,
 		_ when value.IsInteger => value.AsI64,
 		_ when value.IsFloat => value.AsF64,
 		_ => KernFormat.Value(value),
