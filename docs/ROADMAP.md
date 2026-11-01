@@ -46,6 +46,11 @@ Accept: ≥ 200 binder tests; every example binds without errors (stage-1 exampl
 **M1–M3 completion plan (owner request 2026-10-31):** `docs/M1_M3_PLAN.md` — five features per batch, tests written only after a batch, parallel agents on disjoint files, goal `kernc check` 01–20 green for stage-1 examples.
 
 ## M4 — Bytecode and codegen
+**Status 2026-11-01:** pools, `.kbc` v2 writer/reader/validator, line tables, disassembler and append-only
+opcodes are done; `PropertyDef` (with `OwnerType`, accessors, backing field and attributes) is now emitted
+and round-trips, module-level attributes have no source syntax yet, and `ConstantFolder` (`-O1`) +
+`PeepholeOptimizer` (`-O2`) live in `Kern.Compiler.Optimization`. Remaining: generic reification audit
+of user generic bodies (`typeof<T>` in native positions) and a dedicated bytecode test batch growth.
 Opcode set, pools (strings, consts, type signatures, functions, types, fields), `.kbc` binary format with magic `KBC2` + version (writer/reader, round-trip tests), source line tables, **attributes emitted for types/functions/fields/properties**, `SaveSp/RestoreSp` for `stop/next` inside expressions, generic reification signatures, constant folder (`-O1`), disassembler for `kernc dis`.
 Accept: round-trip tests; codegen tests on snippets via the VM (needs M5 for execution; develop in parallel by milestones' halves).
 
@@ -80,7 +85,7 @@ Interface stubs embedded by `kernc dll` (`kern.stub` module attributes), `KbcStu
 Accept: example 31 (build `mathx` as dll, then run `app`).
 
 ## M11 — fmt, repl, optimizer
-`kernc fmt [--check] [--stdout]` (tabs + CRLF, comments kept, token-sequence verified, idempotent); `kernc repl`; `-O2` peephole (jump threading, dead code, `Not;JmpIf`→`JmpIfNot`, load+pop removal). Output equal at -O0/-O1/-O2 (test).
+`kernc fmt [--check] [--stdout]` (tabs + CRLF, trailing whitespace, token-sequence verified, idempotent — conservative: no brace re-indent yet); `kernc repl` (declarations/state replay); `-O2` peephole (`Not;JmpIf`→`JmpIfNot`, jump threading, jump-to-next, load+pop, unreachable code, target/line remap) — done 2026-11-01, output equal at -O0/-O1/-O2 on examples 01–12, 21.
 Accept: formatter idempotence tests over all examples; optimizer equivalence tests.
 
 ## M12 — Hardening
