@@ -68,6 +68,7 @@ public sealed partial class Binder
 		ParenthesizedExpression parenthesized => BindExpression(parenthesized.Expression, hint),
 		NonNullExpression nonNull => BindNonNull(nonNull),
 		BlockExpression block => BindBlockExpression(block),
+		WithExpression with => BindWith(with),
 		CallExpression call => BindCall(call, hint),
 		StructuredCallExpression structured => BindStructuredCall(structured),
 		GenericCallExpression generic => BindGenericCall(generic, hint),

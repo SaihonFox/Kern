@@ -48,5 +48,5 @@ fun main {
 		Ok(_) => println("записано")
 		Err(e) => println(f"не записано: ${e}")
 	}
-	println(env.os)
+	println(env.os.len > 0)  // платформа доступна (значение зависит от ОС)
 }

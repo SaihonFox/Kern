@@ -10,6 +10,9 @@ public sealed partial class Parser
 	private readonly List<Diagnostic> _diagnostics = [];
 	private int _position;
 
+	// В литерале коллекции `:` отделяет ключ словаря, поэтому `x:{...}` там не with.
+	private bool _suppressWith;
+
 	// Приоритеты операторов — ровно как в C# (spec §3), от низкого к высокому.
 	// `**` — особый: правоассоциативный и выше унарного минуса.
 	private static readonly Dictionary<string, int> Precedence = new(StringComparer.Ordinal)

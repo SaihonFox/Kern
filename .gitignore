@@ -6,4 +6,9 @@ dist/
 *.user
 node_modules/
 logs/*.log
+
+# Побочные файлы запуска примеров (09, 23 и др.).
+/demo.txt
+/demo23.txt
+/hello.txt
 libs/_out/

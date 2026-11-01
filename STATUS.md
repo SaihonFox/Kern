@@ -1,6 +1,14 @@
 # STATUS
 
 ## Now
+- **M14 `with` landed (2026-11-01):** `x:{ a = 1 }` returns a copy of a `unit`/`type` with instance fields replaced (parser, binder, codegen: `CloneObject` + `StoreField`); inherited fields and generic receiver substitution work, `unit!`/static/unknown/duplicate fields are diagnosed, the original is unchanged. Tests `WithExpressionTests` (5). Remaining M14 slices: `is` patterns, generators/`seq<T>`, tail calls, data structures, docs/CLI.
+- **M12 hardening (2026-11-01, in progress):** goldens added for examples 09, 18 and 23
+  (`09` now prints an OS-independent `env.os.len > 0`), the formatter is checked for
+  idempotence and clean parsing over every example `.kern` source, compile-only checks cover
+  16/17/31-mathx, and the CI matrix (Windows/Linux/macOS) is enabled. Example side-effect files
+  (`hello.txt`, `demo23.txt`, `demo.txt`) are ignored. Suite **340/340**; style clean; goldens
+  **20 active** (04 is parked on Q25), examples clean **23/31**. Remaining: owner answer on Q25
+  (nested `str`/`char` quoting), then un-park 04; CI must actually run after the owner pushes.
 - **M9 closed (2026-11-01, owner request):** reflection and macros finished. Runtime: the `type`
   value exposes `name/full_name/args/parents/fields/properties/methods/constructors/attributes`,
   `is_enum/is_unit/is_abstract/is_interface/is_declared`, `enum_names`,

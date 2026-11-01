@@ -112,11 +112,15 @@ Accept: example 31 (build `mathx` as dll, then run `app`).
 `kernc fmt [--check] [--stdout]` (tabs + CRLF, trailing whitespace, token-sequence verified, idempotent — conservative: no brace re-indent yet); `kernc repl` (declarations/state replay); `-O2` peephole (`Not;JmpIf`→`JmpIfNot`, jump threading, jump-to-next, load+pop, unreachable code, target/line remap) — done 2026-11-01, output equal at -O0/-O1/-O2 on examples 01–12, 21.
 Accept: formatter idempotence tests over all examples; optimizer equivalence tests.
 
-## M12 — Hardening
+## M12 - Hardening
 Every stage-1 example has `expected.out` and passes; CI matrix windows/ubuntu/macos green (if CI is used); docs synced (`spec`, `ARCHITECTURE`, `STATUS`); `KNOWN_ISSUES` updated; final report to the owner.
+
+**Status 2026-11-01 - M12 in progress:** goldens added for 09/18/23 (`09` prints an OS-independent `env.os.len > 0`), the formatter is verified for idempotence and clean parsing on every example source, `ExampleCompileTests` covers the `.compile-only` examples 16/17/31-mathx, and `.github/workflows/ci.yml` has the Windows/Linux/macOS matrix enabled. Suite **340/340**, style clean, goldens **20 active**. Blockers: 04_flow stays `.golden-pending` until Q25 decides whether nested `str`/`char` are quoted (the assumption file currently requires quotes, `KernFormat` prints them unquoted); CI needs an actual push by the owner.
 
 ## M14 — Round 27 additions (2026-10-26)
 Cross-cutting milestone for the owner's round-27 items (spec «Раунд 27», `DECISIONS.md` §J). Slices may be pulled into M1/M3/M7/M8/M11 when the touched subsystem is already stable, but M14 closes only when all slices are green. Do not start std/tools slices before the core syntax is implemented.
+
+**Status 2026-11-01:** `with`-expression landed (`x:{ a = 1 }`, `WithExpressionTests`, 5 facts): copy of a `unit`/`type` with instance fields replaced, inherited fields and generic substitution, `unit!`/static/unknown/duplicate diagnostics. Still open: `is` patterns, generators/`seq<T>`, direct tail-call optimization, data structures, doc/CLI tooling.
 
 1. **Syntax/AST (first slice):** loop labels `loop@outer`, `stop outer`/`next outer`; `with` (`x:{ a = 1 }`); `is` patterns; generic union aliases `type Option<T> = [Some<T>, Nothing]`; `result<T[ok], E[error]>` labels; `yield` and generator bodies. Parser/AST tests for every form.
 2. **Binder/types:** generic union alias substitution; `is` pattern bindings and smart casts; generator typing (`seq<T>`); `result` label equivalence; nesting limit 256 (configurable).

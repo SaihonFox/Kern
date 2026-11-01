@@ -69,6 +69,15 @@ public sealed partial class Parser
 					new TextSpan(left.Span.Start, rangeEnd - left.Span.Start));
 				continue;
 			}
+			// `x:{ a = 1 }` (spec round 27): `:` и `{` идут сразу после выражения.
+			if (!_suppressWith &&
+				Current.Kind == TokenKind.Colon &&
+				_position + 1 < _tokens.Count &&
+				_tokens[_position + 1].Kind == TokenKind.LeftBrace)
+			{
+				left = ParseWith(left);
+				continue;
+			}
 			if (!TryGetPrecedence(Current, out var precedence) || precedence < minimumPrecedence)
 				break;
 			var operatorToken = Advance();
@@ -109,6 +118,20 @@ public sealed partial class Parser
 		};
 	}
 
+	private ExpressionNode ParseCollectionElement()
+	{
+		bool previous = _suppressWith;
+		_suppressWith = true;
+		try
+		{
+			return ParseExpression();
+		}
+		finally
+		{
+			_suppressWith = previous;
+		}
+	}
+
 	private IndexExpression ParseIndex(ExpressionNode target)
 	{
 		Advance();
@@ -121,6 +144,30 @@ public sealed partial class Parser
 		}
 		var close = Consume(TokenKind.RightBracket, "Ожидалась закрывающая квадратная скобка");
 		return new IndexExpression(target, arguments, new TextSpan(target.Span.Start, close.Span.End - target.Span.Start));
+	}
+
+	private WithExpression ParseWith(ExpressionNode target)
+	{
+		Advance(); // ':'
+		Advance(); // '{'
+		var assignments = new List<WithAssignmentNode>();
+		while (!AtEnd && Current.Kind != TokenKind.RightBrace)
+		{
+			var name = Consume(TokenKind.Identifier, "Ожидалось имя поля в with-выражении");
+			Consume(TokenKind.Equals, "Ожидался '=' после имени поля");
+			var value = ParseExpression();
+			assignments.Add(new WithAssignmentNode(
+				name.Text,
+				value,
+				new TextSpan(name.Span.Start, value.Span.End - name.Span.Start)));
+			if (!Match(TokenKind.Comma))
+				break;
+		}
+		var close = Consume(TokenKind.RightBrace, "Ожидалась закрывающая фигурная скобка");
+		return new WithExpression(
+			target,
+			assignments,
+			new TextSpan(target.Span.Start, close.Span.End - target.Span.Start));
 	}
 
 	private bool TryParseGenericCall(ExpressionNode target, out ExpressionNode genericCall)
@@ -233,7 +280,7 @@ public sealed partial class Parser
 			}
 			else
 			{
-				var key = ParseExpression();
+				var key = ParseCollectionElement();
 				if (Match(TokenKind.Colon))
 				{
 					var value = ParseExpression();
@@ -371,7 +418,7 @@ public sealed partial class Parser
 					}
 					else
 					{
-						var keyOrItem = ParseExpression();
+						var keyOrItem = ParseCollectionElement();
 					if (Match(TokenKind.Colon))
 					{
 						isDictionary = true;

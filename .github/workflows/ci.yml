@@ -1,4 +1,4 @@
-# ШАБЛОН CI (активировать на M12, когда проект выложен в GitHub). Файл лежит в .github/workflows/.
+# Матрица CI (M12): Windows, Linux и macOS. Запускается после push владельцем в GitHub.
 name: ci
 on:
   push:

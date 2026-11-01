@@ -245,6 +245,10 @@ public sealed partial class CodeGenerator
 				Emit(OpCode.PushConst, _module.InternConst(KConst.Str(nameOf.TypeArgument.ToString())));
 				break;
 
+			case BoundWithExpression with:
+				EmitWith(with);
+				break;
+
 			case BoundBinaryExpression binary:
 				EmitBinary(binary);
 				break;

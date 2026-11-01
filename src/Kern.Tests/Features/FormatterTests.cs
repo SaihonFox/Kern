@@ -38,4 +38,33 @@ public sealed class FormatterTests
 		string formatted = SourceFormatter.Format(source);
 		Assert.Equal(source, formatted);
 	}
+
+	[Fact]
+	public void Format_is_idempotent_for_every_example()
+	{
+		string root = Path.Combine(RepositoryRoot(), "examples");
+		foreach (string path in Directory.EnumerateFiles(root, "*.kern", SearchOption.AllDirectories))
+		{
+			string source = File.ReadAllText(path);
+			string once = SourceFormatter.Format(source);
+			string twice = SourceFormatter.Format(once);
+			Assert.True(twice == once, $"{path}: форматирование не идемпотентно");
+			Assert.True(
+				Parser.Parse(once).Diagnostics.All(diagnostic => !diagnostic.IsError),
+				$"{path}: после форматирования остались синтаксические ошибки");
+		}
+	}
+
+	private static string RepositoryRoot()
+	{
+		string? current = AppContext.BaseDirectory;
+		while (current is not null)
+		{
+			if (File.Exists(Path.Combine(current, "Kern.slnx")))
+				return current;
+			current = Path.GetDirectoryName(current);
+		}
+
+		throw new InvalidOperationException("не найден корень репозитория (Kern.slnx)");
+	}
 }
