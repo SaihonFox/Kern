@@ -40,23 +40,23 @@ public sealed class KernWorker
 	}
 
 	/// <summary>Блокирующее ожидание: <c>Ok(результат)</c> или <c>Err(сообщение паники)</c>.</summary>
-	internal KValue JoinResult(Interpreter interpreter, KType resultType)
+	internal KValue JoinResult(KClassType okType, KClassType errType)
 	{
 		_thread.Join();
-		if (_error is null)
-			return KernResults.Ok(interpreter, resultType, _result);
-		return KernResults.Err(
-			interpreter,
-			interpreter.Types.Prim(PrimKind.Str),
-			KValue.Str(_error));
+		return Outcome(okType, errType);
 	}
 
-	/// <summary>Асинхронное ожидание (по завершении потока), результат собирается в его VM.</summary>
-	internal async Task<KValue> WaitResult(Interpreter interpreter, KType resultType)
+	/// <summary>Асинхронное ожидание (по завершении потока); типы вариантов посчитаны в VM.</summary>
+	internal async Task<KValue> WaitResult(KClassType okType, KClassType errType)
 	{
 		await Task.Run(() => _thread.Join()).ConfigureAwait(false);
-		return JoinResult(interpreter, resultType);
+		return Outcome(okType, errType);
 	}
+
+	private KValue Outcome(KClassType okType, KClassType errType) =>
+		_error is null
+			? KernResults.Make(okType, _result)
+			: KernResults.Make(errType, KValue.Str(_error));
 
 	private void Body(Interpreter parent, KValue function, KValue[] arguments)
 	{
@@ -88,14 +88,24 @@ public static class WorkerApi
 	/// <summary>Блокирующее ожидание: поток останавливает цикл событий вызывающего.</summary>
 	[KernMember]
 	[KernReturn("result<T, str>")]
-	public static KValue Join(Interpreter interpreter, KNativeBox self, [KernTypeArgs] KType[] typeArguments) =>
-		Require(self).JoinResult(interpreter, ResultType(interpreter, typeArguments));
+	public static KValue Join(Interpreter interpreter, KNativeBox self, [KernTypeArgs] KType[] typeArguments)
+	{
+		KType resultType = ResultType(interpreter, typeArguments);
+		return Require(self).JoinResult(
+			KernResults.OkType(interpreter, resultType),
+			KernResults.ErrType(interpreter, interpreter.Types.Prim(PrimKind.Str)));
+	}
 
 	/// <summary>Асинхронное ожидание: <c>await w.wait()</c>.</summary>
 	[KernMember]
 	[KernReturn("task<result<T, str>>")]
-	public static Task<KValue> Wait(Interpreter interpreter, KNativeBox self, [KernTypeArgs] KType[] typeArguments) =>
-		Require(self).WaitResult(interpreter, ResultType(interpreter, typeArguments));
+	public static Task<KValue> Wait(Interpreter interpreter, KNativeBox self, [KernTypeArgs] KType[] typeArguments)
+	{
+		KType resultType = ResultType(interpreter, typeArguments);
+		return Require(self).WaitResult(
+			KernResults.OkType(interpreter, resultType),
+			KernResults.ErrType(interpreter, interpreter.Types.Prim(PrimKind.Str)));
+	}
 
 	private static KType ResultType(Interpreter interpreter, KType[] typeArguments) =>
 		typeArguments.Length > 0 ? typeArguments[0] : interpreter.Types.Prim(PrimKind.Object);
