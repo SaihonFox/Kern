@@ -162,6 +162,7 @@ public static class KbcWriter
 		WriteString(writer, property.Name);
 		WriteSig(writer, property.Type);
 		writer.Write((uint)property.Flags);
+		writer.Write(property.OwnerType);
 		writer.Write(property.Getter);
 		writer.Write(property.Setter);
 		writer.Write(property.Init);

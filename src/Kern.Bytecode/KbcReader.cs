@@ -222,6 +222,7 @@ public static class KbcReader
 			Name = ReadString(reader),
 			Type = ReadSig(reader),
 			Flags = (MemberFlags)reader.ReadUInt32(),
+			OwnerType = reader.ReadInt32(),
 			Getter = reader.ReadInt32(),
 			Setter = reader.ReadInt32(),
 			Init = reader.ReadInt32(),

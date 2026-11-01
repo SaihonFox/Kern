@@ -1,5 +1,6 @@
 using Kern.Binding.Catalog;
 using Kern.Bytecode;
+using Kern.Compiler.Compilation;
 using Kern.Core.Diagnostics;
 using Kern.Core.Text;
 
@@ -24,6 +25,9 @@ internal sealed class CompileResult
 
 	/// <summary>Готовые строки диагностик проекта (путь/строка уже подставлены).</summary>
 	public IReadOnlyList<string> ProjectMessages { get; init; } = [];
+
+	/// <summary>Диагностики проекта до форматирования (проверка «предупреждения как ошибки»).</summary>
+	public IReadOnlyList<ProjectDiagnostic> ProjectDiagnostics { get; init; } = [];
 
 	public string? FailureMessage { get; init; }
 

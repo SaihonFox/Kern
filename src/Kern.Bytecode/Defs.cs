@@ -61,12 +61,18 @@ public sealed class FieldDef
 	public List<AttributeUse> Attributes { get; set; } = [];
 }
 
-/// <summary>Свойство: геттер/сеттер/init — отдельные функции, -1 если аксессора нет.</summary>
+/// <summary>
+/// Свойство: геттер/сеттер/init — отдельные функции, -1 если аксессора нет.
+/// <see cref="BackingField"/> — слот backing-поля: для экземплярного свойства это слот
+/// в <see cref="TypeDef.Fields"/>, для статического — индекс в <see cref="KbcModule.FieldPool"/>.
+/// </summary>
 public sealed class PropertyDef
 {
 	public required string Name { get; set; }
 	public TypeSig Type { get; set; } = TypeSig.Object;
 	public MemberFlags Flags { get; set; }
+	/// <summary>Индекс типа-владельца в <see cref="KbcModule.TypePool"/>; -1 вне типа.</summary>
+	public int OwnerType { get; set; } = -1;
 	public int Getter { get; set; } = -1;
 	public int Setter { get; set; } = -1;
 	public int Init { get; set; } = -1;

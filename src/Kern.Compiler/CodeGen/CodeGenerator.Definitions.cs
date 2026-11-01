@@ -207,6 +207,12 @@ public sealed partial class CodeGenerator
 			definition.Flags |= MemberFlags.Static;
 		if (function.Symbol.IsAsync)
 			definition.Flags |= MemberFlags.Async;
+		if (function.Symbol.Kind == FunctionKind.Getter)
+			definition.Flags |= MemberFlags.Getter;
+		else if (function.Symbol.Kind == FunctionKind.Setter)
+			definition.Flags |= MemberFlags.Setter;
+		else if (function.Symbol.Kind == FunctionKind.Init)
+			definition.Flags |= MemberFlags.Init;
 
 		var index = _module.AddFunction(definition);
 		_functionIndices[function.Symbol] = index;

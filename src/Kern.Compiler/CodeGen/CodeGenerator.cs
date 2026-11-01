@@ -65,6 +65,8 @@ public sealed partial class CodeGenerator
 		foreach (FunctionSymbol native in module.Symbol.NativeFunctions)
 			DefineNative(native);
 
+		DefineProperties(module);
+
 		foreach (var function in module.Functions)
 			EmitFunction(function);
 

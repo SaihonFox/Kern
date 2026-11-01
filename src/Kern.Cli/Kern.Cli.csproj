@@ -5,6 +5,9 @@
 		<AssemblyName>kernc</AssemblyName>
 	</PropertyGroup>
 	<ItemGroup>
+		<InternalsVisibleTo Include="Kern.Tests" />
+	</ItemGroup>
+	<ItemGroup>
 		<ProjectReference Include="../Kern.Compiler/Kern.Compiler.csproj" />
 		<ProjectReference Include="../Kern.Runtime/Kern.Runtime.csproj" />
 		<ProjectReference Include="../Kern.Vm/Kern.Vm.csproj" />

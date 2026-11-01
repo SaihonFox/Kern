@@ -21,7 +21,7 @@ namespace Kern.Cli.Infrastructure;
 /// </summary>
 internal static class SourceCompiler
 {
-	public static CompileResult Compile(string path)
+	public static CompileResult Compile(string path, CompileOptions? options = null)
 	{
 		string text;
 		try
@@ -34,20 +34,43 @@ internal static class SourceCompiler
 		}
 
 		var source = new SourceText(text, path);
-		return CompileCore(source, text, ModuleName(path), bundle: null);
+		return CompileCore(source, text, ModuleName(path), bundle: null, options ?? CompileOptions.Default);
 	}
 
-	public static CompileResult Compile(ProjectSources project)
+	/// <summary>Компилирует проект по соглашению (см. <see cref="ProjectSources"/>).</summary>
+	public static CompileResult Compile(ProjectSources project, CompileOptions? options = null)
 	{
 		ArgumentNullException.ThrowIfNull(project);
 
 		NativeCatalog catalog = NativeCatalog.Scan(typeof(CoreModule).Assembly);
-		var files = project.Files
+		return CompileFiles(
+			[.. project.Files.Select(file => (file.Path, file.Text))],
+			project.Name,
+			catalog,
+			options ?? CompileOptions.Default);
+	}
+
+	/// <summary>
+	/// Компилирует произвольный набор файлов как один проект: используется и проектом по
+	/// соглашению, и целями <c>build.kern</c> (там набор файлов задаёт цель, а не папка).
+	/// <paramref name="moduleName"/> становится именем модуля <c>.kbc</c>.
+	/// </summary>
+	public static CompileResult CompileFiles(
+		IReadOnlyList<(string Path, string Text)> files,
+		string moduleName,
+		NativeCatalog catalog,
+		CompileOptions options)
+	{
+		ArgumentNullException.ThrowIfNull(files);
+		ArgumentNullException.ThrowIfNull(catalog);
+		ArgumentNullException.ThrowIfNull(options);
+
+		var projectFiles = files
 			.Select(file => new ProjectSourceFile(file.Path, file.Text))
 			.ToList();
-		ProjectCompileResult result = ProjectCompiler.Compile(files, project.Name, catalog);
+		ProjectCompileResult result = ProjectCompiler.Compile(projectFiles, moduleName, catalog);
 		var texts = new Dictionary<string, SourceText>(StringComparer.Ordinal);
-		foreach (var (path, text) in project.Files)
+		foreach (var (path, text) in files)
 			texts[path] = new SourceText(text, path);
 
 		var messages = new List<string>();
@@ -63,6 +86,7 @@ internal static class SourceCompiler
 			{
 				Sources = result.Bundle,
 				ProjectMessages = messages,
+				ProjectDiagnostics = result.Diagnostics,
 				NativeProblems = result.NativeProblems,
 			};
 		}
@@ -71,13 +95,20 @@ internal static class SourceCompiler
 		foreach (var diagnostic in generated.Diagnostics)
 			messages.Add(Format(null, diagnostic));
 		if (generated.Diagnostics.Any(diagnostic => diagnostic.IsError))
-			return new CompileResult { Sources = result.Bundle, ProjectMessages = messages };
+			return new CompileResult
+			{
+				Sources = result.Bundle,
+				ProjectMessages = messages,
+				ProjectDiagnostics = result.Diagnostics,
+			};
 
+		KbcModule module = generated.Module;
 		try
 		{
-			KbcModuleValidator.Validate(generated.Module);
+			module = OptimizationPass.Apply(module, options.Optimize, out _);
+			KbcModuleValidator.Validate(module);
 		}
-		catch (KbcFormatException ex)
+		catch (Exception ex) when (ex is KbcFormatException or InvalidOperationException)
 		{
 			return new CompileResult
 			{
@@ -91,23 +122,28 @@ internal static class SourceCompiler
 		{
 			Sources = result.Bundle,
 			ProjectMessages = messages,
-			Program = new CompiledProgram(generated.Module, catalog),
+			Program = new CompiledProgram(module, catalog),
 		};
 	}
 
 	/// <summary>Компилирует вход команды: файл как есть или проект по соглашению.</summary>
-	public static CompileResult Compile(string path, SourceKind kind)
+	public static CompileResult Compile(string path, SourceKind kind, CompileOptions? options = null)
 	{
 		if (kind != SourceKind.Project)
-			return Compile(path);
+			return Compile(path, options);
 
 		if (!ProjectSources.TryLoad(path, out ProjectSources? project, out string? error))
 			return new CompileResult { FailureMessage = error };
 
-		return Compile(project!);
+		return Compile(project!, options);
 	}
 
-	private static CompileResult CompileCore(SourceText source, string text, string moduleName, SourceBundle? bundle)
+	private static CompileResult CompileCore(
+		SourceText source,
+		string text,
+		string moduleName,
+		SourceBundle? bundle,
+		CompileOptions options)
 	{
 		var parsed = Parser.Parse(text);
 		List<Diagnostic> diagnostics = [.. parsed.Diagnostics];
@@ -149,9 +185,17 @@ internal static class SourceCompiler
 
 		try
 		{
-			KbcModuleValidator.Validate(generated.Module);
+			KbcModule optimized = OptimizationPass.Apply(generated.Module, options.Optimize, out _);
+			KbcModuleValidator.Validate(optimized);
+			return new CompileResult
+			{
+				Source = source,
+				Sources = bundle,
+				Diagnostics = diagnostics,
+				Program = new CompiledProgram(optimized, catalog),
+			};
 		}
-		catch (KbcFormatException ex)
+		catch (Exception ex) when (ex is KbcFormatException or InvalidOperationException)
 		{
 			return new CompileResult
 			{
@@ -161,14 +205,6 @@ internal static class SourceCompiler
 				FailureMessage = $"внутренняя ошибка компилятора: {ex.Message}",
 			};
 		}
-
-		return new CompileResult
-		{
-			Source = source,
-			Sources = bundle,
-			Diagnostics = diagnostics,
-			Program = new CompiledProgram(generated.Module, catalog),
-		};
 	}
 
 	/// <summary>Печатает все диагностики (и предупреждения) в stderr в формате <c>путь:строка:колонка</c>.</summary>

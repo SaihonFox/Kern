@@ -87,7 +87,8 @@ public static class Disassembler
 		$"{KbcText.Escape(field.Name)}: {field.Type.Canonical} slot={field.Slot} flags={field.Flags} attrs={field.Attributes.Count}";
 
 	private static string DescribeProperty(PropertyDef property) =>
-		$"{KbcText.Escape(property.Name)}: {property.Type.Canonical} get={property.Getter} set={property.Setter}"
+		$"{KbcText.Escape(property.Name)}: {property.Type.Canonical} owner={property.OwnerType}"
+		+ $" get={property.Getter} set={property.Setter}"
 		+ $" init={property.Init} backing={property.BackingField} flags={property.Flags} attrs={property.Attributes.Count}";
 
 	private static void WriteFunctions(StringBuilder sb, KbcModule module)

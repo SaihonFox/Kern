@@ -74,6 +74,10 @@ public static class KbcModuleValidator
 	{
 		if (string.IsNullOrWhiteSpace(property.Name))
 			throw new KbcFormatException($"{where}: пустое имя");
+		if (property.OwnerType != -1)
+			ValidateTypeIndex(module, property.OwnerType, where, "владельца свойства");
+		if (property.BackingField < -1)
+			throw new KbcFormatException($"{where}: недопустимый слот backing-поля {property.BackingField}");
 		if (property.Getter != -1)
 			ValidateFunctionIndex(module, property.Getter, $"{where}.get");
 		if (property.Setter != -1)
