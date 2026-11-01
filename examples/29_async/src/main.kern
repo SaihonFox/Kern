@@ -51,6 +51,10 @@ async fun main {
 	var t = ticker(tok)
 	tok.cancel_after(55)
 	await delay(100)
+	loop {
+		if t.done { stop }
+		await delay(5)
+	}
 	println(f"тикер отменён: ${tok.cancelled}, упал: ${t.failed}")
 
 	// retry
