@@ -133,14 +133,29 @@ public sealed class KUnionType : KType
 	public override string Canonical => $"[{KTypeText.Join(Members)}]";
 }
 
-/// <summary>Встроенные generic-типы, которые не объявляются в TypePool модуля.</summary>
+/// <summary>
+/// Встроенные generic-типы, которые не объявляются в TypePool модуля. Набор обязан совпадать
+/// с <c>Kern.Compiler.Semantics.Types.BuiltinGenericKind</c>: компилятор пишет в подписи
+/// канонические имена (<c>list</c>, <c>set</c>, <c>iter</c> …), и VM должна их разрешать.
+/// </summary>
 public enum BuiltinGenericKind
 {
 	List,
 	Array,
 	Dict,
+	Set,
 	Result,
 	Task,
+	Event,
+	Observable,
+	Channel,
+	Pipe,
+	Shared,
+	Iter,
+	AsyncIter,
+	Collection,
+	Queue,
+	Stack,
 }
 
 internal static class KTypeText
@@ -152,7 +167,19 @@ internal static class KTypeText
 		BuiltinGenericKind.List => "list",
 		BuiltinGenericKind.Array => "array",
 		BuiltinGenericKind.Dict => "dict",
+		BuiltinGenericKind.Set => "set",
 		BuiltinGenericKind.Result => "result",
-		_ => "task",
+		BuiltinGenericKind.Task => "task",
+		BuiltinGenericKind.Event => "event",
+		BuiltinGenericKind.Observable => "observable",
+		BuiltinGenericKind.Channel => "channel",
+		BuiltinGenericKind.Pipe => "pipe",
+		BuiltinGenericKind.Shared => "shared",
+		BuiltinGenericKind.Iter => "iter",
+		BuiltinGenericKind.AsyncIter => "async_iter",
+		BuiltinGenericKind.Collection => "collection",
+		BuiltinGenericKind.Queue => "queue",
+		BuiltinGenericKind.Stack => "stack",
+		_ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Неизвестный встроенный generic"),
 	};
 }

@@ -1,5 +1,6 @@
 using Kern.Binding.Resolution;
 using Kern.Bytecode;
+using Kern.Cli.Build;
 using Kern.Cli.Infrastructure;
 using Kern.Vm.Async;
 using Kern.Vm.Execution;
@@ -25,12 +26,48 @@ internal static class RunCommand
 			out string path, out SourceKind kind, out _, out IReadOnlyList<string> programArguments))
 			return 2;
 
+		if (kind == SourceKind.Project && File.Exists(Path.Combine(path, BuildSession.ScriptName)))
+			return RunProject(path, programArguments, stderr);
+
 		CompileResult result = SourceCompiler.Compile(path, kind);
 		SourceCompiler.Report(result, stderr);
 		if (!result.Success)
 			return 1;
 
-		CompiledProgram program = result.Program!;
+		return Execute(result.Program!, kind, programArguments, stderr);
+	}
+
+	/// <summary><c>run</c> проекта с <c>build.kern</c>: компилирует app-цель без записи .kbc.</summary>
+	private static int RunProject(
+		string path,
+		IReadOnlyList<string> programArguments,
+		TextWriter stderr)
+	{
+		BuildTargetResult built;
+		try
+		{
+			BuildSession session = BuildSession.Open(path);
+			built = BuildTargetCompiler.CompileApp(session);
+		}
+		catch (BuildException exception)
+		{
+			stderr.WriteLine($"ошибка: {exception.Message}");
+			return 1;
+		}
+
+		SourceCompiler.Report(built.Compile, stderr);
+		if (!built.Compile.Success)
+			return 1;
+
+		return Execute(built.Compile.Program!, SourceKind.Project, programArguments, stderr);
+	}
+
+	private static int Execute(
+		CompiledProgram program,
+		SourceKind kind,
+		IReadOnlyList<string> programArguments,
+		TextWriter stderr)
+	{
 		int entry = program.Module.EntryPoint;
 		if (entry < 0)
 		{

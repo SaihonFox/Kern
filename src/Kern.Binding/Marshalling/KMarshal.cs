@@ -1,6 +1,9 @@
 using System.Collections;
+using System.Reflection;
 using System.Runtime.CompilerServices;
+using Kern.Binding.Mapping;
 using Kern.Binding.Values;
+using Kern.Bytecode;
 using Kern.Vm.Async;
 using Kern.Vm.Execution;
 using Kern.Vm.Types;
@@ -118,7 +121,7 @@ public static class KMarshal
 			if (definition == typeof(KTask<>))
 				return Activator.CreateInstance(target, value);
 			if (definition == typeof(KResult<,>))
-				throw new KernPanic("KResult: преобразование из VM-значения ещё не поддержано");
+				return ToKResult(value, target);
 		}
 
 		if (target == typeof(KAction))
@@ -299,6 +302,131 @@ public static class KMarshal
 	/// <summary>Точка входа для resolver'а: возвращаемое значение native-метода → KValue.</summary>
 	public static KValue FromReturn(object? value) =>
 		value is Task task ? FromTask(task) : FromObject(value);
+
+	/// <summary>
+	/// Нативный <c>KResult&lt;T,E&gt;</c> → Kern-значение <c>Ok&lt;T&gt;</c>/<c>Err&lt;E&gt;</c>
+	/// (spec §16): объект встроенного unit-типа модуля с единственным полем
+	/// <c>value</c>/<c>error</c>. Reified-тип берётся из пула модуля интерпретатора,
+	/// поэтому <c>match Ok/Err</c> в Kern видит тот же тип, что выдал компилятор.
+	/// </summary>
+	public static KValue FromKResult<T, E>(KResult<T, E> result, Interpreter interpreter)
+	{
+		ArgumentNullException.ThrowIfNull(interpreter);
+		string variant = result.IsOk ? "Ok" : "Err";
+		TypeDef definition = FindResultVariant(interpreter.Module, variant);
+		KType argument = KernTypeOf(interpreter, result.IsOk ? typeof(T) : typeof(E));
+		KClassType objectType = interpreter.Types.Named(definition, argument);
+		KValue payload = result.IsOk ? FromObject(result.Ok) : FromObject(result.Err);
+
+		KValue[] fields = new KValue[definition.Fields.Count];
+		Array.Fill(fields, KValue.None);
+		if (fields.Length > 0)
+			fields[0] = payload;
+		return KValue.Obj(new KObject(objectType, fields));
+	}
+
+	/// <summary>
+	/// Встроенный вариант result в пуле модуля: полное имя <c>{модуль}.Ok</c>/<c>{модуль}.Err</c>
+	/// с одним generic-параметром. Ищем по короткому имени — имя модуля в пуле одно.
+	/// </summary>
+	private static TypeDef FindResultVariant(KbcModule module, string variant)
+	{
+		TypeDef? candidate = null;
+		foreach (TypeDef type in module.TypePool)
+		{
+			if (type.Name != variant)
+				continue;
+			if (type.GenericParams.Count == 1 && type.Fields.Count == 1)
+				return type;
+			candidate ??= type;
+		}
+
+		return candidate ?? throw new KernPanic(
+			$"встроенный тип '{variant}' не найден в модуле '{module.Name}'");
+	}
+
+	/// <summary>Kern-значение <c>Ok</c>/<c>Err</c> → CLR <c>KResult&lt;T,E&gt;</c> (spec §16).</summary>
+	private static object ToKResult(KValue value, Type target)
+	{
+		Type[] arguments = target.GetGenericArguments();
+		if (value.Ref is not KObject instance || instance.FieldCount == 0)
+			throw new KernPanic($"ожидался result, получено {value.TypeName}");
+
+		bool isOk = instance.Type.Definition.Name == "Ok";
+		if (!isOk && instance.Type.Definition.Name != "Err")
+			throw new KernPanic($"ожидался result, получено {instance.Type.Canonical}");
+
+		object? payload = To(instance.GetField(0), isOk ? arguments[0] : arguments[1]);
+		MethodInfo factory = target.GetMethod(
+			isOk ? "Success" : "Failure",
+			BindingFlags.Public | BindingFlags.Static)
+			?? throw new KernPanic($"KResult: у '{target.Name}' нет фабрики {(isOk ? "Success" : "Failure")}");
+		return factory.Invoke(null, [payload])!;
+	}
+
+	/// <summary>
+	/// CLR-тип значения → reified-тип VM. Нужен для аргумента <c>Ok&lt;T&gt;</c>/<c>Err&lt;E&gt;</c>:
+	/// компилятор кодирует его той же подписью, поэтому соответствие обязано совпасть.
+	/// </summary>
+	private static KType KernTypeOf(Interpreter interpreter, Type type)
+	{
+		ArgumentNullException.ThrowIfNull(type);
+		TypeFactory types = interpreter.Types;
+		Type plain = Nullable.GetUnderlyingType(type) ?? type;
+		if (plain != type)
+			return types.Nullable(KernTypeOf(interpreter, plain));
+
+		if (plain == typeof(bool)) return types.Prim(PrimKind.Bool);
+		if (plain == typeof(char)) return types.Prim(PrimKind.Char);
+		if (plain == typeof(sbyte)) return types.Prim(PrimKind.I8);
+		if (plain == typeof(short)) return types.Prim(PrimKind.I16);
+		if (plain == typeof(int)) return types.Prim(PrimKind.I32);
+		if (plain == typeof(long)) return types.Prim(PrimKind.I64);
+		if (plain == typeof(byte)) return types.Prim(PrimKind.U8);
+		if (plain == typeof(ushort)) return types.Prim(PrimKind.U16);
+		if (plain == typeof(uint)) return types.Prim(PrimKind.U32);
+		if (plain == typeof(ulong)) return types.Prim(PrimKind.U64);
+		if (plain == typeof(Half)) return types.Prim(PrimKind.F16);
+		if (plain == typeof(float)) return types.Prim(PrimKind.F32);
+		if (plain == typeof(double)) return types.Prim(PrimKind.F64);
+		if (plain == typeof(string)) return types.Prim(PrimKind.Str);
+		if (plain == typeof(void)) return types.Prim(PrimKind.Void);
+		if (plain == typeof(KValue) || plain == typeof(object) || plain == typeof(KObject))
+			return types.Prim(PrimKind.Object);
+
+		if (plain.IsArray)
+			return types.Builtin(BuiltinGenericKind.Array, KernTypeOf(interpreter, plain.GetElementType()!));
+
+		if (plain.IsGenericType)
+		{
+			Type definition = plain.GetGenericTypeDefinition();
+			Type[] arguments = plain.GetGenericArguments();
+			if (definition == typeof(KList<>))
+				return types.Builtin(BuiltinGenericKind.List, KernTypeOf(interpreter, arguments[0]));
+			if (definition == typeof(KArray<>))
+				return types.Builtin(BuiltinGenericKind.Array, KernTypeOf(interpreter, arguments[0]));
+			if (definition == typeof(KDict<,>))
+				return types.Builtin(
+					BuiltinGenericKind.Dict,
+					KernTypeOf(interpreter, arguments[0]),
+					KernTypeOf(interpreter, arguments[1]));
+			if (definition == typeof(KResult<,>))
+				return types.Builtin(
+					BuiltinGenericKind.Result,
+					KernTypeOf(interpreter, arguments[0]),
+					KernTypeOf(interpreter, arguments[1]));
+		}
+
+		// Нативный handle-тип (`duration`, `regex`): TypeDef есть в пуле модуля по Kern-имени.
+		if (TypeMapping.NativeAttribute(plain) is { } attribute)
+		{
+			foreach (TypeDef candidate in interpreter.Module.TypePool)
+				if (candidate.Name == attribute.Name && candidate.GenericParams.Count == 0)
+					return types.Named(candidate);
+		}
+
+		return types.Prim(PrimKind.Object);
+	}
 
 	private static Exception Unwrap(AggregateException? aggregate) =>
 		aggregate?.InnerExceptions.Count == 1 ? aggregate.InnerExceptions[0] : aggregate ?? new Exception("задача завершилась ошибкой");

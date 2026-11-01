@@ -103,7 +103,10 @@ public sealed partial class CodeGenerator
 					definition.Fields.Add(bySlot[slot] ?? CreateSlotPadding(slot));
 			}
 
-			definition.Parents = [.. type.Bases.Select(baseType => TypeSigMap.From(baseType, _module.Name))];
+			// Параметры типа владельца остаются в подписи родителя (ParamSig), чтобы VM
+			// подставляла аргументы наследника при проверке `is Base<T>` (spec §8/§14).
+			definition.Parents =
+				[.. type.Bases.Select(baseType => TypeSigMap.From(baseType, _module.Name, type.GenericParameters))];
 
 			_typeDefs[type] = definition;
 			_typeIndices[type] = _module.AddType(definition);

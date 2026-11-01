@@ -74,7 +74,10 @@ public sealed partial class Binder
 			_noneReadDepth = previousNoneReadDepth;
 		}
 
-		var call = new CallArguments(callArguments, InstanceType(owner), explicitTypeArguments: null, span, baseType.Symbol.Name);
+		// Получатель разрешения — сам родитель `Base<T>`, а не наследник: так
+		// GenericInference связывает `<T>` родителя с аргументами из заголовка `[Base<T>]`
+		// и находит синтезированный конструктор без параметров.
+		var call = new CallArguments(callArguments, baseType, explicitTypeArguments: null, span, baseType.Symbol.Name);
 		var resolution = OverloadResolver.Resolve(candidates, call);
 		if (!resolution.Success)
 		{

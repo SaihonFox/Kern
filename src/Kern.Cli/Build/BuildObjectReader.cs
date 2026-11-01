@@ -13,6 +13,8 @@ internal static class BuildObjectReader
 	{
 		KObject workspace = Object(value, "workspace");
 		string name = ReadString(workspace, "name");
+		if (string.IsNullOrWhiteSpace(name))
+			name = new DirectoryInfo(root).Name;
 
 		return new BuildModel
 		{

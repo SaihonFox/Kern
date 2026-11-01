@@ -57,7 +57,12 @@ internal static class NativeTypeParser
 			"set" => new BuiltinGenericType(BuiltinGenericKind.Set, arguments),
 			"queue" => new BuiltinGenericType(BuiltinGenericKind.Queue, arguments),
 			"stack" => new BuiltinGenericType(BuiltinGenericKind.Stack, arguments),
-			"result" => new BuiltinGenericType(BuiltinGenericKind.Result, arguments),
+			// `result<T, E>` в языке — union из unit'ов `Ok<T>`/`Err<E>` (ResultTypes),
+			// а не плоский builtin: иначе нативный возврат не сопоставляется с `Ok`/`Err`
+			// в `match` (KRN2112).
+			"result" => arguments.Count == 2
+				? ResultTypes.CreateType(arguments[0], arguments[1])
+				: throw new FormatException($"result требует два аргумента: '{text}'"),
 			"task" => new BuiltinGenericType(BuiltinGenericKind.Task, arguments),
 			"event" => new BuiltinGenericType(BuiltinGenericKind.Event, arguments),
 			"observable" => new BuiltinGenericType(BuiltinGenericKind.Observable, arguments),

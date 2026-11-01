@@ -116,11 +116,7 @@ public sealed class TypeFactory
 	{
 		if (BuiltinKindOf(fullName) is { } builtin)
 		{
-			int expected = builtin switch
-			{
-				BuiltinGenericKind.List or BuiltinGenericKind.Array or BuiltinGenericKind.Task => 1,
-				_ => 2,
-			};
+			int expected = ArityOf(builtin);
 			if (arguments.Length != expected)
 				throw new InvalidOperationException(
 					$"встроенный тип '{fullName}' ожидает {expected} аргументов, передано {arguments.Length}");
@@ -140,11 +136,7 @@ public sealed class TypeFactory
 	{
 		if (BuiltinKindOf(named.FullName) is { } builtin)
 		{
-			int expected = builtin switch
-			{
-				BuiltinGenericKind.List or BuiltinGenericKind.Array or BuiltinGenericKind.Task => 1,
-				_ => 2,
-			};
+			int expected = ArityOf(builtin);
 			if (named.Args.Length != expected)
 				throw new InvalidOperationException(
 					$"встроенный тип '{named.FullName}' ожидает {expected} аргументов, передано {named.Args.Length}");
@@ -160,15 +152,31 @@ public sealed class TypeFactory
 		return Named(definition, [.. named.Args.Select(FromSig)]);
 	}
 
+	/// <summary>Канонические имена встроенных generic-типов (совпадают с компилятором).</summary>
 	private static BuiltinGenericKind? BuiltinKindOf(string name) => name switch
 	{
 		"list" => BuiltinGenericKind.List,
 		"array" => BuiltinGenericKind.Array,
 		"dict" => BuiltinGenericKind.Dict,
+		"set" => BuiltinGenericKind.Set,
 		"result" => BuiltinGenericKind.Result,
 		"task" => BuiltinGenericKind.Task,
+		"event" => BuiltinGenericKind.Event,
+		"observable" => BuiltinGenericKind.Observable,
+		"channel" => BuiltinGenericKind.Channel,
+		"pipe" => BuiltinGenericKind.Pipe,
+		"shared" => BuiltinGenericKind.Shared,
+		"iter" => BuiltinGenericKind.Iter,
+		"async_iter" => BuiltinGenericKind.AsyncIter,
+		"collection" => BuiltinGenericKind.Collection,
+		"queue" => BuiltinGenericKind.Queue,
+		"stack" => BuiltinGenericKind.Stack,
 		_ => null,
 	};
+
+	/// <summary>Арность встроенного generic-типа: как у <c>BuiltinGenericType.GetArity</c> компилятора.</summary>
+	private static int ArityOf(BuiltinGenericKind kind) =>
+		kind is BuiltinGenericKind.Dict or BuiltinGenericKind.Result ? 2 : 1;
 
 	private T Intern<T>(string key, Func<T> create) where T : KType
 	{

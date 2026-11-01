@@ -2,6 +2,7 @@ using System.Linq.Expressions;
 using System.Reflection;
 using Kern.Binding.Catalog;
 using Kern.Binding.Marshalling;
+using Kern.Binding.Values;
 using Kern.Vm.Async;
 using Kern.Vm.Execution;
 using Kern.Vm.Native;
@@ -34,6 +35,10 @@ public sealed class NativeResolver : INativeResolver
 
 	private static readonly MethodInfo FromKTaskMethod = typeof(KMarshal)
 		.GetMethod(nameof(KMarshal.FromKTask))!;
+
+	private static readonly MethodInfo FromKResultMethod = typeof(KMarshal)
+		.GetMethods(BindingFlags.Public | BindingFlags.Static)
+		.Single(method => method.Name == nameof(KMarshal.FromKResult));
 
 	private readonly Dictionary<string, NativeFunctionDescriptor> _descriptors = new(StringComparer.Ordinal);
 	private readonly Dictionary<string, NativeBinding> _cache = new(StringComparer.Ordinal);
@@ -122,7 +127,7 @@ public sealed class NativeResolver : INativeResolver
 				$"native '{descriptor.NativeKey}': ожидалось {descriptor.SignatureParameterCount} аргументов, метод принимает {argumentIndex}");
 
 		Expression call = Expression.Call(method, callArguments);
-		Expression body = ConvertReturn(call, method.ReturnType);
+		Expression body = ConvertReturn(call, method.ReturnType, interpreter);
 		var compiled = Expression.Lambda<NativeInvoke>(body, interpreter, arguments, typeArguments).Compile();
 
 		return new NativeBinding
@@ -148,7 +153,7 @@ public sealed class NativeResolver : INativeResolver
 		};
 	}
 
-	private static Expression ConvertReturn(Expression call, Type returnType)
+	private static Expression ConvertReturn(Expression call, Type returnType, ParameterExpression interpreter)
 	{
 		if (returnType == typeof(void))
 			return Expression.Block(call, Expression.Constant(KValue.Void));
@@ -158,6 +163,17 @@ public sealed class NativeResolver : INativeResolver
 			return Expression.Call(
 				FromKTaskMethod,
 				Expression.Convert(call, typeof(KTask)));
+		}
+
+		if (returnType.IsGenericType && returnType.GetGenericTypeDefinition() == typeof(KResult<,>))
+		{
+			// `result<T,E>` в Kern — union `Ok<T>`/`Err<E>` (spec §16): reified-типы
+			// создаются в пуле интерпретатора, которому и передаётся результат.
+			Type[] arguments = returnType.GetGenericArguments();
+			return Expression.Call(
+				FromKResultMethod.MakeGenericMethod(arguments),
+				call,
+				interpreter);
 		}
 
 		if (returnType == typeof(Task))

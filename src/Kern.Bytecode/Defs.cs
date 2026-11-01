@@ -65,6 +65,11 @@ public sealed class FieldDef
 /// Свойство: геттер/сеттер/init — отдельные функции, -1 если аксессора нет.
 /// <see cref="BackingField"/> — слот backing-поля: для экземплярного свойства это слот
 /// в <see cref="TypeDef.Fields"/>, для статического — индекс в <see cref="KbcModule.FieldPool"/>.
+/// <para>
+/// <see cref="OwnerType"/> — часть формата версии 2, номер версии из-за него не поднимается:
+/// запись <see cref="PropertyDef"/> сериализуется целиком, а в существующих v2-файлах списки
+/// свойств пусты (прежний codegen свойства не эмитировал), поэтому их байтовая раскладка не изменилась.
+/// </para>
 /// </summary>
 public sealed class PropertyDef
 {

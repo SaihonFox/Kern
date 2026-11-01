@@ -36,6 +36,8 @@ public static class KernCli
 			"run" => RunCommand.Run(args[1..], stdout, stderr),
 			"check" => CheckCommand.Run(args[1..], stdout, stderr),
 			"build" => BuildCommand.Run(args[1..], stdout, stderr),
+			"tasks" => TasksCommand.Run(args[1..], stdout, stderr),
+			"do" => DoCommand.Run(args[1..], stdout, stderr),
 			"clean" => CleanCommand.Run(args[1..], stdout, stderr),
 			"dis" => DisCommand.Run(args[1..], stdout, stderr),
 			_ => Unknown(command, stderr),
