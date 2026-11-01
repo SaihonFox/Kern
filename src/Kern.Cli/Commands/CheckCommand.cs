@@ -16,23 +16,24 @@ internal static class CheckCommand
 
 		if (!SourceArguments.TryParse(
 			args, "check", allowOutput: false, allowProgramArguments: false, stderr,
-			out string path, out SourceKind kind, out _, out _))
+			out string path, out SourceKind kind, out _, out _, out CliOptions options))
 			return 2;
 
 		if (kind == SourceKind.Project && File.Exists(Path.Combine(path, BuildSession.ScriptName)))
-			return CheckProject(path, stderr);
+			return CheckProject(path, options, stderr);
 
-		CompileResult result = SourceCompiler.Compile(path, kind);
+		CompileResult result = SourceCompiler.Compile(path, kind, options.Apply(CompileOptions.Default));
 		SourceCompiler.Report(result, stderr);
 		return result.Success ? 0 : 1;
 	}
 
-	private static int CheckProject(string path, TextWriter stderr)
+	private static int CheckProject(string path, CliOptions options, TextWriter stderr)
 	{
 		BuildTargetResult built;
 		try
 		{
 			BuildSession session = BuildSession.Open(path);
+			session.OptimizeOverride = options.Optimize;
 			built = BuildTargetCompiler.CompileApp(session);
 		}
 		catch (BuildException exception)

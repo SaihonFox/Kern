@@ -28,8 +28,10 @@ public static class KernCli
 		string command = args[0];
 		if (command is "-h" or "--help") command = "help";
 		else if (command is "-v" or "--version") command = "version";
-		
-		return command switch
+
+		// `--time` печатает общее время команды в stderr (spec §16, раунд 12).
+		var watch = args.Contains("--time") ? System.Diagnostics.Stopwatch.StartNew() : null;
+		int code = command switch
 		{
 			"help" => Help(args[1..], stdout, stderr),
 			"version" => ShowVersion(stdout),
@@ -42,6 +44,10 @@ public static class KernCli
 			"dis" => DisCommand.Run(args[1..], stdout, stderr),
 			_ => Unknown(command, stderr),
 		};
+
+		if (watch is not null)
+			stderr.WriteLine($"время: {watch.ElapsedMilliseconds} мс");
+		return code;
 	}
 
 	private static int Help(string[] args, TextWriter stdout, TextWriter stderr)

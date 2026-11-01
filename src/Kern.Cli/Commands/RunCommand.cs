@@ -23,13 +23,14 @@ internal static class RunCommand
 	{
 		if (!SourceArguments.TryParse(
 			args, "run", allowOutput: false, allowProgramArguments: true, stderr,
-			out string path, out SourceKind kind, out _, out IReadOnlyList<string> programArguments))
+			out string path, out SourceKind kind, out _, out IReadOnlyList<string> programArguments,
+			out CliOptions options))
 			return 2;
 
 		if (kind == SourceKind.Project && File.Exists(Path.Combine(path, BuildSession.ScriptName)))
-			return RunProject(path, programArguments, stderr);
+			return RunProject(path, programArguments, options, stderr);
 
-		CompileResult result = SourceCompiler.Compile(path, kind);
+		CompileResult result = SourceCompiler.Compile(path, kind, options.Apply(CompileOptions.Default));
 		SourceCompiler.Report(result, stderr);
 		if (!result.Success)
 			return 1;
@@ -41,12 +42,14 @@ internal static class RunCommand
 	private static int RunProject(
 		string path,
 		IReadOnlyList<string> programArguments,
+		CliOptions options,
 		TextWriter stderr)
 	{
 		BuildTargetResult built;
 		try
 		{
 			BuildSession session = BuildSession.Open(path);
+			session.OptimizeOverride = options.Optimize;
 			built = BuildTargetCompiler.CompileApp(session);
 		}
 		catch (BuildException exception)

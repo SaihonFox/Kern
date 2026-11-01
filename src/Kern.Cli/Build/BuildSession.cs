@@ -38,6 +38,9 @@ internal sealed class BuildSession
 	/// <summary>Интерпретатор сценария сборки; <c>null</c> у проекта по соглашению.</summary>
 	public Interpreter? Interpreter { get; }
 
+	/// <summary>Уровень оптимизации из CLI (<c>-O0..-O2</c>); <c>null</c> — из build.kern/по умолчанию.</summary>
+	public int? OptimizeOverride { get; set; }
+
 	public bool HasBuildFile => ScriptPath is not null;
 
 	/// <summary>
@@ -98,7 +101,7 @@ internal sealed class BuildSession
 		CompilerSettingsModel settings = target.Compiler.IsDefault ? Workspace.Compiler : target.Compiler;
 		return new CompileOptions
 		{
-			Optimize = settings.Optimize,
+			Optimize = OptimizeOverride ?? settings.Optimize,
 			WarningsAsErrors = settings.WarningsAsErrors,
 			Macros = settings.Macros,
 			DebugInfo = settings.DebugInfo,

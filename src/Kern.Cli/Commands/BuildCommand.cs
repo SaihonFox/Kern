@@ -17,13 +17,13 @@ internal static class BuildCommand
 	{
 		if (!SourceArguments.TryParse(
 			args, "build", allowOutput: true, allowProgramArguments: false, stderr,
-			out string path, out SourceKind kind, out string? output, out _))
+			out string path, out SourceKind kind, out string? output, out _, out CliOptions options))
 			return 2;
 
 		if (kind == SourceKind.Project)
-			return BuildProject(path, output, stdout, stderr);
+			return BuildProject(path, output, options, stdout, stderr);
 
-		CompileResult result = SourceCompiler.Compile(path);
+		CompileResult result = SourceCompiler.Compile(path, options.Apply(CompileOptions.Default));
 		SourceCompiler.Report(result, stderr);
 		if (!result.Success)
 			return 1;
@@ -32,12 +32,13 @@ internal static class BuildCommand
 		return Write(result, target, stdout, stderr);
 	}
 
-	private static int BuildProject(string directory, string? output, TextWriter stdout, TextWriter stderr)
+	private static int BuildProject(string directory, string? output, CliOptions options, TextWriter stdout, TextWriter stderr)
 	{
 		BuildSession session;
 		try
 		{
 			session = BuildSession.Open(directory);
+			session.OptimizeOverride = options.Optimize;
 		}
 		catch (BuildException exception)
 		{

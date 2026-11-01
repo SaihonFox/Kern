@@ -7,6 +7,19 @@ internal enum SourceKind
 	Project,
 }
 
+/// <summary>Флаги компиляции из командной строки (docs/BUILDER.md §7): <c>-O0..-O2</c>, <c>--time</c>, <c>-p</c>.</summary>
+internal sealed record CliOptions
+{
+	public int? Optimize { get; init; }
+
+	public bool Time { get; init; }
+
+	public string? Profile { get; init; }
+
+	public CompileOptions Apply(CompileOptions defaults) =>
+		Optimize is { } level ? defaults with { Optimize = level } : defaults;
+}
+
 /// <summary>
 /// Разбор аргументов <c>run</c>/<c>build</c>/<c>check</c>: ровно один исходник — файл
 /// <c>.kern</c> или существующая папка проекта (docs/BUILDER.md §2). У <c>build</c>
@@ -24,12 +37,14 @@ internal static class SourceArguments
 		out string source,
 		out SourceKind kind,
 		out string? output,
-		out IReadOnlyList<string> programArguments)
+		out IReadOnlyList<string> programArguments,
+		out CliOptions options)
 	{
 		source = string.Empty;
 		kind = SourceKind.File;
 		output = null;
 		programArguments = [];
+		options = new CliOptions();
 		string? first = null;
 		List<string> rest = [];
 		List<string> program = [];
@@ -52,6 +67,30 @@ internal static class SourceArguments
 				}
 
 				output = args[++index];
+				continue;
+			}
+
+			if (argument is "-O0" or "-O1" or "-O2")
+			{
+				options = options with { Optimize = argument[2] - '0' };
+				continue;
+			}
+
+			if (argument == "--time")
+			{
+				options = options with { Time = true };
+				continue;
+			}
+
+			if (argument == "-p")
+			{
+				if (index + 1 >= args.Length)
+				{
+					stderr.WriteLine("ошибка: параметр -p требует имя профиля");
+					return false;
+				}
+
+				options = options with { Profile = args[++index] };
 				continue;
 			}
 
