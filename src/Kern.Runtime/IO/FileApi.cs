@@ -70,7 +70,7 @@ public static class FileApi
 				throw new DirectoryNotFoundException();
 			IEnumerable<string> names = System.IO.Directory
 				.EnumerateFileSystemEntries(path)
-				.Select(System.IO.Path.GetFileName)
+				.Select(entry => System.IO.Path.GetFileName(entry) ?? entry)
 				.OrderBy(name => name, StringComparer.Ordinal);
 			return Strings(names);
 		});

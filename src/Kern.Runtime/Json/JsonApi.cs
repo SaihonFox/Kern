@@ -152,7 +152,9 @@ public static class JsonApi
 			case ValueKind.F64:
 				return JsonValue.Create(value.AsF64);
 			case ValueKind.Ref:
-				return ReferenceToNode(value.Ref);
+				return value.Ref is { } reference
+					? ReferenceToNode(reference)
+					: null;
 			default:
 				throw new KernPanic($"json: значение типа {value.Kind} нельзя сериализовать");
 		}
