@@ -65,6 +65,9 @@ public sealed class NativeTypeDescriptor
 
 	public int GenericArity { get; init; }
 
+	/// <summary>Имена generic-параметров типа (<c>T</c> у <c>queue&lt;T&gt;</c>, <c>K</c>/<c>V</c> у <c>dict&lt;K,V&gt;</c>).</summary>
+	public IReadOnlyList<string> GenericParameterNames { get; init; } = [];
+
 	public IReadOnlyList<NativeFunctionDescriptor> Members { get; init; } = [];
 
 	public override string ToString() => $"native type {Name}";
@@ -160,6 +163,7 @@ public sealed class NativeCatalog
 						ClrType = type,
 						IsBuiltin = typeAttribute.IsBuiltin,
 						GenericArity = BuiltinArity(typeAttribute),
+						GenericParameterNames = BuiltinTypeParameters(typeAttribute),
 						Members = members,
 					});
 				}
@@ -206,7 +210,8 @@ public sealed class NativeCatalog
 				continue;
 			KernMemberAttribute? member = method.GetCustomAttribute<KernMemberAttribute>();
 			KernPropertyAttribute? property = method.GetCustomAttribute<KernPropertyAttribute>();
-			if (member is null && property is null)
+			KernCtorAttribute? constructor = method.GetCustomAttribute<KernCtorAttribute>();
+			if (member is null && property is null && constructor is null)
 				continue;
 			if (method.IsGenericMethodDefinition)
 			{
@@ -222,7 +227,9 @@ public sealed class NativeCatalog
 				continue;
 
 			NativeMemberKind kind = NativeMemberKind.Method;
-			if (property is not null)
+			if (constructor is not null)
+				kind = NativeMemberKind.Constructor;
+			else if (property is not null)
 			{
 				kind = parameters.Length == 0 ? NativeMemberKind.PropertyGet : NativeMemberKind.PropertySet;
 			}

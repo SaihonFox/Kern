@@ -49,8 +49,12 @@ public sealed class KernStaticAttribute : Attribute
 {
 }
 
-/// <summary>Конструктор Kern-типа. Параметры C# должны иметь имена в <c>snake_case</c>.</summary>
-[AttributeUsage(AttributeTargets.Constructor, AllowMultiple = false, Inherited = false)]
+/// <summary>
+/// Конструктор Kern-типа. У C#-конструктора — фабрика нативного handle-типа; у статического
+/// метода модуля — фабрика встроенного generic-контейнера (<c>set&lt;T&gt;()</c> и т.п.).
+/// Параметры C# должны иметь имена в <c>snake_case</c>.
+/// </summary>
+[AttributeUsage(AttributeTargets.Constructor | AttributeTargets.Method, AllowMultiple = false, Inherited = false)]
 public sealed class KernCtorAttribute : Attribute
 {
 }
