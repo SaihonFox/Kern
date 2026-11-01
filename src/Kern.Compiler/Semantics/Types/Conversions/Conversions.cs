@@ -220,6 +220,11 @@ public static class Conversions
 			if (!source.Parameters[index].Equals(target.Parameters[index]))
 				return false;
 
+		// `never` — дно: функция, которая всегда паникует, применима там, где ждут
+		// `fun()->void` или любой другой результат (spec §6).
+		if (source.ReturnType is PrimitiveType { Primitive: PrimitiveKind.Never })
+			return true;
+
 		return source.ReturnType.Equals(target.ReturnType);
 	}
 

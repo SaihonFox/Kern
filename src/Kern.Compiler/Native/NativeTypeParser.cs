@@ -72,8 +72,31 @@ internal static class NativeTypeParser
 			"iter" => new BuiltinGenericType(BuiltinGenericKind.Iter, arguments),
 			"async_iter" => new BuiltinGenericType(BuiltinGenericKind.AsyncIter, arguments),
 			"collection" => new BuiltinGenericType(BuiltinGenericKind.Collection, arguments),
-			_ => throw new FormatException($"неизвестный generic-тип '{name}'"),
+			_ => ResolveGenericNamed(name, arguments, resolveNamed, text),
 		};
+	}
+
+	/// <summary>
+	/// Нативный generic-тип (<c>worker&lt;T&gt;</c>, <c>conc_dict&lt;K,V&gt;</c>): символ
+	/// приходит из таблицы модуля, аргументы — из сигнатуры.
+	/// </summary>
+	private static KernType ResolveGenericNamed(
+		string name,
+		IReadOnlyList<KernType> arguments,
+		Func<string, KernType?>? resolveNamed,
+		string text)
+	{
+		if (resolveNamed?.Invoke(name) is { } named)
+		{
+			return named switch
+			{
+				ClassType @class => new ClassType(@class.Symbol, arguments),
+				UnitType unit => new UnitType(unit.Symbol, arguments, unit.IsImmutable),
+				_ => throw new FormatException($"неизвестный generic-тип '{name}'"),
+			};
+		}
+
+		throw new FormatException($"неизвестный generic-тип '{name}' в '{text}'");
 	}
 
 	private static IReadOnlyList<KernType> ParseList(

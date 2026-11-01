@@ -39,6 +39,15 @@ public sealed record BoundCapturedAssignment(
 	TextSpan Span) : BoundStatement(Span);
 
 /// <summary>
+/// Ссылка на функцию как значение (<c>thread.spawn_with(square, 12)</c>, spec §6):
+/// байткод — <c>MakeFunc</c> с индексом уже определённой функции модуля.
+/// </summary>
+public sealed record BoundFunctionReferenceExpression(
+	FunctionSymbol Symbol,
+	KernType Type,
+	TextSpan Span) : BoundExpression(Type, Span);
+
+/// <summary>
 /// Лямбда как значение (<c>fun(i32 n) -&gt; i32 n * n</c>, spec §6): синтезированная
 /// функция с телом и списком захватов, вычисляемых в кадре объемлющей функции.
 /// Тип выражения — <see cref="FunctionType"/>.

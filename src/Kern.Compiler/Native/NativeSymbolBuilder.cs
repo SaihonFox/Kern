@@ -81,6 +81,41 @@ public static class NativeSymbolBuilder
 	}
 
 	/// <summary>
+	/// Нативные типы каталога как символы — нужны до сбора деклараций: поле класса может
+	/// иметь нативный тип (<c>mutex gate</c>, <c>event&lt;str&gt; clicked</c>), а сборщик
+	/// деклараций работает раньше <see cref="Import"/>.
+	/// </summary>
+	public static IReadOnlyDictionary<string, TypeSymbol> CreateTypeSymbols(NativeCatalog catalog)
+	{
+		ArgumentNullException.ThrowIfNull(catalog);
+		var types = new Dictionary<string, TypeSymbol>(StringComparer.Ordinal);
+		foreach (NativeTypeDescriptor descriptor in catalog.Types)
+		{
+			if (IsBuiltinName(descriptor.Name) || types.ContainsKey(descriptor.Name))
+				continue;
+
+			if (descriptor.GenericArity > 0)
+			{
+				var names = descriptor.GenericParameterNames.Count == descriptor.GenericArity
+					? descriptor.GenericParameterNames
+					: DefaultGenericNames(descriptor.GenericArity);
+				types[descriptor.Name] = new TypeSymbol
+				{
+					Name = descriptor.Name,
+					Kind = SymbolKind.Native,
+					GenericParameterNames = [.. names],
+					GenericParameters = [.. names.Select(name => new TypeParameterType(name, []))],
+				};
+				continue;
+			}
+
+			types[descriptor.Name] = new TypeSymbol { Name = descriptor.Name, Kind = SymbolKind.Native };
+		}
+
+		return types;
+	}
+
+	/// <summary>
 	/// Регистрирует нативные Kern-типы каталога в таблице типов модуля. Имя примитива или
 	/// встроенного generic-типа (<c>str</c>, <c>list</c>, <c>object</c>) не регистрируется:
 	/// такой <c>[KernType]</c>-класс расширяет существующий тип, а не объявляет новый.
@@ -135,8 +170,8 @@ public static class NativeSymbolBuilder
 			};
 		}
 
-		// Второй проход: родители из C#-иерархии (`streamwriter -> stream`) после того,
-		// как все символы типов уже зарегистрированы.
+		// Второй проход: родители из C#-иерархии (`streamwriter -> stream`) и явные
+		// `[KernType(Parent = "async_iter<T>")]` — после регистрации всех символов.
 		foreach (NativeTypeDescriptor descriptor in catalog.Types)
 		{
 			if (descriptor.Parents.Count == 0 ||
@@ -144,10 +179,28 @@ public static class NativeSymbolBuilder
 				child.Kind != SymbolKind.Native)
 				continue;
 
+			var variables = new Dictionary<string, TypeParameterType>(StringComparer.Ordinal);
+			foreach (TypeParameterType parameter in child.GenericParameters)
+				variables[parameter.Name] = parameter;
+
 			List<KernType> bases = [];
 			foreach (string parent in descriptor.Parents)
-				if (types.TryGetValue(parent, out TypeSymbol? parentSymbol) && parentSymbol.Kind == SymbolKind.Native)
-					bases.Add(new ClassType(parentSymbol, []));
+			{
+				try
+				{
+					KernType resolved = NativeTypeParser.Parse(
+						parent,
+						variables,
+						name => types.TryGetValue(name, out TypeSymbol? named) ? new ClassType(named, []) : null);
+					bases.Add(resolved);
+				}
+				catch (FormatException)
+				{
+					// Неизвестный родитель не должен валить импорт: у нативного типа
+					// просто не будет этой базы (диагностика не нужна, spec §16).
+				}
+			}
+
 			if (bases.Count > 0)
 				child.SetBases(bases);
 		}

@@ -92,6 +92,31 @@ public static class JsonApi
 	}
 
 	/// <summary>
+	/// <c>json.parse_into(text, T)</c> для других std-модулей (<c>http_client.get&lt;T&gt;</c>):
+	/// разобрать JSON в значение reified-типа. Ошибка разбора — <see cref="KernPanic"/>.
+	/// </summary>
+	public static KValue ParseInto(string text, KType type, Interpreter interpreter)
+	{
+		ArgumentNullException.ThrowIfNull(interpreter);
+		try
+		{
+			return FromNode(JsonNode.Parse(text), type, interpreter.Types);
+		}
+		catch (JsonException exception)
+		{
+			throw new KernPanic($"json: {exception.Message}", exception);
+		}
+		catch (InvalidOperationException exception)
+		{
+			throw new KernPanic($"json: {exception.Message}", exception);
+		}
+	}
+
+	/// <summary>Сериализовать значение Kern в JSON-текст (тело HTTP-запроса).</summary>
+	public static string Serialize(KValue value) =>
+		(ToNode(value) ?? JsonValue.Create((string?)null))!.ToJsonString(Compact);
+
+	/// <summary>
 	/// Собрать <c>Ok&lt;T&gt;</c>/<c>Err&lt;str&gt;</c> с reified-аргументом вызывающего кода:
 	/// CLR-закрытие generic-метода даёт <c>object</c>, а union в Kern должен видеть настоящий T.
 	/// </summary>

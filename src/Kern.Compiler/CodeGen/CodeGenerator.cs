@@ -220,6 +220,10 @@ public sealed partial class CodeGenerator
 				EmitTruthiness(truthiness);
 				break;
 
+			case BoundNonNullExpression nonNull:
+				EmitExpression(nonNull.Operand);
+				break;
+
 			case BoundTypeTestExpression typeTest:
 				EmitExpression(typeTest.Operand);
 				EmitTypeTestOnStack(typeTest.TestType, typeTest.Span);
@@ -292,6 +296,10 @@ public sealed partial class CodeGenerator
 			// Лямбды и функции-значения (spec §6).
 			case BoundLambdaExpression lambda:
 				EmitLambda(lambda);
+				break;
+
+			case BoundFunctionReferenceExpression reference:
+				EmitFunctionReference(reference);
 				break;
 
 			case BoundCaptureExpression capture:

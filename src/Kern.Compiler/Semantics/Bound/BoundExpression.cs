@@ -75,6 +75,15 @@ public sealed record BoundUnaryExpression(
 	TextSpan Span) : BoundExpression(Type, Span);
 
 /// <summary>
+/// Постфиксное утверждение «не <c>nil</c>»: тип <c>T?</c> сужается до <c>T</c>,
+/// байткод — просто операнд (проверка происходит при использовании значения).
+/// </summary>
+public sealed record BoundNonNullExpression(
+	BoundExpression Operand,
+	KernType Type,
+	TextSpan Span) : BoundExpression(Type, Span);
+
+/// <summary>
 /// <c>await task&lt;T&gt;</c> (spec §16): допустим только внутри <c>async fun</c>; результат —
 /// <c>T</c>. Codegen печатает операнд и <c>Await</c>; VM припаркует состояние, если задача
 /// ещё не завершена, иначе положит результат (паника задачи всплывает этим же оператором).

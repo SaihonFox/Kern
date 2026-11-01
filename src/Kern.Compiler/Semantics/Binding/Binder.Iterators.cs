@@ -124,16 +124,154 @@ public sealed partial class Binder
 		return true;
 	}
 
-	/// <summary>Прямой или унаследованный родитель-<c>iter&lt;T&gt;</c> типа (spec §16).</summary>
-	private static bool TryFindIteratorBase(KernType type, out BuiltinGenericType iterator)
+	/// <summary>
+	/// <c>async_iter&lt;T&gt;</c> (spec round 23): <c>~async fun next -&gt; task&lt;T?&gt;</c>.
+	/// Цикл разворачивается так же, как sync-протокол, но значение берётся через
+	/// <c>await next()</c>; снаружи это допустимо только в <c>async</c>-функции.
+	/// </summary>
+	private bool TryBindAsyncIteratorProtocol(
+		LoopExpression source,
+		BoundExpression iterable,
+		BuiltinGenericType protocol,
+		List<BoundStatement> statements,
+		out BoundExpression element,
+		out KernType elementType,
+		out BoundExpression condition,
+		out BoundStatement increment,
+		out List<BoundStatement> prefix)
+	{
+		element = new BoundErrorExpression(source.Span);
+		condition = element;
+		increment = EmptyLoopBlock(source.Span);
+		prefix = [];
+		elementType = ErrorType.Instance;
+
+		if (!_isAsyncFunction)
+		{
+			Report("KRN2101", "async loop допустим только внутри async-функции", source.Span);
+			return false;
+		}
+
+		var produced = protocol.Arguments[0];
+		var nullableType = NullableType.Create(produced);
+		var substitution = new Dictionary<string, KernType>(StringComparer.Ordinal);
+		FunctionSymbol? next = null;
+		KernType nextReturn = null!;
+		var wrongShape = false;
+		foreach (var function in IteratorNextMethods(iterable.Type))
+		{
+			if (function.Parameters.Count != 0)
+				continue;
+			if (function.IsStatic && function.NativeSelfType is null)
+				continue;
+
+			// Нативный член объявлен как `task<T?>`; подставляем T из async_iter<T>.
+			substitution.Clear();
+			foreach (var parameter in function.GenericParameters)
+				substitution[parameter.Name] = produced;
+			KernType returnType = TypeSubstitution.Apply(function.ReturnType ?? PrimitiveType.Void, substitution);
+
+			if (returnType is BuiltinGenericType
+				{ BuiltinKind: BuiltinGenericKind.Task, Arguments.Count: 1 } pending &&
+				pending.Arguments[0].Equals(nullableType))
+			{
+				next = function;
+				nextReturn = returnType;
+				break;
+			}
+
+			if (returnType is NullableType nullable && nullable.Underlying.Equals(produced))
+			{
+				next = function;
+				nextReturn = returnType;
+				break;
+			}
+
+			wrongShape = true;
+		}
+
+		if (next is null)
+		{
+			Report(
+				"KRN2101",
+				wrongShape
+					? $"Метод 'next' типа '{iterable.Type}' должен возвращать 'task<{produced}?>' для async_iter<{produced}>"
+					: $"Тип '{iterable.Type}' объявляет async_iter<{produced}>, но не имеет метода 'next() -> task<{produced}?>'",
+				source.Span);
+			return false;
+		}
+
+		var iterableLocal = DeclareLocal($"#iter{_nextSlot}", iterable.Type, false, source.Span);
+		DeclareFlow(iterableLocal, true, iterable.Type);
+		statements.Add(new BoundLocalDeclaration(
+			iterableLocal.Name,
+			iterableLocal.Slot,
+			iterable.Type,
+			iterable,
+			false,
+			source.Span));
+
+		var nextLocal = DeclareLocal($"#next{_nextSlot}", nullableType, false, source.Span);
+		DeclareFlow(nextLocal, true, nullableType);
+		statements.Add(new BoundLocalDeclaration(
+			nextLocal.Name,
+			nextLocal.Slot,
+			nullableType,
+			null,
+			false,
+			source.Span));
+
+		var receiver = Variable(iterableLocal, source.Span);
+		var nextCall = new BoundCallExpression(next, [], nextReturn, source.Span, receiver)
+		{
+			Virtual = IsVirtualCall(receiver, next),
+			TypeArguments = [produced],
+		};
+		var awaited = new BoundAwaitExpression(nextCall, nullableType, source.Span);
+
+		var nextValue = Variable(nextLocal, source.Span);
+		var stopAtEnd = new BoundBlockExpression(
+			[new BoundStopStatement(source.Span) { TargetDepth = 0 }],
+			null,
+			FallsThrough: false,
+			PrimitiveType.Void,
+			source.Span);
+		var exitWhenNil = new BoundIfExpression(
+			new BoundBinaryExpression(
+				nextValue,
+				"==",
+				new BoundNilExpression(source.Span),
+				PrimitiveType.Bool,
+				source.Span),
+			stopAtEnd,
+			null,
+			PrimitiveType.Void,
+			source.Span);
+
+		prefix =
+		[
+			new BoundAssignment(nextLocal.Name, nextLocal.Slot, nullableType, awaited, source.Span),
+			new BoundExpressionStatement(exitWhenNil, source.Span),
+		];
+
+		element = new BoundVariableExpression(nextLocal.Name, nextLocal.Slot, produced, source.Span);
+		elementType = produced;
+		condition = new BoundLiteralExpression(true, null, PrimitiveType.Bool, source.Span);
+		return true;
+	}
+
+	/// <summary>Прямой или унаследованный родитель-<c>async_iter&lt;T&gt;</c> типа.</summary>
+	private static bool TryFindAsyncIteratorBase(KernType type, out BuiltinGenericType iterator)
 	{
 		iterator = null!;
 		if (type is not ClassType @class)
 			return false;
 
+		var substitution = IteratorSubstitution(@class);
 		foreach (var baseType in IteratorBases(@class.Symbol))
 		{
-			if (baseType is BuiltinGenericType { BuiltinKind: BuiltinGenericKind.Iter, Arguments.Count: 1 } found)
+			if (TypeSubstitution.Apply(baseType, substitution) is BuiltinGenericType
+				{ BuiltinKind: BuiltinGenericKind.AsyncIter, Arguments.Count: 1 } found)
 			{
 				iterator = found;
 				return true;
@@ -141,6 +279,50 @@ public sealed partial class Binder
 		}
 
 		return false;
+	}
+
+	/// <summary>
+	/// Методы <c>next</c> приёмника: собственные члены типа и нативные члены
+	/// (<c>pipe_stream&lt;T&gt;</c> объявляет протокол через <c>[KernMember]</c>).
+	/// </summary>
+	private IEnumerable<FunctionSymbol> IteratorNextMethods(KernType type)
+	{
+		if (OwnerOf(type) is { } owner)
+			foreach (var function in owner.Members.GetFunctions("next"))
+				yield return function;
+		foreach (var function in NativeMembers(type, "next"))
+			yield return function;
+	}
+
+	/// <summary>Прямой или унаследованный родитель-<c>iter&lt;T&gt;</c> типа (spec §16).</summary>
+	private static bool TryFindIteratorBase(KernType type, out BuiltinGenericType iterator)
+	{
+		iterator = null!;
+		if (type is not ClassType @class)
+			return false;
+
+		var substitution = IteratorSubstitution(@class);
+		foreach (var baseType in IteratorBases(@class.Symbol))
+		{
+			if (TypeSubstitution.Apply(baseType, substitution) is BuiltinGenericType
+				{ BuiltinKind: BuiltinGenericKind.Iter, Arguments.Count: 1 } found)
+			{
+				iterator = found;
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/// <summary>Аргументы generic-параметров типа-итератора (<c>T → i32</c>).</summary>
+	private static IReadOnlyDictionary<string, KernType> IteratorSubstitution(ClassType type)
+	{
+		var map = new Dictionary<string, KernType>(StringComparer.Ordinal);
+		IReadOnlyList<string> names = type.Symbol.GenericParameterNames;
+		for (var index = 0; index < names.Count && index < type.Arguments.Count; index++)
+			map[names[index]] = type.Arguments[index];
+		return map;
 	}
 
 	/// <summary>Есть ли у типа родитель <c>async_iter&lt;T&gt;</c> (пока не поддержан, spec §16).</summary>

@@ -110,6 +110,7 @@ public sealed partial class Interpreter
 	public KValue RunValue(KValue callable, params KValue[] args)
 	{
 		args ??= [];
+		EnsureStaticInitialized();
 		ExecutionState state = callable.Ref switch
 		{
 			KClosure closure => CreateState(closure.Function, args, closure.Captures),
@@ -121,9 +122,39 @@ public sealed partial class Interpreter
 		return ExecuteToCompletion(state);
 	}
 
-	/// <summary>Выполнить точку входа модуля (main без аргументов).</summary>
-	public KValue RunEntry()
+	/// <summary>
+	/// Синоним <see cref="RunValue(KValue, KValue[])"/> для рантайма: выполнить
+	/// функцию-значение в этой VM (в том числе в форке рабочего потока).
+	/// </summary>
+	public KValue CallFunction(KValue callable, params KValue[] args) => RunValue(callable, args);
+
+	/// <summary>
+	/// Запустить функцию-значение как отдельную задачу в этой VM (spec round 23):
+	/// корутина выполняется до первого <c>await</c>, дальше её ведёт планировщик.
+	/// Нужен комбинаторам (<c>tasks.run</c>, <c>tasks.retry</c>) и пулам.
+	/// </summary>
+	public KTask StartAsync(KValue callable, params KValue[] args)
 	{
+		ArgumentNullException.ThrowIfNull(callable);
+		args ??= [];
+		EnsureStaticInitialized();
+		ExecutionState state = callable.Ref switch
+		{
+			KClosure closure => CreateState(closure.Function, args, closure.Captures),
+			FunctionDef { IsNative: true } native => throw new KernPanic(
+				$"StartAsync: нативную функцию '{native.Name}' нельзя запустить как задачу"),
+			FunctionDef function => CreateState(function, args, null),
+			_ => throw new KernPanic($"StartAsync: ожидалась функция, получено {callable.TypeName}"),
+		};
+		var task = new KTask();
+		state.CompletionTask = task;
+		Pump(state);
+		return task;
+	}
+
+	/// <summary>
+	/// Выполнить точку входа модуля (main без аргументов).</summary>
+	public KValue RunEntry()	{
 		if (_module.EntryPoint < 0)
 			throw new KernPanic($"в модуле '{_module.Name}' нет точки входа");
 		return Run(_module.EntryPoint, []);
@@ -239,6 +270,44 @@ public sealed partial class Interpreter
 		{
 			state.Fail(panic);
 		}
+		finally
+		{
+			if (state.Completed)
+				CompleteTask(state);
+		}
+	}
+
+	/// <summary>
+	/// Завершить задачу, запущенную через <see cref="StartAsync"/>: значение
+	/// асинхронной функции может быть вложенной <c>task&lt;T&gt;</c> — её разворачиваем.
+	/// </summary>
+	private void CompleteTask(ExecutionState state)
+	{
+		KTask? task = state.CompletionTask;
+		if (task is null || task.IsCompleted)
+			return;
+
+		if (state.Error is { } error)
+		{
+			task.Fail(error);
+			return;
+		}
+
+		if (state.Result.Ref is KTask inner && !ReferenceEquals(inner, task))
+		{
+			inner.OnCompleted(completed =>
+			{
+				if (completed.Status == KTaskStatus.Succeeded)
+					task.Complete(completed.Result);
+				else if (completed.Status == KTaskStatus.Canceled)
+					task.Cancel();
+				else
+					task.Fail(completed.Error ?? new KernPanic("задача завершилась ошибкой"));
+			}, _scheduler);
+			return;
+		}
+
+		task.Complete(state.Result);
 	}
 
 
@@ -598,6 +667,9 @@ public sealed partial class Interpreter
 		public KValue Result = KValue.None;
 		public KernPanic? Error;
 		public bool Completed;
+
+		/// <summary>Задача, которую надо завершить по окончании состояния (<see cref="StartAsync"/>).</summary>
+		public KTask? CompletionTask;
 
 		public void Complete(KValue result)
 		{

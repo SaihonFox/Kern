@@ -15,6 +15,9 @@ public sealed partial class CodeGenerator
 	private readonly Dictionary<TypeSymbol, IReadOnlyList<FieldSymbol>> _instanceLayouts =
 		new(ReferenceEqualityComparer.Instance);
 
+	private static readonly HashSet<string> HttpVerbNames =
+		new(StringComparer.Ordinal) { "get", "post", "put", "patch", "delete" };
+
 	/// <summary>Следующий модульный слот экземплярного поля класса (см. <see cref="ClassFieldSlot"/>).</summary>
 	private int _nextClassFieldSlot;
 
@@ -210,6 +213,18 @@ public sealed partial class CodeGenerator
 			definition.Flags |= MemberFlags.Static;
 		if (function.Symbol.IsAsync)
 			definition.Flags |= MemberFlags.Async;
+		if (function.Symbol.IsAbstract)
+			definition.Flags |= MemberFlags.Abstract;
+
+		// HTTP-прокси (spec round 10): путь `{id}` ссылается на имена параметров, а в
+		// FunctionDef имён нет — добавляем служебный атрибут рядом с #[get]/#[post].
+		if (function.Symbol.Parameters.Count > 0 &&
+			definition.Attributes.Any(attribute => HttpVerbNames.Contains(attribute.Name)))
+		{
+			definition.Attributes.Add(new AttributeUse(
+				"kern.param_names",
+				KConst.Str(string.Join(",", function.Symbol.Parameters.Select(parameter => parameter.Name)))));
+		}
 		if (function.Symbol.Kind == FunctionKind.Getter)
 			definition.Flags |= MemberFlags.Getter;
 		else if (function.Symbol.Kind == FunctionKind.Setter)

@@ -85,6 +85,7 @@ public static class ProjectCompiler
 			source => source.Types,
 			StringComparer.Ordinal);
 		var orderedSources = OrderByImports(parsedSources);
+		var nativeTypes = NativeSymbolBuilder.CreateTypeSymbols(catalog);
 
 		foreach (var source in orderedSources)
 		{
@@ -94,7 +95,8 @@ public static class ProjectCompiler
 				source.Table,
 				source.ModuleName,
 				source.Primes,
-				name => external.TryGetValue(name, out var importedType) ? importedType : null);
+				name => external.TryGetValue(name, out var importedType) ? importedType : null,
+				nativeTypes);
 			AddDiagnostics(diagnostics, source.File.RelativePath, collectorDiagnostics);
 			var imported = NativeSymbolBuilder.Import(declaredModule, catalog, out var problems);
 			parsedFiles.Add(new ParsedFile(source.File.RelativePath, source.Table, imported, problems));

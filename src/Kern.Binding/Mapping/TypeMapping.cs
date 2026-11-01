@@ -110,15 +110,21 @@ public static class TypeMapping
 			return Function(new[] { arguments[0] });
 		if (definition == typeof(KFunc<,>))
 			return Function(arguments);
+		if (definition == typeof(KFunc<,,>))
+			return Function(arguments);
 		if (definition == typeof(KAction))
 			return "fun()->void";
 		if (definition == typeof(KAction<>))
+			return Function(arguments);
+		if (definition == typeof(KAction<,>))
 			return Function(arguments);
 		return null;
 
 		string? Function(Type[] components)
 		{
-			bool isAction = definition == typeof(KAction) || definition == typeof(KAction<>);
+			bool isAction = definition == typeof(KAction) ||
+				definition == typeof(KAction<>) ||
+				definition == typeof(KAction<,>);
 			int parameterCount = isAction ? components.Length : components.Length - 1;
 			var parameters = new string[parameterCount];
 			for (var index = 0; index < parameterCount; index++)

@@ -179,7 +179,7 @@ public sealed class NativeCatalog
 						IsBuiltin = typeAttribute.IsBuiltin,
 						GenericArity = NativeArity(typeAttribute),
 						GenericParameterNames = NativeTypeParameters(typeAttribute),
-						Parents = NativeParents(type),
+						Parents = NativeParents(typeAttribute, type),
 						Members = members,
 					});
 				}
@@ -296,10 +296,12 @@ public sealed class NativeCatalog
 
 			// Параметры типа метода добавляются к параметрам типа владельца: сигнатура и
 			// reified-аргументы (`[KernTypeArgs]`) видны компилятору как одна группа.
-			List<string> methodParameters = MethodTypeParameters(method);
-			var allParameters = new List<string>(typeParameters.Count + methodParameters.Count);
-			allParameters.AddRange(typeParameters);
-			allParameters.AddRange(methodParameters);
+			// Параметры типа метода дополняют параметры владельца; одинаковые имена не
+			// дублируются (у API-класса `event<T>` член может объявить свой `T`).
+			var allParameters = new List<string>(typeParameters);
+			foreach (string methodParameter in MethodTypeParameters(method))
+				if (!allParameters.Contains(methodParameter))
+					allParameters.Add(methodParameter);
 
 			// `[KernCtor]` на статическом методе — фабрика generic-контейнера (`set<T>()`):
 			// параметра self нет, вызов targetless, тип результата задаёт подсказка binder'а.
@@ -388,7 +390,7 @@ public sealed class NativeCatalog
 				continue;
 			}
 
-			string returnType = MapReturn(method, typeParameters, diagnostics);
+			string returnType = MapReturn(method, allParameters, diagnostics);
 			if (returnType.Length == 0)
 				continue;
 
@@ -447,6 +449,15 @@ public sealed class NativeCatalog
 				continue;
 			if (skipped++ < skipFirst)
 				continue;
+
+			// Явный Kern-тип параметра (`pipe<T>`) важнее CLR-сигнатуры моста.
+			if (parameter.GetCustomAttribute<KernParameterTypeAttribute>() is { } declaredType)
+			{
+				string declaredName = parameter.GetCustomAttribute<KernNameAttribute>()?.Name
+					?? NameMapping.ToSnakeCase(parameter.Name ?? $"arg{parameters.Count}");
+				parameters.Add(new NativeParameterDescriptor(declaredName, declaredType.Type));
+				continue;
+			}
 
 			if (!TypeMapping.TryToKern(parameter.ParameterType, typeParameters, out string typeName))
 			{
@@ -514,14 +525,16 @@ public sealed class NativeCatalog
 	/// <c>streamwriter -&gt; stream</c>. Учитываются только базовые классы с <c>[KernType]</c>;
 	/// generic-родители пока не разворачиваются (нужны аргументы типа).
 	/// </summary>
-	private static List<string> NativeParents(Type type)
+	private static List<string> NativeParents(KernTypeAttribute attribute, Type type)
 	{
 		var parents = new List<string>();
+		if (attribute.Parent is { Length: > 0 } declared)
+			parents.Add(declared);
 		for (Type? baseType = type.BaseType; baseType is not null; baseType = baseType.BaseType)
 		{
-			KernTypeAttribute? attribute = TypeMapping.NativeAttribute(baseType);
-			if (attribute is not null)
-				parents.Add(attribute.Name);
+			KernTypeAttribute? inherited = TypeMapping.NativeAttribute(baseType);
+			if (inherited is not null)
+				parents.Add(inherited.Name);
 		}
 
 		return parents;

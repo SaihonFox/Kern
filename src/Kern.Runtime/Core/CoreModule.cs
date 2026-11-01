@@ -27,6 +27,7 @@ public static class CoreModule
 
 	[KernName("panic")]
 	[KernMember]
+	[KernReturn("never")]
 	public static void Panic(string message) => throw new Kern.Vm.Execution.KernPanic(message);
 
 	[KernName("delay")]
@@ -35,6 +36,7 @@ public static class CoreModule
 
 	[KernName("exit")]
 	[KernMember]
+	[KernReturn("never")]
 	public static void Exit(int code) => Environment.Exit(code);
 
 	[KernName("format")]

@@ -97,6 +97,7 @@ public sealed partial class Binder
 				continue;
 
 			var receiver = left;
+			IReadOnlyDictionary<string, KernType>? bindings = NativeReceiverBindings(function.NativeSelfType, left.Type);
 			if (!NativeReceiverMatches(function.NativeSelfType, left.Type))
 			{
 				if (!Conversions.TryClassify(left.Type, function.NativeSelfType, out var receiverConversion))
@@ -104,11 +105,45 @@ public sealed partial class Binder
 				receiver = ConvertWithConversion(left, function.NativeSelfType, receiverConversion, left.Span);
 			}
 
-			if (TryBindOperatorCall(function, receiver, right, span) is { } call)
+			if (TryBindOperatorCall(function, receiver, right, span, bindings) is { } call)
 				return call;
 		}
 
 		return null;
+	}
+
+	/// <summary>
+	/// Аргументы generic-параметров нативного получателя: <c>event&lt;T&gt;</c> + <c>event&lt;str&gt;</c>
+	/// дают <c>T → str</c>. Нужно операторам нативных generic-типов (<c>ev + handler</c>).
+	/// </summary>
+	private static IReadOnlyDictionary<string, KernType>? NativeReceiverBindings(KernType expected, KernType actual)
+	{
+		if (expected is BuiltinGenericType expectedBuiltin &&
+			actual is BuiltinGenericType actualBuiltin &&
+			expectedBuiltin.BuiltinKind == actualBuiltin.BuiltinKind &&
+			expectedBuiltin.Arguments.Count == actualBuiltin.Arguments.Count)
+		{
+			var builtinMap = new Dictionary<string, KernType>(StringComparer.Ordinal);
+			for (var index = 0; index < expectedBuiltin.Arguments.Count; index++)
+				if (expectedBuiltin.Arguments[index] is TypeParameterType parameter)
+					builtinMap[parameter.Name] = actualBuiltin.Arguments[index];
+			return builtinMap.Count == 0 ? null : builtinMap;
+		}
+
+		if (expected is not ClassType { Symbol.Kind: Semantics.Types.SymbolKind.Native } expectedClass ||
+			actual is not ClassType actualClass ||
+			!ReferenceEquals(expectedClass.Symbol, actualClass.Symbol) ||
+			expectedClass.Arguments.Count != actualClass.Arguments.Count)
+			return null;
+
+		var map = new Dictionary<string, KernType>(StringComparer.Ordinal);
+		for (var index = 0; index < expectedClass.Arguments.Count; index++)
+		{
+			if (expectedClass.Arguments[index] is TypeParameterType parameter)
+				map[parameter.Name] = actualClass.Arguments[index];
+		}
+
+		return map.Count == 0 ? null : map;
 	}
 
 	private static bool IsUnaryOrBinaryOperator(FunctionSymbol function, string symbol, int arity) =>
@@ -143,6 +178,10 @@ public sealed partial class Binder
 		return new BoundCallExpression(function, [converted], CallResultType(function, returnType), span, receiver)
 		{
 			Virtual = IsVirtualCall(receiver, function),
+			TypeArguments = bindings is { Count: > 0 }
+				? [.. function.GenericParameters.Select(parameter =>
+					bindings.TryGetValue(parameter.Name, out KernType? inferred) ? inferred : parameter)]
+				: [],
 		};
 	}
 }

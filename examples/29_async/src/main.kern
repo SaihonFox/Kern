@@ -54,7 +54,7 @@ async fun main {
 	println(f"тикер отменён: ${tok.cancelled}, упал: ${t.failed}")
 
 	// retry
-	println(f"retry: ${await tasks.retry(fun { fetch(5, 1) }, 3, 10)}")
+	println(f"retry: ${await tasks.retry(fun -> task<i32> { fetch(5, 1) }, 3, 10)}")
 
 	// pipe: асинхронный канал с обратным давлением
 	var p = pipe<i32>(2)

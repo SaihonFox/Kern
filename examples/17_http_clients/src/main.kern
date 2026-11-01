@@ -25,7 +25,7 @@ async fun main {
 		Err(e) => println(f"B: ошибка ${e}")
 	}
 	match await posts.by_user(1) {
-		Ok(list) => println(f"B: постов у пользователя 1: ${list.len}")
+		Ok(found) => println(f"B: постов у пользователя 1: ${found.len}")
 		Err(e) => println(f"B: ошибка ${e}")
 	}
 }

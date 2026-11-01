@@ -23,7 +23,7 @@ fun main {
 
 	// атрибуты типа и полей
 	if t.has_attribute("entity") {
-		println(f"таблица: ${t.attribute("entity")?.args[0]}")
+		println(f"таблица: ${t.attribute("entity")!.args[0]}")
 	}
 
 	// C#-стиль: найти метод и вызвать
@@ -33,14 +33,14 @@ fun main {
 	}
 
 	// создание экземпляра по типу
-	var v = t.create(["Аня", 25])
+	var v = t.create(<object>["Аня", 25])
 	println(t.get(v, "name"))
 
 	// --- создание типа во время выполнения ---
 	var builder = reflect.define_type("Point3").as_unit()
 	builder = builder.field("x", f64).field("y", f64).field("z", f64)
 	var p3 = builder.build()
-	var pt = p3.create([1.0, 2.0, 3.0])
+	var pt = p3.create(<object>[1.0, 2.0, 3.0])
 	println(pt)
 	println(f"${p3.name}: ${p3.fields.len} поля, z = ${p3.get(pt, "z")}")
 

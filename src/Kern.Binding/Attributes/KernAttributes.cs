@@ -21,6 +21,12 @@ public sealed class KernTypeAttribute(string name) : Attribute
 	/// а generic-аргументы подставляет компилятор (spec §16).
 	/// </summary>
 	public int GenericArity { get; init; }
+
+	/// <summary>
+	/// Дополнительный Kern-родитель (<c>async_iter&lt;T&gt;</c>, <c>stream</c>): нужен,
+	/// когда родитель не выражен C#-наследованием (нативный протокол без базового класса).
+	/// </summary>
+	public string? Parent { get; init; }
 }
 
 /// <summary>Явное Kern-имя члена/параметра; по умолчанию C#-имя переводится в <c>snake_case</c>.</summary>
@@ -82,6 +88,17 @@ public sealed class KernTypeArgsAttribute : Attribute
 /// </summary>
 [AttributeUsage(AttributeTargets.Method, AllowMultiple = false, Inherited = false)]
 public sealed class KernReturnAttribute(string type) : Attribute
+{
+	public string Type { get; } = type;
+}
+
+/// <summary>
+/// Переопределяет Kern-текст типа параметра нативного метода. Нужен там, где CLR-сигнатура
+/// не выражает Kern-тип: <c>pipe_stream&lt;T&gt;(pipe&lt;T&gt; p)</c> принимает
+/// <c>KValue</c>, но binder должен вывести <c>T</c> из аргумента.
+/// </summary>
+[AttributeUsage(AttributeTargets.Parameter, AllowMultiple = false, Inherited = false)]
+public sealed class KernParameterTypeAttribute(string type) : Attribute
 {
 	public string Type { get; } = type;
 }

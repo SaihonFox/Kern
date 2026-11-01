@@ -116,7 +116,11 @@ public static class KMarshal
 				return Activator.CreateInstance(target, value);
 			if (definition == typeof(KFunc<,>))
 				return Activator.CreateInstance(target, value);
+			if (definition == typeof(KFunc<,,>))
+				return Activator.CreateInstance(target, value);
 			if (definition == typeof(KAction<>))
+				return Activator.CreateInstance(target, value);
+			if (definition == typeof(KAction<,>))
 				return Activator.CreateInstance(target, value);
 			if (definition == typeof(KTask<>))
 				return Activator.CreateInstance(target, value);

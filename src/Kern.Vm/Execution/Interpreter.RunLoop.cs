@@ -278,6 +278,12 @@ public sealed partial class Interpreter
 								break;
 							}
 
+							// Прокси (mock/http_client.proxy) и async-вызов — отдельные помощники.
+							if (TryInvokeProxy(callee, argc, ref stack))
+								break;
+							if (TryStartAsyncCall(callee, argc, ref stack))
+								break;
+
 							// Ромб: отметить выполняемый конструктор, чтобы повторный CallBase
 							// того же типа не инициализировал общий подобъект второй раз.
 							if ((callee.Flags & MemberFlags.Ctor) != 0 &&
@@ -363,20 +369,8 @@ public sealed partial class Interpreter
 							break;
 						}
 					case OpCode.NewObjectGeneric:
-						{
-							int typeIndex = code[pc++];
-							int sigListIndex = code[pc++];
-							TypeDef definition = _module.TypePool[typeIndex];
-							int[] signatureIds = _module.TypeSigListPool[sigListIndex];
-							KType[] arguments = new KType[signatureIds.Length];
-							for (int i = 0; i < signatureIds.Length; i++)
-								arguments[i] = _types.FromSig(_module.TypeSigPool[signatureIds[i]]);
-							KClassType objectType = _types.Named(definition, arguments);
-							KValue[] fields = new KValue[definition.Fields.Count];
-							Array.Fill(fields, KValue.None);
-							stack.Push(KValue.Obj(new KObject(objectType, fields)));
-							break;
-						}
+						PushNewObjectGeneric(code[pc++], code[pc++], ref stack);
+						break;
 					case OpCode.CopyUnit:
 						{
 							KValue value = stack.Pop();
@@ -704,7 +698,11 @@ public sealed partial class Interpreter
 								stack.Push(InvokeNative(target, arguments));
 								break;
 							}
-							int callBase = stack.Count;
+							if ((target.Flags & MemberFlags.Async) != 0)
+							{
+								stack.Push(KValue.Obj(StartAsync(targetValue, arguments)));
+								break;
+							}							int callBase = stack.Count;
 							if (callBase < stackBase)
 								throw new KernPanic($"вызов '{target.Name}': аргументы заходят ниже базы кадра");
 							if (frameCount == frames.Length)

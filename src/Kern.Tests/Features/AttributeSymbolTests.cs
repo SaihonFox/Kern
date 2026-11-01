@@ -113,7 +113,9 @@ public sealed class AttributeSymbolTests
 		var method = Assert.Single(stored.FunctionPool, item => item.Name == "helper");
 		Assert.Equal("deprecated", Assert.Single(method.Attributes).Name);
 
-		var accessor = Assert.Single(stored.FunctionPool, item => item.Name == "value");
+		var accessor = Assert.Single(
+			stored.FunctionPool,
+			item => item.Name == "value" && !item.IsNative && item.Attributes.Count > 0);
 		Assert.Equal("must_use", Assert.Single(accessor.Attributes).Name);
 	}
 

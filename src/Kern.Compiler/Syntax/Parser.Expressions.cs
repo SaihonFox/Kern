@@ -19,9 +19,9 @@ public sealed partial class Parser
 			}
 			if (Current.Kind == TokenKind.Operator && Current.Text == "!")
 			{
-				Advance();
-				if (Current.Kind == TokenKind.LeftParen)
+				if (_position + 1 < _tokens.Count && _tokens[_position + 1].Kind == TokenKind.LeftParen)
 				{
+					Advance();
 					var macroCall = ParseCall(left);
 					if (macroCall is CallExpression call)
 						left = call with { IsMacroInvocation = true };
@@ -29,6 +29,11 @@ public sealed partial class Parser
 						left = macroCall;
 					continue;
 				}
+
+				// Постфиксный `!`: утверждение «не nil» (spec §3/§4).
+				var bang = Advance();
+				left = new NonNullExpression(left, new TextSpan(left.Span.Start, bang.Span.End - left.Span.Start));
+				continue;
 			}
 			if (Current.Kind == TokenKind.LeftParen)
 			{
@@ -83,7 +88,7 @@ public sealed partial class Parser
 		return new UnaryExpression("ret", value, new TextSpan(start, value.Span.End - start));
 	}
 
-	private LambdaExpression ParseLambdaExpression()
+	private LambdaExpression ParseLambdaExpression(bool isAsync = false)
 	{
 		var start = Consume(TokenKind.Fun, "Ожидалось ключевое слово fun").Span.Start;
 		var parameters = ParseParameters();
@@ -98,7 +103,10 @@ public sealed partial class Parser
 			body = ParseBlock();
 		else
 			body = ParseExpression();
-		return new LambdaExpression(parameters, returnType, body, new TextSpan(start, body.Span.End - start));
+		return new LambdaExpression(parameters, returnType, body, new TextSpan(start, body.Span.End - start))
+		{
+			IsAsync = isAsync
+		};
 	}
 
 	private IndexExpression ParseIndex(ExpressionNode target)
@@ -300,7 +308,7 @@ public sealed partial class Parser
 			_tokens[_position + 1].Kind == TokenKind.Fun)
 		{
 			Advance();
-			return ParseLambdaExpression();
+			return ParseLambdaExpression(isAsync: true);
 		}
 		var token = Current;
 		switch (token.Kind)

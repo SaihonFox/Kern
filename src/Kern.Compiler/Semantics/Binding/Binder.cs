@@ -318,14 +318,19 @@ public sealed partial class Binder
 			var entryReachable = _flow.Reachable;
 			var warned = false;
 
-			// Локальные функции объявляются в начале блока (hoisting, spec §3).
-			BindLocalFunctions(block, statements);
+			// Локальные функции объявляются в начале блока (hoisting, spec §3), но тело
+			// связывается на месте объявления, если имя не использовалось раньше.
+			var hoisted = BindLocalFunctions(block, statements);
 
 			for (var index = 0; index < block.Statements.Count; index++)
 			{
 				var statement = block.Statements[index];
-				if (statement is LocalFunctionStatement)
+				if (statement is LocalFunctionStatement localFunction)
+				{
+					if (!hoisted.Contains(localFunction))
+						BindLocalFunctionAt(localFunction, statements);
 					continue;
+				}
 				// Предупреждаем один раз — о первом операторе, до которого поток не дошёл.
 				// Блок, открытый уже в недостижимой области, молчит: иначе предупреждения
 				// размножаются по вложенным ветвям.

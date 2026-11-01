@@ -72,10 +72,10 @@ public sealed partial class Binder
 		if (_scope.Lookup(identifier.Name) is { } variable && variable.Type is FunctionType)
 			return BindValueCall(identifier, variable, arguments, typeArguments, span);
 
-		// `set<i32> s()`: targetless-вызов имени generic-нативного контейнера, тип даёт
-		// подсказка объявления (spec §16). Вызов без аргументов и без явных generic-аргументов.
-		if (arguments.Count == 0 && typeArguments.Count == 0 &&
-			TryBindContainerCreation(identifier.Name, hint, span) is { } container)
+		// `channel<i32> ch(2)` / `set<i32> s()`: targetless-вызов имени generic-нативного
+		// контейнера, тип и аргументы generic берутся из подсказки объявления (spec §16).
+		if (typeArguments.Count == 0 &&
+			TryBindContainerCreation(identifier.Name, hint, arguments, span) is { } container)
 		{
 			return container;
 		}
@@ -120,24 +120,48 @@ public sealed partial class Binder
 	/// находит <c>[KernCtor]</c>-фабрику с тем же именем и типизирует вызов подсказкой,
 	/// потому что мост возвращает <c>object</c>, а generic-аргумент знает только binder.
 	/// </summary>
-	private BoundExpression? TryBindContainerCreation(string name, KernType? hint, TextSpan span)
+	private BoundExpression? TryBindContainerCreation(
+		string name,
+		KernType? hint,
+		IReadOnlyList<CallArgumentNode> arguments,
+		TextSpan span)
 	{
-		bool matches = hint switch
+		IReadOnlyList<KernType>? explicitTypes = hint switch
 		{
-			BuiltinGenericType builtin => name == BuiltinGenericType.GetCanonicalName(builtin.BuiltinKind),
-			ClassType { Symbol.Kind: Semantics.Types.SymbolKind.Native } native => name == native.Symbol.Name,
-			_ => false,
+			BuiltinGenericType builtin when name == BuiltinGenericType.GetCanonicalName(builtin.BuiltinKind)
+				=> builtin.Arguments,
+			ClassType { Symbol.Kind: Semantics.Types.SymbolKind.Native } native when name == native.Symbol.Name
+				=> native.Arguments,
+			_ => null,
 		};
-		if (!matches)
+		if (explicitTypes is null)
 			return null;
 
-		foreach (var function in VisibleFunctions(name))
+		var factories = VisibleFunctions(name)
+			.Where(function => function.Kind == FunctionKind.Constructor && function.NativeSelfType is null)
+			.ToList();
+		if (factories.Count == 0)
+			return null;
+
+		var (_, callArguments, byCallArgument) = BindArguments(arguments);
+		var call = new CallArguments(callArguments, receiverType: null, explicitTypes, span, name);
+		var resolution = OverloadResolver.Resolve(factories, call);
+		if (!resolution.Success)
+			return null;
+
+		var ordered = new List<BoundExpression>(resolution.Arguments.Count);
+		foreach (var argument in resolution.Arguments)
 		{
-			if (function.Kind == FunctionKind.Constructor && function.NativeSelfType is null)
-				return new BoundCallExpression(function, [], hint!, span);
+			if (argument.Argument is null)
+				return null;
+			var expression = byCallArgument[argument.Argument];
+			ordered.Add(ConvertWithConversion(expression, argument.Parameter.Type, argument.Conversion, expression.Span));
 		}
 
-		return null;
+		return new BoundCallExpression(resolution.Function!, ordered, hint!, span)
+		{
+			TypeArguments = resolution.TypeArguments,
+		};
 	}
 
 	/// <summary>Создание <c>Ok(value)</c>/<c>Err(error)</c> для встроенного result (spec §16).</summary>

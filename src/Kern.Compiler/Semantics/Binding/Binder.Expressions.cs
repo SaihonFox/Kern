@@ -66,6 +66,7 @@ public sealed partial class Binder
 		LoopExpression loop => BindLoopExpression(loop),
 		MatchExpression match => BindMatchExpression(match),
 		ParenthesizedExpression parenthesized => BindExpression(parenthesized.Expression, hint),
+		NonNullExpression nonNull => BindNonNull(nonNull),
 		BlockExpression block => BindBlockExpression(block),
 		CallExpression call => BindCall(call, hint),
 		StructuredCallExpression structured => BindStructuredCall(structured),
@@ -85,6 +86,31 @@ public sealed partial class Binder
 			? block.Value?.Type ?? PrimitiveType.Void
 			: PrimitiveType.Never;
 		return new BoundBlockExpression(block.Statements, block.Value, block.FallsThrough, type, expression.Span);
+	}
+
+	/// <summary>
+	/// Функция как значение: ссылка допустима, только если имя однозначно (ровно одна
+	/// видимая не-нативная не-generic функция). Нативные функции через <c>MakeFunc</c>
+	/// не вызываются, generic нужно инстанцировать явно — это обычный вызов.
+	/// </summary>
+	private BoundExpression? FunctionReference(string name, TextSpan span)
+	{
+		var candidates = VisibleFunctions(name)
+			.Where(function =>
+				function.NativeKey is null &&
+				!function.IsAsync &&
+				function.GenericParameters.Count == 0 &&
+				function.Kind == FunctionKind.Function)
+			.ToList();
+		if (candidates.Count != 1)
+			return null;
+
+		FunctionSymbol function = candidates[0];
+		var parameters = function.Parameters
+			.Select(parameter => parameter.Type)
+			.ToArray();
+		var type = new FunctionType(parameters, CallResultType(function, function.ReturnType));
+		return new BoundFunctionReferenceExpression(function, type, span);
 	}
 
 	private BoundExpression BindIdentifier(IdentifierExpression identifier)
@@ -110,11 +136,34 @@ public sealed partial class Binder
 			if (TryBindImplicitMemberRead(identifier.Name, identifier.Span) is { } implicitMember)
 				return implicitMember;
 
+			// Функция как значение (`thread.spawn_with(square, 12)`, spec §6): ровно одна
+			// видимая не-generic функция с этим именем.
+			if (FunctionReference(identifier.Name, identifier.Span) is { } functionReference)
+				return functionReference;
+
+			// Имя примитивного типа как значение: `f64` в аргументе reflect.define_type(...).field.
+			if (TypeCatalog.TryGetPrimitive(identifier.Name, out PrimitiveType primitive))
+				return new BoundTypeOfExpression(primitive, identifier.Span);
+
 			Report("KRN2103", $"Неизвестное имя '{identifier.Name}'", identifier.Span);
 			return new BoundErrorExpression(identifier.Span);
 		}
 
 		return AccessVariable(variable, identifier.Span);
+	}
+
+	/// <summary>Постфиксный <c>!</c>: <c>T?</c> → <c>T</c>; для не-nullable — ошибка.</summary>
+	private BoundExpression BindNonNull(NonNullExpression expression)
+	{
+		var operand = BindExpression(expression.Operand);
+		if (IsError(operand.Type))
+			return operand;
+		if (operand.Type is NullableType nullable)
+			return new BoundNonNullExpression(operand, nullable.Underlying, expression.Span);
+
+		// Уже не-nullable: утверждение избыточно и ничего не меняет (примеры используют
+		// `v!` и после smart cast, где тип уже сужен).
+		return operand;
 	}
 
 	private BoundExpression BindUnary(UnaryExpression unary)
@@ -623,6 +672,12 @@ public sealed partial class Binder
 		{
 			BuiltinGenericType expectedBuiltin when actual is BuiltinGenericType actualBuiltin =>
 				expectedBuiltin.BuiltinKind == actualBuiltin.BuiltinKind,
+			// Нативный generic-тип (`event<T>`, `channel<T>`): аргументы выводит
+			// OverloadResolver из типа получателя, поэтому здесь достаточно символа.
+			ClassType { Symbol.Kind: Semantics.Types.SymbolKind.Native } expectedClass
+				when actual is ClassType actualClass =>
+				ReferenceEquals(expectedClass.Symbol, actualClass.Symbol) &&
+				expectedClass.Arguments.Count == actualClass.Arguments.Count,
 			_ => expected.Equals(actual),
 		};
 

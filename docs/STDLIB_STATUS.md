@@ -23,40 +23,41 @@
 | `kern.crypto` / `kern.uuid` | sha1/sha256/sha512/md5, hmac_sha256, base64, random_hex, hash_password/verify_password; `uuid.new()` | — |
 | `kern.time` | `duration` (parse/from_*/total_*/арифметика/сравнения/печать), `datetime` (of/now/поля/weekday/format/add_months/±/сравнения), `stopwatch` (запускается сразу), `time.sleep/measure/unix_*` | нативные параметры по умолчанию не поддерживаются: `datetime.of` требует все 6 аргументов |
 
-## Отсутствует (M7 и stage-2)
+## Отсутствует (stage-2 и другие этапы)
 
-`kern.process`, `kern.cli`, `kern.config`, `kern.log`, `kern.ansi`,
-`kern.toml`, `kern.ini`, `kern.compress`,
-`kern.net`, `kern.http`, `kern.server`, `kern.web`, `kern.db.*`, `kern.threading`, `kern.tasks`, `kern.pipes`,
-`kern.events`, `kern.reflection`, `kern.macro`, `kern.di`, `kern.ffi`, `kern.transpile`, `kern.ui`,
-`kern.backend`, `kern.mod`, `kern.stub`.
+`kern.db.*`, `kern.ui`, `kern.ffi`, `kern.transpile`, `kern.di`, `kern.backend`, `kern.mod`,
+`kern.stub`, `kern.macro` (M9), `kern.web`/`kern.server` (stage-2).
 
-## Блокеры примеров (16 из 31 не проходят `kernc check`; 14 чистых)
+M7 закрыт 2026-11-01: `kern.events`, `kern.compress`, `kern.http` (оба варианта), `kern.threading`,
+`kern.tasks`, `kern.parallel`, `kern.pipes`, моки `kern.test.mock`, базовая рефлексия
+`kern.reflection` и `kern.build` (типы builder'а живут в `Kern.Cli/Build/BuildPrelude.cs`).
+
+## Блокеры примеров (9 из 31 не проходят `kernc check`; 22 чистых — на 2026-11-01)
 
 | Пример | Первый блокер | Что нужно |
 |---|---|---|
-| 07_async_errors | `async_iter<T>` loop, `await` вне async | M5 источник/`async_iter` + `kern.tasks` |
+| 07_async_errors | ✅ clean+run 2026-11-01 (async_iter + корутины) | — |
 | 09_collections_json | ✅ clean+run 2026-11-01 | — |
 | 11_workspace | `build.kern`/`workspace` | M8 builder |
 | 12_text_data | ✅ clean+run 2026-11-01 | — |
 | 13_db_web | старый `use path` | refresh примеров + `kern.db` |
-| 14_threads_compress | `KRN1001` типы | `kern.compress`, `kern.threading` |
+| 14_threads_compress | ✅ clean+run 2026-11-01 | — |
 | 15_databases | неизвестные функции | `kern.db.*` |
-| 16_mocks | `mock` | `kern.mock`/proxy (M9) |
-| 17_http_clients | `#[get]` и `http_client` | `kern.http` + атрибуты HTTP |
+| 16_mocks | ✅ check 2026-11-01 (тесты — `#[test]`, запуск позже) | — |
+| 17_http_clients | ✅ clean+run 2026-11-01 (оба клиента) | — |
 | 18_time | ✅ clean+run 2026-11-01 | — |
 | 19_gui | stage-2 UI | вне первого прохода |
 | 20_ffi | stage-2 FFI | вне первого прохода |
 | 21_syntax_round15 | ✅ clean+run 2026-11-01 | — |
-| 22_events_patterns | `KRN1001` | `kern.events` |
+| 22_events_patterns | ✅ clean+run 2026-11-01 | — |
 | 23_native_inheritance | ✅ clean+run 2026-11-01 (M6) | — |
-| 24_reflection | `typeof(x)`/`reflect.*` | M9 runtime reflection |
+| 24_reflection | ✅ clean+run 2026-11-01 (динамический builder минимален) | — |
 | 25_transpile | старый `use path` | refresh примеров + `kern.transpile` |
 | 26_di | `container` | `kern.di` |
 | 27_backend | stage-2 | вне первого прохода |
 | 28_macros | stage-2 macros | M9 |
-| 29_async | `KRN1001` | `kern.tasks` |
-| 30_threads | `KRN1001` | `kern.threading` |
+| 29_async | ✅ clean+run 2026-11-01 | — |
+| 30_threads | ✅ clean+run 2026-11-01 | — |
 | 31_kbc | `check` без KRN-кодов | разобрать layout/`build.kern` (M8) |
 
 ## Рекомендуемый порядок

@@ -1,6 +1,28 @@
 # STATUS
 
 ## Now
+- **M7 full (2026-11-01, owner request):** std libraries closed. New modules: `kern.events`
+  (`event<T>`/`signal`, `+=`/`-=`/`emit`/`len`/`clear`), `kern.compress` (gzip/deflate/brotli,
+  `*_file`, `zip_dir`/`unzip`/`zip_list`), `kern.http` (`http.get/post/put/delete/post_json/request`,
+  `http_reply`, `http_client` variant A, `http_client.proxy<Api>` variant B with
+  `#[get/post/put/patch/delete("{param}")]` and JSON parsing), `kern.threading`
+  (`thread/worker/channel/mutex/amutex/rw_lock/atomic/semaphore/shared/conc_list/conc_dict/conc_queue`;
+  shared memory through `Interpreter.Fork`), `kern.tasks` (`all/any/race/settled/select/timeout/delay/
+  run/from_result/from_error/with_cancel/retry/yield_now`, `cancel_token`, `pipe<T>`, `pipe_stream`),
+  `kern.parallel` (`map/each/for_range/reduce`, `pool`), `kern.test.mock` (proxy objects over abstract
+  `@type`s with `returns/returns_for/fail/handle/calls*`/`verify*`/`reset_calls`) and
+  `kern.reflection`/members of a `type` value (`name/fields/has_attribute/attribute/get_method/create/get`,
+  `reflect.define_type/types_with_attribute/type_of`; compile-time `field_names/attribute_names/
+  has_attribute`). Language fixes needed on the way: async calls now spawn a coroutine and return a
+  pending `task<T>` (makes combinators/timeouts/`async loop` real), `async_iter<T>` lowering (also for
+  native parents like `pipe_stream<T>`), first-class top-level functions, local-function hoisting only
+  when used before the declaration (else it sees earlier block variables), postfix `!` non-nil assert,
+  `panic`/`exit` typed `never`, proxy dispatch (`MemberFlags.Abstract` + `IKProxyHandler` on
+  `KObject.Native`). Tests `Compress/Events/Http/Threading/Tasks/Mock/ReflectionModuleTests` (+23 facts,
+  suite **298/298**); examples clean **22/31** (added 07, 11, 14, 16, 17, 22, 24, 29, 30); M7 acceptance
+  examples 07, 09, 12, 14, 18, 22, 23, 29, 30 all run end-to-end. Reflection's dynamic builder is
+  intentionally minimal (no generic params); `kern.db.*`/`kern.ui`/`kern.ffi`/`kern.di`/`kern.backend`
+  stay stage-2; `kern.macro` data types belong to M9.
 - **M6 full (2026-11-01, owner request):** native binding surface completed. `collection<T>` is a real
   native protocol over `list/array/dict/str/set/queue/stack/observable` (`len`, `is_empty`, `contains`,
   `to_list`; iteration lowers to `to_list`; upcasts from every container; `in` works); `observable<T>`

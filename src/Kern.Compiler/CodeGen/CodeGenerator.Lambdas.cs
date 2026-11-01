@@ -1,5 +1,6 @@
 using Kern.Bytecode;
 using Kern.Compiler.Semantics.Bound;
+using Kern.Core.Diagnostics;
 
 namespace Kern.Compiler.CodeGen;
 
@@ -39,6 +40,25 @@ public sealed partial class CodeGenerator
 
 		Emit(OpCode.MakeClosure, index);
 		EmitOperand(lambda.Captures.Count);
+	}
+
+	/// <summary>
+	/// Ссылка на функцию как значение: <c>MakeFunc</c> с индексом уже определённой
+	/// функции модуля (индексы назначены до генерации тел).
+	/// </summary>
+	private void EmitFunctionReference(BoundFunctionReferenceExpression reference)
+	{
+		if (!_functionIndices.TryGetValue(reference.Symbol, out int index))
+		{
+			_diagnostics.Add(new Diagnostic(
+				"KRN2109",
+				$"функция '{reference.Symbol.Name}' недоступна как значение",
+				reference.Span));
+			Emit(OpCode.PushVoid);
+			return;
+		}
+
+		Emit(OpCode.MakeFunc, index);
 	}
 
 	/// <summary>

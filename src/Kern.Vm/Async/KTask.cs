@@ -38,6 +38,60 @@ public sealed class KTask
 
 	public bool IsSucceeded => Status == KTaskStatus.Succeeded;
 
+	/// <summary>Задача завершилась паникой (не отменой).</summary>
+	public bool IsFaulted => Status == KTaskStatus.Failed;
+
+	/// <summary>Задача отменена.</summary>
+	public bool IsCanceled => Status == KTaskStatus.Canceled;
+
+	/// <summary>Успешно завершить задачу (синоним <see cref="TrySetResult"/> для нативов).</summary>
+	public void Complete(KValue value) => TrySetResult(value);
+
+	/// <summary>Завершить задачу паникой.</summary>
+	public void Fail(KernPanic error) => TrySetError(error);
+
+	/// <summary>Отменить задачу.</summary>
+	public void Cancel() => TrySetCanceled();
+
+	/// <summary>
+	/// Значение успешной задачи; паника или отмена пробрасываются. Для незавершённой
+	/// задачи — <see cref="InvalidOperationException"/> (ожидание — <see cref="GetResult"/>).
+	/// </summary>
+	public KValue Unwrap()
+	{
+		if (!IsCompleted)
+			throw new InvalidOperationException("задача не завершена");
+		if (Status == KTaskStatus.Succeeded)
+			return Result;
+		if (Status == KTaskStatus.Canceled)
+			throw new KernPanic("задача отменена");
+		throw Error ?? new KernPanic("задача завершилась ошибкой");
+	}
+
+	/// <summary>
+	/// Блокирующее ожидание (<c>task.result</c>): крутит планировщик потока-владельца,
+	/// пока задача не завершится. Из другого потока вызывать нельзя.
+	/// </summary>
+	public KValue GetResult(Interpreter interpreter)
+	{
+		ArgumentNullException.ThrowIfNull(interpreter);
+		long started = Environment.TickCount64;
+		while (!IsCompleted)
+		{
+			if (interpreter.Scheduler.HasWork)
+			{
+				interpreter.Scheduler.RunUntilIdle();
+				continue;
+			}
+
+			if (Environment.TickCount64 - started > 30_000)
+				throw new KernPanic("взаимная блокировка: задача не завершилась");
+			interpreter.Scheduler.WaitForWork(TimeSpan.FromMilliseconds(20));
+		}
+
+		return Unwrap();
+	}
+
 	/// <summary>Создать уже завершённую успешную задачу.</summary>
 	public static KTask FromResult(KValue value, KType? resultType = null) =>
 		new() { ResultType = resultType, Status = KTaskStatus.Succeeded, Result = value };

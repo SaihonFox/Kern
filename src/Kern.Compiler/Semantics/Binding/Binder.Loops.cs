@@ -342,6 +342,21 @@ public sealed partial class Binder
 			return true;
 		}
 
+		// spec §16: тип с родителем async_iter<T> — `async loop` с `await next()`.
+		if (source.IsAsync && TryFindAsyncIteratorBase(iterable.Type, out var asyncIterator))
+		{
+			return TryBindAsyncIteratorProtocol(
+				source,
+				iterable,
+				asyncIterator,
+				statements,
+				out element,
+				out elementType,
+				out condition,
+				out increment,
+				out prefix);
+		}
+
 		// spec §16: тип, реализующий iter<T> через `~fun next -> T?`, итерируется протоколом.
 		if (TryFindIteratorBase(iterable.Type, out var iterator))
 		{

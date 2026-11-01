@@ -18,6 +18,7 @@ public sealed partial class DeclarationCollector
 	private readonly Dictionary<TypeSymbol, TypeParameterScope> _typeScopes = new(ReferenceEqualityComparer.Instance);
 	private readonly HashSet<DeclarationNode> _duplicateTypes = new(ReferenceEqualityComparer.Instance);
 	private readonly Dictionary<string, TypeSymbol> _types = new(StringComparer.Ordinal);
+	private readonly IReadOnlyDictionary<string, TypeSymbol> _nativeTypes;
 	private readonly Dictionary<string, List<FunctionSymbol>> _functions = new(StringComparer.Ordinal);
 	private readonly Dictionary<string, FieldSymbol> _globals = new(StringComparer.Ordinal);
 	private readonly Dictionary<string, ExtensionBuilder> _extensions = new(StringComparer.Ordinal);
@@ -26,10 +27,16 @@ public sealed partial class DeclarationCollector
 	private DeclarationCollector(
 		SymbolTable table,
 		IReadOnlyDictionary<DeclarationNode, TypeSymbol>? primes = null,
-		Func<string, TypeSymbol?>? external = null)
+		Func<string, TypeSymbol?>? external = null,
+		IReadOnlyDictionary<string, TypeSymbol>? nativeTypes = null)
 	{
 		_table = table;
-		_resolver = new TypeResolver(table, knownTypes: null, fallback: external, primes: primes);
+		_nativeTypes = nativeTypes ?? new Dictionary<string, TypeSymbol>(StringComparer.Ordinal);
+		_resolver = new TypeResolver(
+			table,
+			knownTypes: null,
+			fallback: name => external?.Invoke(name) ?? (_nativeTypes.TryGetValue(name, out var native) ? native : null),
+			primes: primes);
 	}
 
 	public static (ModuleSymbol Module, IReadOnlyList<Diagnostic> Diagnostics) Collect(
@@ -45,12 +52,13 @@ public sealed partial class DeclarationCollector
 		SymbolTable table,
 		string moduleName,
 		IReadOnlyDictionary<DeclarationNode, TypeSymbol>? primes,
-		Func<string, TypeSymbol?>? external)
+		Func<string, TypeSymbol?>? external,
+		IReadOnlyDictionary<string, TypeSymbol>? nativeTypes = null)
 	{
 		ArgumentNullException.ThrowIfNull(unit);
 		ArgumentNullException.ThrowIfNull(table);
 		ArgumentNullException.ThrowIfNull(moduleName);
-		return new DeclarationCollector(table, primes, external).Run(unit, moduleName);
+		return new DeclarationCollector(table, primes, external, nativeTypes).Run(unit, moduleName);
 	}
 
 	private (ModuleSymbol Module, IReadOnlyList<Diagnostic> Diagnostics) Run(CompilationUnit unit, string moduleName)
@@ -116,9 +124,12 @@ public sealed partial class DeclarationCollector
 		AuditAbstractMembers();
 
 		var extensions = BuildExtensions();
+		var moduleTypes = new Dictionary<string, TypeSymbol>(_types, StringComparer.Ordinal);
+		foreach (var (name, symbol) in _nativeTypes)
+			moduleTypes.TryAdd(name, symbol);
 		var module = new ModuleSymbol(
 			moduleName,
-			_types,
+			moduleTypes,
 			FreezeFunctions(),
 			_globals,
 			extensions)

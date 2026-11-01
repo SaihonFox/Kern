@@ -59,6 +59,27 @@ public readonly struct KFunc<T, TResult>
 	public static implicit operator KValue(KFunc<T, TResult> function) => function.Value;
 }
 
+/// <summary>Функция `fun(A, B) -&gt; R`.</summary>
+public readonly struct KFunc<T1, T2, TResult>
+{
+	public KFunc(KValue value)
+	{
+		Raw = new KFunc(value);
+	}
+
+	public KFunc Raw { get; }
+
+	public KValue Value => Raw.Value;
+
+	public TResult Invoke(Interpreter interpreter, T1 first, T2 second) =>
+		Marshalling.KMarshal.To<TResult>(Raw.Invoke(
+			interpreter,
+			Marshalling.KMarshal.From(first),
+			Marshalling.KMarshal.From(second)));
+
+	public static implicit operator KValue(KFunc<T1, T2, TResult> function) => function.Value;
+}
+
 /// <summary>Действие `fun() -&gt; void`.</summary>
 public readonly struct KAction
 {
@@ -92,4 +113,22 @@ public readonly struct KAction<T>
 		Raw.Invoke(interpreter, Marshalling.KMarshal.From(argument));
 
 	public static implicit operator KValue(KAction<T> action) => action.Value;
+}
+
+/// <summary>Действие `fun(A, B) -&gt; void`.</summary>
+public readonly struct KAction<T1, T2>
+{
+	public KAction(KValue value)
+	{
+		Raw = new KFunc(value);
+	}
+
+	public KFunc Raw { get; }
+
+	public KValue Value => Raw.Value;
+
+	public void Invoke(Interpreter interpreter, T1 first, T2 second) =>
+		Raw.Invoke(interpreter, Marshalling.KMarshal.From(first), Marshalling.KMarshal.From(second));
+
+	public static implicit operator KValue(KAction<T1, T2> action) => action.Value;
 }

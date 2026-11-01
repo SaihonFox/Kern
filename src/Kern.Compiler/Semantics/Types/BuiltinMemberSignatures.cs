@@ -39,6 +39,15 @@ internal static class BuiltinMemberSignatures
 				ResolveCollection(receiver.Arguments[0], member, out error),
 			BuiltinGenericKind.Observable when receiver.Arguments.Count == 1 =>
 				ResolveObservable(receiver.Arguments[0], member, out error),
+			BuiltinGenericKind.Event when receiver.Arguments.Count == 1 => null,
+			BuiltinGenericKind.Channel when receiver.Arguments.Count == 1 =>
+				ResolveChannel(receiver.Arguments[0], member, out error),
+			BuiltinGenericKind.Pipe when receiver.Arguments.Count == 1 =>
+				ResolvePipe(receiver.Arguments[0], member, out error),
+			BuiltinGenericKind.Shared when receiver.Arguments.Count == 1 =>
+				ResolveShared(receiver.Arguments[0], member, out error),
+			BuiltinGenericKind.Task when receiver.Arguments.Count == 1 =>
+				ResolveTask(receiver.Arguments[0], member, out error),
 			_ => null
 		};
 	}
@@ -61,7 +70,70 @@ internal static class BuiltinMemberSignatures
 			BuiltinGenericKind.Stack => member is "push" ? receiver.Arguments[0] : null,
 			BuiltinGenericKind.Collection => member is "contains" ? receiver.Arguments[0] : null,
 			BuiltinGenericKind.Observable => member is "add" or "remove" or "contains" ? receiver.Arguments[0] : null,
+			BuiltinGenericKind.Event => member == "emit" ? receiver.Arguments[0] : null,
+			BuiltinGenericKind.Channel => member == "send" ? receiver.Arguments[0] : null,
+			BuiltinGenericKind.Pipe => member == "send" ? receiver.Arguments[0] : null,
+			BuiltinGenericKind.Shared => member is "set" or "swap" or "update" ? receiver.Arguments[0] : null,
 			_ => null,
+		};
+	}
+
+	/// <summary>
+	/// <c>channel&lt;T&gt;</c>: <c>recv()</c>/<c>try_recv() -&gt; T?</c>,
+	/// <c>recv_async() -&gt; task&lt;T?&gt;</c>; <c>send</c>/<c>len</c> — мост.
+	/// </summary>
+	private static KernType? ResolveChannel(KernType element, string member, out string? error)
+	{
+		error = null;
+		return member switch
+		{
+			"recv" or "try_recv" => NullableType.Create(element),
+			"recv_async" => new BuiltinGenericType(
+				BuiltinGenericKind.Task,
+				[NullableType.Create(element)]),
+			_ => null
+		};
+	}
+
+	/// <summary>
+	/// <c>pipe&lt;T&gt;</c>: <c>send -&gt; task&lt;bool&gt;</c>, <c>recv -&gt; task&lt;T?&gt;</c>,
+	/// <c>try_recv -&gt; T?</c>.
+	/// </summary>
+	private static KernType? ResolvePipe(KernType element, string member, out string? error)
+	{
+		error = null;
+		return member switch
+		{
+			"send" => new BuiltinGenericType(BuiltinGenericKind.Task, [PrimitiveType.Bool]),
+			"recv" => new BuiltinGenericType(BuiltinGenericKind.Task, [NullableType.Create(element)]),
+			"try_recv" => NullableType.Create(element),
+			_ => null
+		};
+	}
+
+	/// <summary><c>shared&lt;T&gt;</c>: <c>get/swap/update/value -&gt; T</c>; <c>set</c> — мост.</summary>
+	private static KernType? ResolveShared(KernType element, string member, out string? error)
+	{
+		error = null;
+		return member switch
+		{
+			"get" or "swap" or "update" or "value" => element,
+			_ => null
+		};
+	}
+
+	/// <summary>
+	/// Члены <c>task&lt;T&gt;</c> (spec round 23): <c>done</c>/<c>failed</c>/<c>cancelled</c> —
+	/// <c>bool</c>, <c>error -&gt; str?</c>, <c>result -&gt; T</c>, <c>cancel</c> — <c>void</c>.
+	/// </summary>
+	private static KernType? ResolveTask(KernType element, string member, out string? error)
+	{
+		error = null;
+		return member switch
+		{
+			"result" => element,
+			"error" => NullableType.Create(PrimitiveType.Str),
+			_ => null
 		};
 	}
 

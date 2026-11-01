@@ -155,12 +155,14 @@ internal static class SourceCompiler
 		if (HasError(diagnostics))
 			return Failed(source, bundle, diagnostics);
 
-		var (module, collectorDiagnostics) = DeclarationCollector.Collect(parsed.Tree, table, moduleName);
+		NativeCatalog catalog = NativeCatalog.Scan(typeof(CoreModule).Assembly);
+		var nativeTypes = NativeSymbolBuilder.CreateTypeSymbols(catalog);
+		var (module, collectorDiagnostics) = DeclarationCollector.Collect(
+			parsed.Tree, table, moduleName, primes: null, external: null, nativeTypes);
 		diagnostics.AddRange(collectorDiagnostics);
 		if (HasError(diagnostics))
 			return Failed(source, bundle, diagnostics);
 
-		NativeCatalog catalog = NativeCatalog.Scan(typeof(CoreModule).Assembly);
 		ModuleSymbol imported = NativeSymbolBuilder.Import(module, catalog, out var nativeProblems);
 		if (nativeProblems.Count > 0)
 			return new CompileResult

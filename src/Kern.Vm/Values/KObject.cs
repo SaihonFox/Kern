@@ -42,6 +42,13 @@ public sealed class KObject
 
 	public KClassType Type { get; }
 
+	/// <summary>
+	/// Внешнее состояние объекта, созданного прокси-механизмом (моки, типизированный
+	/// HTTP-клиент): VM передаёт вызовы абстрактных методов этому обработчику
+	/// (<see cref="IKProxyHandler"/>). У обычных объектов — <c>null</c>.
+	/// </summary>
+	public object? Native { get; set; }
+
 	/// <summary>Значение-тип: копируется опкодом <c>CopyUnit</c> при присваивании/передаче.</summary>
 	public bool IsUnit { get; }
 

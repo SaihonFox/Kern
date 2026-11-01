@@ -19,7 +19,13 @@ public static class AttributeCatalog
 		"no_inline",
 		"cfg",
 		"test",
-		"derive"
+		"derive",
+		// HTTP-прокси (spec round 10): размечают абстрактные методы http_client.proxy.
+		"get",
+		"post",
+		"put",
+		"patch",
+		"delete"
 	];
 
 	private static readonly HashSet<string> Known = new(Names, StringComparer.Ordinal);
