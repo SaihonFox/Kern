@@ -54,6 +54,23 @@ internal static class BuildTargetSources
 					Add(current, file, modulePath, files, byFullPath, byModulePath);
 				}
 			}
+
+			foreach (string dependency in current.Deps)
+			{
+				if (!dependency.Contains(':', StringComparison.Ordinal))
+					continue;
+				int split = dependency.LastIndexOf(':');
+				string project = dependency[..split];
+				string targetName = dependency[(split + 1)..];
+				BuildSession included = session.FindIncluded(project)
+					?? throw new BuildException(
+						$"цель '{current.Name}': подпроект '{project}' не найден среди w.include");
+				TargetModel external = included.Workspace.FindTarget(targetName)
+					?? throw new BuildException(
+						$"цель '{current.Name}': в подпроекте '{project}' нет цели '{targetName}'");
+				foreach (BuildSourceFile file in Collect(included, external))
+					Add(current, file.FullPath, file.ModulePath, files, byFullPath, byModulePath);
+			}
 		}
 
 		if (files.Count == 0)

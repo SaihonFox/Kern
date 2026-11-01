@@ -55,13 +55,32 @@ internal static class DoCommand
 		{
 			BuildSession session = BuildSession.Open(directory);
 			session.ProfileName = profile;
-			IReadOnlyList<BuildStep> plan = BuildTaskPlanner.Plan(session, task);
-			return BuildTaskRunner.Run(plan, session, stdout, stderr);
+			(BuildSession targetSession, string targetTask) = ResolveTask(session, task);
+			IReadOnlyList<BuildStep> plan = BuildTaskPlanner.Plan(targetSession, targetTask);
+			return BuildTaskRunner.Run(plan, targetSession, stdout, stderr);
 		}
 		catch (BuildException exception)
 		{
 			stderr.WriteLine($"ошибка: {exception.Message}");
 			return 1;
 		}
+	}
+
+	/// <summary>
+	/// <c>project:target:task</c> для подпроекта w.include; локальные ids
+	/// (<c>task</c>, <c>target:task</c>) остаются как есть.
+	/// </summary>
+	private static (BuildSession Session, string Task) ResolveTask(BuildSession root, string id)
+	{
+		int taskColon = id.LastIndexOf(':');
+		int targetColon = taskColon > 0 ? id.LastIndexOf(':', taskColon - 1) : -1;
+		if (targetColon <= 0)
+			return (root, id);
+
+		string project = id[..targetColon];
+		BuildSession? included = root.FindIncluded(project);
+		if (included is null)
+			return (root, id);
+		return (included, id[(targetColon + 1)..]);
 	}
 }

@@ -57,6 +57,10 @@ internal static class BuildGraph
 		stack.Add(target);
 		foreach (string dependency in target.Deps)
 		{
+			// `project:target` — зависимость на подпроект w.include; её исходники
+			// подмешивает BuildTargetSources, в графе текущего проекта её нет.
+			if (dependency.Contains(':', StringComparison.Ordinal))
+				continue;
 			TargetModel? resolved = workspace.FindTarget(dependency);
 			if (resolved is null)
 				throw new BuildException($"цель '{target.Name}': зависимость '{dependency}' не найдена");

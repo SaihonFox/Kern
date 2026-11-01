@@ -61,7 +61,14 @@ internal static class TasksCommand
 			string id = prefix.Length == 0 ? relative : $"{prefix}/{relative}";
 			stdout.WriteLine($"проект: {included.Workspace.Name} ({id})");
 			foreach (TargetModel target in included.Workspace.Targets)
+			{
 				stdout.WriteLine($"цель {id}:{target.Name} ({target.Kind})");
+				foreach (TaskModel task in target.Tasks)
+					stdout.WriteLine($"задача {id}:{target.Name}:{task.Name}");
+			}
+
+			foreach (TaskModel task in included.Workspace.Tasks)
+				stdout.WriteLine($"задача {id}:{task.Name}");
 			PrintIncluded(included, stdout, id);
 		}
 	}

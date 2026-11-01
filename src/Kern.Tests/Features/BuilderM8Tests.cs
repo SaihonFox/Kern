@@ -187,6 +187,45 @@ public sealed class BuilderM8Tests : IDisposable
 		Assert.Contains("warnings_as_errors", stderr, StringComparison.Ordinal);
 	}
 
+	[Fact]
+	public void Included_project_can_be_a_source_dependency()
+	{
+		string root = Create(
+			("build.kern", """
+				use kern.build[workspace, target]
+				fun build(workspace w) {
+					w.include("child")
+					w.target("app", fun (target t) {
+						t.deps = ["child:core"]
+					})
+				}
+				"""),
+			("app/src/main.kern", """
+				use util[value]
+				fun main { println(f"${value()}") }
+				"""),
+			("child/build.kern", """
+				use kern.build[workspace, target]
+				fun build(workspace w) {
+					w.target("core", fun (target t) {
+						t.kind = "lib"
+						t.task("hello", fun println("child"))
+					})
+				}
+				"""),
+			("child/src/util.kern", "pub fun value() -> i32 7"));
+
+		(int code, _, string stderr) = Run("build", root);
+		Assert.Equal(0, code);
+		Assert.Equal(string.Empty, stderr);
+		Assert.True(File.Exists(Path.Combine(root, "out", "app.kbc")));
+
+		(int taskCode, string taskOut, string taskErr) = Run("do", "child:core:hello", root);
+		Assert.Equal(0, taskCode);
+		Assert.Equal(string.Empty, taskErr);
+		Assert.Contains("задача core:hello", taskOut, StringComparison.Ordinal);
+	}
+
 	private string Create(params (string Path, string Text)[] files)
 	{
 		string root = Path.Combine(Path.GetTempPath(), "kern-builder-m8", Guid.NewGuid().ToString("N"));

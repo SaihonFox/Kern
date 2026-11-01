@@ -47,6 +47,25 @@ internal sealed class BuildSession
 	/// <summary>Подпроекты из <c>w.include(path)</c> (docs/BUILDER.md §5).</summary>
 	public IReadOnlyList<BuildSession> Included { get; }
 
+	/// <summary>Найти подпроект по пути относительно этого проекта или по имени workspace.</summary>
+	public BuildSession? FindIncluded(string path)
+	{
+		if (string.IsNullOrWhiteSpace(path))
+			return null;
+		string normalized = path.Replace('\\', '/').Trim('/');
+		foreach (BuildSession included in Included)
+		{
+			string relative = Path.GetRelativePath(Root, included.Root).Replace('\\', '/');
+			if (string.Equals(relative, normalized, StringComparison.OrdinalIgnoreCase) ||
+				string.Equals(included.Workspace.Name, normalized, StringComparison.Ordinal))
+				return included;
+			if (included.FindIncluded(normalized) is { } nested)
+				return nested;
+		}
+
+		return null;
+	}
+
 	/// <summary>Уровень оптимизации из CLI (<c>-O0..-O2</c>); <c>null</c> — из build.kern/по умолчанию.</summary>
 	public int? OptimizeOverride { get; set; }
 
