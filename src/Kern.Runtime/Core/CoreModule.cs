@@ -47,6 +47,10 @@ public static class CoreModule
 	[KernMember]
 	public static string ToStr(KValue value) => KernFormat.Value(value);
 
+	[KernName("to_debug")]
+	[KernMember]
+	public static string ToDebug(KValue value) => KernFormat.Debug(value);
+
 	/// <summary><c>format(value, spec)</c> для интерполяции <c>f"${value:spec}"</c> (spec §3).</summary>
 	[KernName("format")]
 	[KernMember]

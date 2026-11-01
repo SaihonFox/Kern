@@ -1,9 +1,27 @@
 # DECISIONS_NEEDED
 
+## Decided - owner answers (2026-11-01, "доделай всё")
+
+Owner instruction: finish every item from the third section (open questions) and implement `is` patterns. Choices below follow the recorded recommendations; all are language-visible and reflected in `docs/spec/kern.en.md` + `CHANGELOG_LANG.md`.
+
+- **Q19:** `$.field` is an error (`PAR003`); only `$field` and `$[A].member` remain. Implemented; tests `SelfAndImmutableTests`.
+- **Q20:** option 1 (C#-like `async fun f() -> T` returns `task<T>`). Already implemented; confirmed.
+- **Q17:** option 1 - `unit!` fields may be written in the type's constructor and `init` accessor; writes after construction stay forbidden (`KRN2105`). Implemented; tests `SelfAndImmutableTests`.
+- **Q18:** option 1 - required `!` fields are checked in the root constructor on every path; violation is `KRN2192`. Implemented; tests `RequiredFieldTests`.
+- **Q21:** option 1 - bare `[]` is allowed when the expected type is `list<T>`/`array<T>`/`dict<K,V>`; `var a = []` stays an error. Already implemented; tests `BatchThreeTests`.
+- **Q22:** option 1 - last write wins for duplicate dict-literal keys. Already implemented; tests `IndexAssignmentTests`.
+- **Q23:** option 1 - `op ==` overrides `==`/`!=` for user types, and dict keys honour `op hash`/`op ==` overrides. Implemented; tests `EqualityOperatorTests`.
+- **Q24:** option 1 - ordering a `type` without `op compare` stays `KRN2101`; identity hash/equality work. Already implemented; confirmed.
+- **Q25:** option 1 - `to_str` uses `Name(field=value, ...)` with nested `str`/`char` quoted and top-level unquoted; `to_debug` quotes top-level `str`/`char` too. Implemented (`KernFormat`, B8b, goldens); `04_flow` is an active golden.
+- **Q26:** option 1 - `#[derive(clone)]` stays shallow. Already implemented; confirmed.
+- **Q27:** option 1 - named tuple literals are not added; names come from the expected type. Current behaviour confirmed.
+- **Q32:** option 1 - the regex match result type is `regex_match`, returned by `r.match(text) -> regex_match?`; `find_match` remains an alias. Implemented; tests `RegexModuleTests`.
+- **Q14:** API surfaces of M14 structures/libraries are fixed in the spec before each slice; no blanket API is invented now.
+
 ## Decided — owner answers (2026-10-26)
 
 Recorded as given; the corresponding code/spec work is done in its own slice, not retroactively.
-**Q1-Q16 all have an owner answer; Q17–Q18 and Q21–Q27, Q31–Q32 in the `## Open (new)` section below are the open or deferred ones.** Language-visible ones (Q7, Q9, Q11, Q13, Q15) still owe their `docs/spec/kern.en.md` + `CHANGELOG_LANG.md` update in the slice that implements them.
+**Q1-Q16 all have an owner answer; Q17-Q18 and Q21-Q27, Q31-Q32 are closed by the 2026-11-01 "доделай всё" batch (see the decision details below).** Language-visible ones (Q7, Q9, Q11, Q13, Q15) still owe their `docs/spec/kern.en.md` + `CHANGELOG_LANG.md` update in the slice that implements them.
 
 - **Q13 → option 1:** implement copy-out/copy-back for stores into `unit` fields (`o.inner.x = 5` becomes load-copy → store → write the copy back into `o.inner`), including through locals and nested chains; a get-only link in the chain reports an error instead of dropping the write. Needs a sentence in spec §9 (value semantics) and a `CHANGELOG_LANG.md` line when implemented. Because copy-back makes statics work the same way, a mutable `#` static of `unit` type stops being a data-loss trap (see Q15a).
 - **Q15b → option 1, confirmed 2026-10-26:** `init` is writable in the instance field/property initializers of the same type, in the ctor prologue (including `$`-parameter auto-assignment) and in the ctor body — nested blocks, `if`/`match`/`loop` and chained secondary ctors included; multiple writes during construction are allowed; `{ get; init } = 5` is legal. Forbidden: static initializers, ordinary methods/properties/operators, and lambdas or local functions declared inside the ctor (so a deferred call cannot write after construction). Static initializers run once, in declaration order, in the module `<static-init>` before the entry point (consistent with §12 line 1109 "a library's static initialization runs before the program"); no `init` writes there.
@@ -29,7 +47,7 @@ Recorded as given; the corresponding code/spec work is done in its own slice, no
 
 ## Decided - owner answers (2026-10-27)
 
-- **Q19 -> decided:** the receiver `$` has exactly one member-access spelling: `$field` (`$x = 5`, `$x + 1`, `$ * 2`). The long form `$.field` is an **error** (`$.x = 5` must not compile). Spec §1 line 34 currently documents both forms ("сокращённо: `$field`, полная: `$.field`") - that sentence must become short-form-only, with a Russian diagnostic for `$.` when this lands. Change scope when implemented: parser/AST (`$.` rejection), spec line 34 and any `$.` samples, `CHANGELOG_LANG.md`, examples (already short-form only: 0 occurrences of `$.` in `examples/`), existing tests (already use `$field`). The parent-selection form from spec §2 (`fun $[A].foo(...)`, `$[A].member`) is a qualified name rather than a `this.` access, so it is assumed to keep its dot - please correct that reading if it is wrong. **Not implemented yet - the owner asked to record it for later.**
+- **Q19 -> decided:** the receiver `$` has exactly one member-access spelling: `$field` (`$x = 5`, `$x + 1`, `$ * 2`). The long form `$.field` is an **error** (`$.x = 5` must not compile). Spec §1 line 34 currently documents both forms ("сокращённо: `$field`, полная: `$.field`") - that sentence must become short-form-only, with a Russian diagnostic for `$.` when this lands. Change scope when implemented: parser/AST (`$.` rejection), spec line 34 and any `$.` samples, `CHANGELOG_LANG.md`, examples (already short-form only: 0 occurrences of `$.` in `examples/`), existing tests (already use `$field`). The parent-selection form from spec §2 (`fun $[A].foo(...)`, `$[A].member`) is a qualified name rather than a `this.` access, so it is assumed to keep its dot - please correct that reading if it is wrong. **Implemented 2026-11-01: `$.field` is a `PAR003` syntax error; `$[A].member` still works. Tests `SelfAndImmutableTests`.**
 
 ## Decided — owner additions (2026-10-27, batch "language polish")
 
@@ -46,7 +64,7 @@ The owner asked for these eight items; they are approved stage-1 work. Where the
 
 Every item is language-visible: its slice updates `docs/spec/kern.en.md` + `CHANGELOG_LANG.md` and adds tests. Slice order lives in `docs/ROADMAP.md` ("Owner batch 2026-10-27").
 
-## Open (new)
+## Decision details (2026-11-01) - all closed
 
 ### Q20: async functions and `task<T>` - exact return-type rule
 Owner statement (2026-10-27, verbatim): "асинхронные функции возвращают task(task<T>) как в шарпах." The spec only says `async fun ... await expr` and that `main` may be async (§13 lines 771-788); it never states how the declared return type of an async function maps to `task`. The doubled `task(...)` also needs one confirmation.
@@ -112,7 +130,7 @@ Options:
 
 Sub-question: if a `unit` overrides `op hash`, should `dict` keys use the override (the VM would need a per-dict hash/equality callback that runs Kern code) or keep the structural default (override affects only `==`/direct calls)? Recommendation: use the override - a dict key that ignores its own hash contract is a trap - even if that makes the runtime comparer callback-based.
 
-Recommendation: option 1, with dict keys honouring overrides. B6a (structural `==`/`!=` for units, reference identity for classes, structural unit hash for dict keys, hashability diagnostic) is done. B6b is split: **B6b1** (structural `compare` default for `unit`/`unit!`, direct `x.hash()`/`x.compare(y)`, ordering via `compare`, user overrides on any type) **is implemented (2026-10-29, option 1)** and does not touch the dict sub-question; **B6b2** (dict keys honouring overrides, user `op ==` for `type`) waits for this answer.
+Recommendation: option 1, with dict keys honouring overrides. B6a (structural `==`/`!=` for units, reference identity for classes, structural unit hash for dict keys, hashability diagnostic) is done. B6b is split: **B6b1** (structural `compare` default for `unit`/`unit!`, direct `x.hash()`/`x.compare(y)`, ordering via `compare`, user overrides on any type) **is implemented (2026-10-29, option 1)**; **B6b2** (dict keys honouring overrides, user `op ==` for `type`) **is implemented (2026-11-01, option 1; tests `EqualityOperatorTests`)**.
 
 ### Q24: ordering of `type` values without `op compare`
 B6b1 gives `unit`/`unit!` a structural lexicographic `compare` default, but a `type` (class) has only reference identity: equality and `hash` are identity-based, and there is no meaningful order between two unrelated instances. B6b1 therefore binds `<`/`>`/`<=`/`>=` and `x.compare(y)` for a class only when it declares `op compare`; without one they stay `KRN2101`. `x.hash()` and `==`/`!=` work via identity.
@@ -138,7 +156,7 @@ Options:
 
 Recommendation: option 1; pick option 3 if `to_str` and `to_debug` must visibly differ for units.
 
-Status 2026-11-01: `examples/04_flow` golden is parked (`.golden-pending`) because `KernFormat` prints tuple elements and `list<str>` unquoted (`(аня, 25)`) while `GOLDEN_ASSUMPTIONS.md` requires nested `str` quoted (`("аня", 25)`); `examples/24_reflection` comment also shows unquoted names. Decide the convention here, then either fix `KernFormat` or update the assumptions.
+Status 2026-11-01: implemented (option 1). `examples/04_flow` is an active golden; nested `str`/`char` are quoted, top-level `to_str` values are not, `to_debug` quotes them.
 
 ### Q26: `#[derive(clone)]` - shallow or deep copy
 B8c implements a shallow (memberwise) copy: `unit`/`unit!` fields are copied by value recursively, references (`type`, `list`, `dict`, closures) are shared, `unit`/`unit!` derive is a no-op.
@@ -169,6 +187,8 @@ Options:
 3. Skip the match object in stage 1: only `find`/`find_all` (current behaviour). Cheapest, but positions and capture groups are lost.
 
 Recommendation: option 1 in the next `kern.regex` slice; option 3 now.
+
+**Decided 2026-11-01: option 1 implemented.** `regex_match` type + `r.match(text)`; `find_match` kept as an alias. Tests `RegexModuleTests`.
 
 ## Decided — owner answers (2026-10-31, M1–M3 push)
 - **Q27:** names of tuple members come from the expected type (`(i32 x, i32 y) p = (1, 2)`); no `(x = 1, …)` literal syntax for now.

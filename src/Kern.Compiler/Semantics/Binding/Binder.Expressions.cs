@@ -69,6 +69,7 @@ public sealed partial class Binder
 		NonNullExpression nonNull => BindNonNull(nonNull),
 		BlockExpression block => BindBlockExpression(block),
 		WithExpression with => BindWith(with),
+		IsPatternExpression isPattern => BindIsPattern(isPattern),
 		CallExpression call => BindCall(call, hint),
 		StructuredCallExpression structured => BindStructuredCall(structured),
 		GenericCallExpression generic => BindGenericCall(generic, hint),
@@ -184,6 +185,13 @@ public sealed partial class Binder
 				}
 				return new BoundUnaryExpression(unary.Operator, operand, operand.Type, unary.Span);
 			case "!":
+				if (operand is BoundIsPatternExpression { Bindings.Count: > 0 })
+				{
+					Report(
+						"KRN2101",
+						"Связывания is-паттерна недоступны после отрицания",
+						unary.Operand.Span);
+				}
 				if (IsBool(operand.Type))
 					return new BoundUnaryExpression("!", operand, PrimitiveType.Bool, unary.Span);
 				if (CanBeTruthy(operand))
@@ -366,9 +374,13 @@ public sealed partial class Binder
 			}
 
 			// spec §9: `==`/`!=` для unit/unit! — структурное сравнение полей, для type —
-			// идентичность ссылки; оба случая исполняет VM (KValueMath.AreEqual).
+			// идентичность ссылки; объявленный `op ==` важнее (Q23).
 			if ((symbol is "==" or "!=") && (left.Type is UnitType or ClassType))
+			{
+				if (TryBindEqualityOperator(symbol, left, right, span) is { } declared)
+					return declared;
 				return new BoundBinaryExpression(left, symbol, right, PrimitiveType.Bool, span);
+			}
 
 			// Кортежи — структурное равенство/порядок (spec §3; DECISIONS 2026-10-31).
 			if (left.Type is TupleType)

@@ -58,8 +58,8 @@ public sealed class ExtensionAuditTests
 	public void Generic_receiver_supports_methods_and_properties()
 	{
 		const string source = """
-			fun list<i32>.total() -> i32 { $.len }
-			i32 list<i32>.count $.len
+			fun list<i32>.total() -> i32 { $len }
+			i32 list<i32>.count $len
 
 			fun total() -> i32 [1, 2, 3].total()
 			fun count() -> i32 [4, 5].count
@@ -121,7 +121,7 @@ public sealed class ExtensionAuditTests
 			}
 
 			op Vec.+(i32 n) -> Vec {
-				Vec($.x + 1.0)
+				Vec($x + 1.0)
 			}
 
 			fun scaled() -> f64 {
@@ -159,7 +159,7 @@ public sealed class ExtensionAuditTests
 	{
 		const string source = """
 			str str.twice $ + $
-			i32 str.doubled_len $.len * 2
+			i32 str.doubled_len $len * 2
 
 			fun twice() -> str "ab".twice
 			fun length() -> i32 "abc".doubled_len

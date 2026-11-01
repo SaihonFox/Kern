@@ -1,14 +1,24 @@
 # STATUS
 
 ## Now
-- **M14 `with` landed (2026-11-01):** `x:{ a = 1 }` returns a copy of a `unit`/`type` with instance fields replaced (parser, binder, codegen: `CloneObject` + `StoreField`); inherited fields and generic receiver substitution work, `unit!`/static/unknown/duplicate fields are diagnosed, the original is unchanged. Tests `WithExpressionTests` (5). Remaining M14 slices: `is` patterns, generators/`seq<T>`, tail calls, data structures, docs/CLI.
-- **M12 hardening (2026-11-01, in progress):** goldens added for examples 09, 18 and 23
-  (`09` now prints an OS-independent `env.os.len > 0`), the formatter is checked for
-  idempotence and clean parsing over every example `.kern` source, compile-only checks cover
-  16/17/31-mathx, and the CI matrix (Windows/Linux/macOS) is enabled. Example side-effect files
-  (`hello.txt`, `demo23.txt`, `demo.txt`) are ignored. Suite **340/340**; style clean; goldens
-  **20 active** (04 is parked on Q25), examples clean **23/31**. Remaining: owner answer on Q25
-  (nested `str`/`char` quoting), then un-park 04; CI must actually run after the owner pushes.
+- **Owner batch "доделай всё" closed (2026-11-01):** Q17 (unit! ctor writes), Q18 (`KRN2192`
+  required fields), Q19 (`$.field` rejected), Q23 (op `==` + dict hash/equality overrides),
+  Q25/B8b (`to_str`/`to_debug` convention, 04_flow golden active), Q32 (`regex_match` +
+  `r.match`), plus confirmed Q20/Q21/Q22/Q24/Q26/Q27. `is` patterns landed: full match-pattern
+  RHS, bindings under `&&`/then-branch, smart casts, `KRN2101` for bindings under negation/`||`.
+  Tests added: `SelfAndImmutableTests`, `RequiredFieldTests`, `EqualityOperatorTests`,
+  `FormattingConventionTests`, `IsPatternTests` (7). Suite **365/365**; style clean; goldens
+  **21 active**; examples clean **23/31**.
+- **M14 `with` + `is` landed (2026-11-01):** `x:{ a = 1 }` returns a copy of a `unit`/`type`
+  with instance fields replaced (parser, binder, codegen: `CloneObject` + `StoreField`);
+  inherited fields and generic receiver substitution work, `unit!`/static/unknown/duplicate
+  fields are diagnosed, the original is unchanged. `x is Pattern` supports type/constructor/
+  structural/literal/range/`var`/`_`/`nil`/generic/nullable patterns. Remaining M14 slices:
+  generators/`seq<T>`, tail calls, data structures, docs/CLI.
+- **M12 hardening (2026-11-01, nearly closed):** goldens for 09/18/23 plus 04 (all active),
+  formatter idempotence over every example, compile-only checks for 16/17/31-mathx, CI matrix
+  enabled. Suite **365/365**; style clean; goldens **21 active**. Only CI needs an actual push
+  by the owner.
 - **M9 closed (2026-11-01, owner request):** reflection and macros finished. Runtime: the `type`
   value exposes `name/full_name/args/parents/fields/properties/methods/constructors/attributes`,
   `is_enum/is_unit/is_abstract/is_interface/is_declared`, `enum_names`,

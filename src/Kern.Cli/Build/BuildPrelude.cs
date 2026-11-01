@@ -69,50 +69,50 @@ internal static class BuildPrelude
 		}
 
 		fun workspace.include(str path) {
-			$.includes.add(path)
+			$includes.add(path)
 		}
 
 		fun workspace.lib_path(str path) {
-			$.lib_paths.add(path)
+			$lib_paths.add(path)
 		}
 
 		fun workspace.profile(str name, fun(profile) -> void configure) {
 			profile p(name)
 			configure(p)
-			$.profiles.add(p)
+			$profiles.add(p)
 		}
 
 		fun workspace.target(str name, fun(target) -> void configure) -> target {
 			target t(name)
 			configure(t)
-			$.targets.add(t)
+			$targets.add(t)
 			t
 		}
 
 		fun workspace.task(str name, list<str> after, fun() -> void action) {
-			$.tasks.add(build_task(name, after, action))
+			$tasks.add(build_task(name, after, action))
 		}
 
 		fun workspace.task(str name, fun() -> void action) {
-			$.tasks.add(build_task(name, <str>[], action))
+			$tasks.add(build_task(name, <str>[], action))
 		}
 
 		fun workspace.env(str name) -> str? __build_env(name)
 
 		fun target.kbc(str path) {
-			$.kbc_paths.add(path)
+			$kbc_paths.add(path)
 		}
 
 		fun target.lib(str module) {
-			$.libs.add(module)
+			$libs.add(module)
 		}
 
 		fun target.lib_path(str path) {
-			$.lib_paths.add(path)
+			$lib_paths.add(path)
 		}
 
 		fun target.task(str name, fun() -> void action) {
-			$.tasks.add(build_task(name, <str>[], action))
+			$tasks.add(build_task(name, <str>[], action))
 		}
 
 		fun __new_workspace(str root) -> workspace {

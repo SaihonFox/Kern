@@ -68,9 +68,34 @@ public sealed partial class Parser
 		return new OrPattern(alternatives, new TextSpan(first.Span.Start, alternatives[^1].Span.End - first.Span.Start));
 	}
 
+	/// <summary>
+	/// Отличает структурный паттерн <c>Point { x: var a }</c> от блока после <c>is Type</c>:
+	/// внутри фигурных скобок ожидается <c>имя :</c> или <c>..</c>.
+	/// </summary>
+	private bool IsStructuralBracePatternAhead()
+	{
+		if (Current.Kind != TokenKind.LeftBrace || _position + 1 >= _tokens.Count)
+			return false;
+		Token next = _tokens[_position + 1];
+		if (next.Kind == TokenKind.Operator && next.Text == "..")
+			return true;
+		return next.Kind == TokenKind.Identifier &&
+			_position + 2 < _tokens.Count &&
+			_tokens[_position + 2].Kind == TokenKind.Colon;
+	}
+
 	private PatternNode ParsePattern()
 	{
 		var token = Current;
+		if (token.Kind == TokenKind.Var)
+		{
+			Advance();
+			var name = Consume(TokenKind.Identifier, "Ожидалось имя привязки после var");
+			return new BindingPattern(
+				name.Text,
+				true,
+				new TextSpan(token.Span.Start, name.Span.End - token.Span.Start));
+		}
 		if (token.Kind == TokenKind.Operator && token.Text == "..")
 		{
 			Advance();
@@ -114,8 +139,19 @@ public sealed partial class Parser
 				var close = Consume(TokenKind.RightParen, "Ожидалась закрывающая скобка паттерна");
 				return new ConstructorPattern(token.Text, arguments, new TextSpan(token.Span.Start, close.Span.End - token.Span.Start));
 			}
-			if (Current.Kind == TokenKind.LeftBrace)
+			if (Current.Kind == TokenKind.LeftBrace && IsStructuralBracePatternAhead())
 				return ParseNamedStructuralPattern(token);
+			// Generic/Nullable-тип в позиции паттерна: `is list<i32>`, `is str?`.
+			if (Current.Kind == TokenKind.Operator && Current.Text is "<" or "?")
+			{
+				var start = _position;
+				var diagnosticCount = _diagnostics.Count;
+				var type = ParseTypeSyntaxFrom(token);
+				if (type is NamedTypeSyntax)
+					return new TypePattern(type, "", new TextSpan(token.Span.Start, type.Span.End - token.Span.Start));
+				_position = start;
+				DiscardDiagnosticsSince(diagnosticCount);
+			}
 			if (Current.Kind == TokenKind.Identifier && Current.Text != "if")
 			{
 				var name = Advance();

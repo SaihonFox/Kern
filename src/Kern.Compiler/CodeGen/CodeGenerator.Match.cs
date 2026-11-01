@@ -75,6 +75,18 @@ public sealed partial class CodeGenerator
 		EmitPatternTestOnStack(arm.Pattern, arm.Pattern.Span);
 	}
 
+	private void EmitIsPattern(BoundIsPatternExpression expression)
+	{
+		int slot = AllocateLocalSlot();
+		EmitExpression(expression.Subject);
+		EmitCopyIfUnit(expression.Subject.Type);
+		Emit(OpCode.StoreLocal, slot);
+		Emit(OpCode.LoadLocal, slot);
+		EmitPatternTestOnStack(expression.Pattern, expression.Pattern.Span);
+		if (expression.Negated)
+			Emit(OpCode.Not);
+	}
+
 	/// <summary>Проверка паттерна: субъект лежит на вершине стека, на выходе один bool.</summary>
 	private void EmitPatternTestOnStack(BoundPattern pattern, TextSpan span)
 	{

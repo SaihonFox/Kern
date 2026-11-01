@@ -174,6 +174,15 @@ public static class RegexMembers
 		return match.Success ? KernRegexMatch.From(match) : null;
 	}
 
+	/// <summary><c>match(text)</c>: то же, что <c>find_match</c> (Q32, имя типа <c>regex_match</c>).</summary>
+	[KernName("match")]
+	[KernMember]
+	public static KernRegexMatch? MatchResult(KNativeBox self, string text)
+	{
+		NetMatch match = Require(self).Compiled.Match(text);
+		return match.Success ? KernRegexMatch.From(match) : null;
+	}
+
 	internal static KernRegex Require(KNativeBox self) => self.Value switch
 	{
 		KernRegex regex => regex,

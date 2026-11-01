@@ -612,7 +612,7 @@ public sealed partial class Interpreter
 						{
 							KType keyType = _types.FromSig(_module.TypeSigPool[code[pc++]]);
 							KType valueType = _types.FromSig(_module.TypeSigPool[code[pc++]]);
-							stack.Push(KValue.Obj(new KDict(keyType, valueType)));
+							stack.Push(KValue.Obj(new KDict(keyType, valueType, DictionaryKeyComparer(keyType))));
 							break;
 						}
 					case OpCode.DictSet:

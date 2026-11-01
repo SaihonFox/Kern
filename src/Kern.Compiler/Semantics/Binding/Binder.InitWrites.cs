@@ -51,6 +51,8 @@ public sealed partial class Binder
 		if (!CheckInitWrite(field.Receiver, property, assignment.Span))
 			return new BoundBlock([], null, FallsThrough: true, assignment.Span);
 
+		if (field.Field.IsRequired)
+			_flow.MarkFieldAssigned(field.Field);
 		return new BoundFieldAssignment(field.Receiver, field.Field, field.Type, value, assignment.Span);
 	}
 

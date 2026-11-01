@@ -141,6 +141,30 @@ public sealed class RegexModuleTests
 	}
 
 	[Fact]
+	public void Match_returns_regex_match_with_positions_and_groups()
+	{
+		const string source = """
+			fun text() -> str { regex r = regex(r"(?<word>\w+)\s+(\d+)")  var m = r.match("abc 123")  m!.text }
+			fun start() -> i32 { regex r = regex(r"(?<word>\w+)\s+(\d+)")  var m = r.match("abc 123")  m!.start }
+			fun end() -> i32 { regex r = regex(r"(?<word>\w+)\s+(\d+)")  var m = r.match("abc 123")  m!.end }
+			fun length() -> i32 { regex r = regex(r"(?<word>\w+)\s+(\d+)")  var m = r.match("abc 123")  m!.len }
+			fun groups() -> i32 { regex r = regex(r"(?<word>\w+)\s+(\d+)")  var m = r.match("abc 123")  m!.groups.len }
+			fun named() -> str { regex r = regex(r"(?<word>\w+)\s+(\d+)")  var m = r.match("abc 123")  m!.group("word")! }
+			fun indexed() -> str { regex r = regex(r"(?<word>\w+)\s+(\d+)")  var m = r.match("abc 123")  m!.group(1)! }
+			fun missing() -> bool { regex r = regex(r"\d+")  r.match("abc") == nil }
+			""";
+
+		Assert.Equal(KValue.Str("abc 123"), Run(source, "text"));
+		Assert.Equal(KValue.I32(0), Run(source, "start"));
+		Assert.Equal(KValue.I32(7), Run(source, "end"));
+		Assert.Equal(KValue.I32(7), Run(source, "length"));
+		Assert.Equal(KValue.I32(2), Run(source, "groups"));
+		Assert.Equal(KValue.Str("abc"), Run(source, "named"));
+		Assert.Equal(KValue.Str("123"), Run(source, "indexed"));
+		Assert.Equal(KValue.Bool(true), Run(source, "missing"));
+	}
+
+	[Fact]
 	public void Catalog_exposes_the_regex_type_and_nullable_signatures()
 	{
 		NativeCatalog catalog = Catalog();

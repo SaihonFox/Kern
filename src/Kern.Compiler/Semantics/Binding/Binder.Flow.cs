@@ -111,16 +111,30 @@ public sealed partial class Binder
 
 	private BoundExpression BindIf(IfExpression expression)
 	{
-		var condition = BindCondition(expression.Condition, "Условие if");
+		var previousScope = _scope;
+		_scope = new BoundScope(previousScope);
+		BoundExpression condition;
+		BoundExpression then;
+		FlowState afterThen;
+		FlowState elseState;
+		try
+		{
+			condition = BindCondition(expression.Condition, "Условие if");
 
-		var thenState = _flow.Clone();
-		ApplyConditionFacts(thenState, condition, whenTrue: true);
-		var elseState = _flow.Clone();
-		ApplyConditionFacts(elseState, condition, whenTrue: false);
+			var thenState = _flow.Clone();
+			ApplyConditionFacts(thenState, condition, whenTrue: true);
+			elseState = _flow.Clone();
+			ApplyConditionFacts(elseState, condition, whenTrue: false);
 
-		_flow = thenState;
-		var then = BindBranch(expression.Then);
-		var afterThen = _flow;
+			_flow = thenState;
+			then = BindBranch(expression.Then);
+			afterThen = _flow;
+		}
+		finally
+		{
+			// Связывания is-паттерна живут только в условии и then-ветви (spec round 27).
+			_scope = previousScope;
+		}
 
 		_flow = elseState;
 		var otherwise = expression.Else is null ? null : BindBranch(expression.Else);
@@ -161,6 +175,15 @@ public sealed partial class Binder
 		if (IsError(left.Type))
 			return new BoundErrorExpression(binary.Span);
 
+		if (binary.Operator == "||" &&
+			left is BoundIsPatternExpression { Bindings.Count: > 0 })
+		{
+			Report(
+				"KRN2101",
+				"Связывания is-паттерна недоступны после '||'",
+				binary.Left.Span);
+		}
+
 		var entry = _flow.Clone();
 		var rightState = entry.Clone();
 		ApplyConditionFacts(rightState, left, whenTrue: binary.Operator == "&&");
@@ -191,6 +214,10 @@ public sealed partial class Binder
 
 			case BoundTypeTestExpression test:
 				ApplyTypeTestFacts(state, test.Operand, test.TestType, whenTrue != test.Negated);
+				break;
+
+			case BoundIsPatternExpression { Pattern: BoundTypePattern typePattern } isPattern:
+				ApplyTypeTestFacts(state, isPattern.Subject, typePattern.Type, whenTrue != isPattern.Negated);
 				break;
 
 			case BoundUnaryExpression { Operator: "!" } unary:

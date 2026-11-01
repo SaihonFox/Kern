@@ -25,6 +25,7 @@ public sealed partial class Binder
 	private const string CompareOperator = "compare";
 	private const string CloneOperator = "clone";
 	private const string ToStrOperator = "to_str";
+	private const string ToDebugOperator = "to_debug";
 
 	/// <summary>
 	/// Вызывается из <see cref="BindMemberCall"/> после неудачи обычных членов и нативных
@@ -45,6 +46,9 @@ public sealed partial class Binder
 		// `x.to_str()` (spec §3: `i32 n => n.to_str()`) — универсальный строковый вид значения.
 		if (name == ToStrOperator && arguments.Count == 0 && FormatFunction(1) is { } format)
 			return new BoundCallExpression(format, [receiver], PrimitiveType.Str, span);
+		// `x.to_debug()` (Q25/B8b) — отладочное представление, верхнеуровневые str/char в кавычках.
+		if (name == ToDebugOperator && arguments.Count == 0 && NativeGlobalFunction("to_debug", 1) is { } debug)
+			return new BoundCallExpression(debug, [receiver], PrimitiveType.Str, span);
 		return null;
 	}
 
@@ -270,6 +274,58 @@ public sealed partial class Binder
 		}
 
 		return null;
+	}
+
+	/// <summary>
+	/// Q23: объявленный <c>op ==</c>/<c>op !=</c> типа важнее структурного/ссылочного
+	/// сравнения. <c>!=</c> без своего оператора вызывает <c>op ==</c> и инвертирует результат.
+	/// </summary>
+	private BoundExpression? TryBindEqualityOperator(
+		string symbol,
+		BoundExpression left,
+		BoundExpression right,
+		TextSpan span)
+	{
+		TypeSymbol? owner = OwnerOf(left.Type);
+		if (owner is null)
+			return null;
+
+		var candidates = owner.Members.Operators
+			.Where(function => function.OpSymbol == symbol && function.Parameters.Count == 1)
+			.ToList();
+		var invert = false;
+		if (candidates.Count == 0 && symbol == "!=")
+		{
+			candidates = owner.Members.Operators
+				.Where(function => function.OpSymbol == "==" && function.Parameters.Count == 1)
+				.ToList();
+			invert = candidates.Count > 0;
+		}
+
+		if (candidates.Count == 0)
+			return null;
+
+		FunctionSymbol selected = SelectCompareOperator(candidates, right.Type);
+		if (selected.ReturnType is null || !selected.ReturnType.Equals(PrimitiveType.Bool))
+		{
+			Report(
+				"KRN2101",
+				$"Оператор '{selected.OpSymbol}' в типе '{left.Type}' должен возвращать bool, а не '{TypeName(selected.ReturnType)}'",
+				span);
+			return new BoundErrorExpression(span);
+		}
+
+		BoundExpression argument = Convert(right, selected.Parameters[0].Type, right.Span);
+		if (IsError(argument.Type))
+			return new BoundErrorExpression(span);
+
+		var call = new BoundCallExpression(selected, [argument], PrimitiveType.Bool, span, left)
+		{
+			Virtual = IsVirtualCall(left, selected),
+		};
+		return invert
+			? new BoundUnaryExpression("!", call, PrimitiveType.Bool, span)
+			: call;
 	}
 
 	/// <summary>Вызов объявленного <c>op compare</c>; требует возврата <c>i32</c>.</summary>

@@ -1,3 +1,4 @@
+using Kern.Compiler.Semantics.Declarations;
 using Kern.Compiler.Semantics.Types;
 using Kern.Compiler.Semantics.Types.Conversions;
 
@@ -15,6 +16,7 @@ internal sealed class FlowState
 	private Dictionary<int, KernType> _narrowed = [];
 	private HashSet<int> _assigned = [];
 	private HashSet<int> _maybeAssigned = [];
+	private HashSet<FieldSymbol> _assignedFields = new(ReferenceEqualityComparer.Instance);
 
 	public bool Reachable { get; private set; } = true;
 
@@ -23,7 +25,8 @@ internal sealed class FlowState
 		Reachable = Reachable,
 		_narrowed = new Dictionary<int, KernType>(_narrowed),
 		_assigned = [.. _assigned],
-		_maybeAssigned = [.. _maybeAssigned]
+		_maybeAssigned = [.. _maybeAssigned],
+		_assignedFields = new HashSet<FieldSymbol>(_assignedFields, ReferenceEqualityComparer.Instance)
 	};
 
 	public void MarkUnreachable() => Reachable = false;
@@ -59,6 +62,11 @@ internal sealed class FlowState
 		_narrowed.Remove(slot);
 	}
 
+	/// <summary>Обязательное поле получило значение на этом пути (Q18).</summary>
+	public bool IsFieldAssigned(FieldSymbol field) => _assignedFields.Contains(field);
+
+	public void MarkFieldAssigned(FieldSymbol field) => _assignedFields.Add(field);
+
 	// ---------------------------------------------------------------- слияние
 
 	/// <summary>
@@ -88,6 +96,10 @@ internal sealed class FlowState
 
 		result._assigned = [.. left._assigned.Intersect(right._assigned)];
 		result._maybeAssigned = [.. left._maybeAssigned.Union(right._maybeAssigned)];
+		result._assignedFields = new HashSet<FieldSymbol>(
+			left._assignedFields,
+			ReferenceEqualityComparer.Instance);
+		result._assignedFields.IntersectWith(right._assignedFields);
 		return result;
 	}
 

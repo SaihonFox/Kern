@@ -6,6 +6,18 @@ namespace Kern.Compiler.Semantics.Bound;
 /// <summary>Связанная переменная паттерна: имя, слот, тип и признак единственного присваивания.</summary>
 public sealed record BoundPatternBinding(string Name, int Slot, KernType Type, TextSpan Span);
 
+/// <summary>
+/// <c>x is Pattern</c> (spec round 27): проверка паттерна без match-ветвления. Связывания
+/// уже записаны codegen'ом в слоты; при <c>false</c> выражение даёт <c>false</c>, а ветвь
+/// справа от <c>&amp;&amp;</c>/then не выполняется.
+/// </summary>
+public sealed record BoundIsPatternExpression(
+	BoundExpression Subject,
+	BoundPattern Pattern,
+	bool Negated,
+	IReadOnlyList<BoundPatternBinding> Bindings,
+	TextSpan Span) : BoundExpression(PrimitiveType.Bool, Span);
+
 /// <summary>Разобранный паттерн match. Ветви строятся в <c>Binder.Patterns</c>.</summary>
 public abstract record BoundPattern(TextSpan Span) : BoundNode(Span);
 

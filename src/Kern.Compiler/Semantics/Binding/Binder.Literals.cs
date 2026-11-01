@@ -99,6 +99,16 @@ public sealed partial class Binder
 		return null;
 	}
 
+	/// <summary>Нативная свободная функция с именем и числом параметров (например, <c>to_debug</c>).</summary>
+	private FunctionSymbol? NativeGlobalFunction(string name, int arity)
+	{
+		foreach (FunctionSymbol function in VisibleFunctions(name))
+			if (function.NativeKey is not null && function.NativeSelfType is null &&
+				function.Parameters.Count == arity)
+				return function;
+		return null;
+	}
+
 	/// <summary>Строковый литерал: lexer отдаёт текст с префиксом и кавычками, binder снимает их (spec §3).</summary>
 	private BoundExpression BindStringLiteral(string text, TextSpan span)
 	{

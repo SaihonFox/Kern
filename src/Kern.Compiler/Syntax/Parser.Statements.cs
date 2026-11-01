@@ -402,7 +402,7 @@ public sealed partial class Parser
 
 	private Token ConsumeMemberName(string message)
 	{
-		if (Current.Kind is TokenKind.Next or TokenKind.Project or TokenKind.Use or TokenKind.Stop or TokenKind.Type)
+		if (Current.Kind is TokenKind.Next or TokenKind.Project or TokenKind.Use or TokenKind.Stop or TokenKind.Type or TokenKind.Match)
 			return Advance();
 		return Consume(TokenKind.Identifier, message);
 	}

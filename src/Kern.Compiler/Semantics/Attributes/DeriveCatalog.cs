@@ -7,7 +7,9 @@ public enum DerivedProtocol
 {
 	Hash,
 	Compare,
-	Clone
+	Clone,
+	ToStr,
+	ToDebug
 }
 
 /// <summary>
@@ -25,7 +27,9 @@ public static class DeriveCatalog
 	[
 		("hash", DerivedProtocol.Hash),
 		("compare", DerivedProtocol.Compare),
-		("clone", DerivedProtocol.Clone)
+		("clone", DerivedProtocol.Clone),
+		("to_str", DerivedProtocol.ToStr),
+		("to_debug", DerivedProtocol.ToDebug)
 	];
 
 	private static readonly IReadOnlyList<AttributeNode> None = [];

@@ -5,12 +5,13 @@ namespace Kern.Vm.Values;
 /// <summary>Словарь <c>dict&lt;K,V&gt;</c>; ключи сравниваются через <see cref="KValue"/>.</summary>
 public sealed class KDict
 {
-	private readonly Dictionary<KValue, KValue> _items = [];
+	private readonly Dictionary<KValue, KValue> _items;
 
-	public KDict(KType? keyType = null, KType? valueType = null)
+	public KDict(KType? keyType = null, KType? valueType = null, IEqualityComparer<KValue>? comparer = null)
 	{
 		KeyType = keyType;
 		ValueType = valueType;
+		_items = comparer is null ? [] : new Dictionary<KValue, KValue>(comparer);
 	}
 
 	public KType? KeyType { get; }

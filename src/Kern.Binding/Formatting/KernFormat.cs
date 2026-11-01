@@ -24,6 +24,12 @@ public static class KernFormat
 	public static string Interpolate(KValue value) => Value(value);
 
 	/// <summary>
+	/// Q25: отладочное представление (<c>to_debug</c>). Отличается от <see cref="Value"/>
+	/// только для верхнеуровневых <c>str</c>/<c>char</c>: они всегда в кавычках.
+	/// </summary>
+	public static string Debug(KValue value) => Repr(value);
+
+	/// <summary>
 	/// Проверка спецификации формата интерполяции (spec §3): <c>[&lt;|&gt;][0]ширина[.точность][f|d|s]</c>.
 	/// <c>null</c>/пустая строка — формат по умолчанию. Ошибка — по-русски.
 	/// </summary>
@@ -138,7 +144,7 @@ public static class KernFormat
 		KList list => FormatList(list.Items),
 		KArray array => FormatList(array.Items.ToArray()),
 		KDict dict => FormatDict(dict),
-		KTuple tuple => $"({string.Join(", ", tuple.Items.ToArray().Select(Value))})",
+		KTuple tuple => $"({string.Join(", ", tuple.Items.ToArray().Select(Repr))})",
 		KObject obj => FormatObject(obj),
 		KNativeBox box => box.Value.ToString() ?? "native",
 		_ => reference.ToString() ?? "object",
@@ -153,7 +159,7 @@ public static class KernFormat
 		{
 			if (index > 0)
 				builder.Append(", ");
-			builder.Append(items[index].Kind == ValueKind.Str ? items[index].AsStr : Value(items[index]));
+			builder.Append(Repr(items[index]));
 		}
 
 		return builder.Append(']').ToString();
@@ -168,7 +174,7 @@ public static class KernFormat
 		{
 			if (index > 0)
 				builder.Append(", ");
-			builder.Append(Value(entries[index].Key)).Append(": ").Append(Value(entries[index].Value));
+			builder.Append(Repr(entries[index].Key)).Append(": ").Append(Repr(entries[index].Value));
 		}
 
 		return builder.Append('}').ToString();

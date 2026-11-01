@@ -15,7 +15,7 @@
 | `kern.text` | `len/upper/lower/trim*/contains/starts_with/ends_with/replace/repeat/split/lines/join/chars/from_chars/parse_i32/i64/f64/pad_left/right` | — |
 | `kern.numerics` | `decimal` и `bigint`: фабрики из str/i64/f64, арифметика, сравнения, `to_str/to_f64/to_i64`, `abs/round/truncate/pow/compare` | `-0`/переполнение decimal — как в .NET |
 | `str`/`char` (встроенные) | `len`, `upper`, `lower`, `trim*`, `contains`, `starts_with`, `ends_with`, `index_of`, `substring`, `replace`, `split`, `chars`, `lines`, `join`, `pad_left/right`, `repeat`, `to_str`, `to_i32/to_i64/to_f64/to_bool` | `str` пока не все члены из старых примеров |
-| `kern.regex` | `regex(pattern[, flags])` → `regex` (panic по-русски), `try_new`, члены `is_match/find/find_all/find_match/replace/split`, свойства `pattern/options`; `x"…"`/`fx"…"` lowering | `find_match` (а не `match` — ключевое слово), Q32; `regex.try_new(…)` пока только `try_new(…)` |
+| `kern.regex` | `regex(pattern[, flags])` → `regex` (panic по-русски), `try_new`, члены `is_match/find/find_all/match/find_match/replace/split`, свойства `pattern/options`; `match` → `regex_match?` (`text/start/end/len/groups/group`); `x"…"`/`fx"…"` lowering | `regex.try_new(…)` пока только `try_new(…)` |
 | `kern.json` | `to_str`, `to_str_pretty`, `parse` → `dict<str, object>`/`list<object>`, `from_str<T>` (reified `[KernTypeArgs]`) | `Err` только при ошибке разбора |
 | `kern.env` | `get`, `get_or`, `set`, свойства `os`, `cwd`, `home` | — |
 | `file.*` / `kern.path` | чтение/запись/список/копирование/удаление (IO → `result<T, str>`); `join/dir_name/file_name/ext/normalize/is_absolute/absolute` | — |
@@ -39,9 +39,9 @@ M9 закрыт 2026-11-01: полная рантайм-поверхность �
 `parent_names`, а также `kern.macro` и текстовый конвейер макросов (`#[macro]`,
 `#[macro("expr")]`, `#[derive(name)]`, `name!(...)`, KRN1502/1503).
 
-M12 (hardening) в работе: эталоны добавлены для 09/18/23, форматтер проверяется на
-идемпотентность по всем примерам, `.compile-only` примеры 16/17/31-mathx проверяются
-отдельным тестом. 04_flow ждёт решения Q25 (кавычки у вложенных `str`/`char`).
+M12 почти закрыт: эталоны 09/18/23 и 04_flow, форматтер проверяется на идемпотентность
+по всем примерам, `.compile-only` примеры 16/17/31-mathx проверяются отдельным тестом.
+Остался только реальный прогон CI после push владельца.
 
 ## Блокеры примеров (8 из 31 не проходят `kernc check`; 23 чистых — на 2026-11-01)
 

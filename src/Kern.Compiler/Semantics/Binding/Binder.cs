@@ -153,9 +153,13 @@ public sealed partial class Binder
 		_current = symbol;
 		// Контекст создания не наследуется вложенными функциями: он принадлежит только
 		// конструктору этого типа (Q15b). Сбрасываем его до выбора нового контекста.
-		_constructionType = symbol is { Kind: FunctionKind.Constructor, IsStatic: false, Owner: { } constructed }
-			? constructed
-			: null;
+		_constructionType = symbol switch
+		{
+			{ Kind: FunctionKind.Constructor, IsStatic: false, Owner: { } constructed } => constructed,
+			// Q17: тело init-accessor'а — тоже контекст создания своего типа.
+			{ Kind: FunctionKind.Init, IsStatic: false, Owner: { } initialized } => initialized,
+			_ => null
+		};
 		// Контекст `!`-статики тоже принадлежит только её инициализатору (Q15b).
 		_staticInitializerType = null;
 		_nextSlot = 0;
@@ -202,6 +206,9 @@ public sealed partial class Binder
 				Report("KRN2106", $"Параметр '{parameter.Name}' уже объявлен в этой функции", parameter.Span);
 			_flow.MarkAssigned(variable.Slot);
 			parameters.Add(new BoundParameter(parameter, variable.Slot));
+			// Q18: `$`-параметр конструктора сразу заполняет своё поле.
+			if (parameter.Field is { } parameterField)
+				_flow.MarkFieldAssigned(parameterField);
 		}
 
 		_returnType = symbol.Kind == FunctionKind.Constructor
@@ -225,10 +232,14 @@ public sealed partial class Binder
 		List<BoundFieldInitializer> initializers = symbol.Kind == FunctionKind.Constructor
 			? BindInstanceInitializers(symbol)
 			: [];
+		foreach (BoundFieldInitializer initializer in initializers)
+			_flow.MarkFieldAssigned(initializer.Field);
 
 		var body = symbol.Body is null
 			? new BoundBlock([], null, FallsThrough: true, DeclarationSpan(symbol))
 			: BindBody(symbol.Body, symbol);
+		if (symbol is { Kind: FunctionKind.Constructor, Owner: { } constructedOwner } && chain is null)
+			CheckRequiredFields(symbol, constructedOwner);
 		var localCount = _nextSlot;
 		_current = null;
 		_selfVariable = null;
@@ -558,9 +569,14 @@ public sealed partial class Binder
 		}
 
 		value = Convert(value, field.Type, assignment.Value.Span);
-		if (OwnerOf(field.Receiver?.Type ?? _selfType ?? PrimitiveType.Object) is { IsImmutable: true })
+		if (OwnerOf(field.Receiver?.Type ?? _selfType ?? PrimitiveType.Object) is { IsImmutable: true } immutable &&
+			!(IsSelfReceiver(field.Receiver) && ReferenceEquals(_constructionType, immutable)))
+		{
 			Report("KRN2105", $"Нельзя изменять поле '{field.Field.Name}' неизменяемого unit!-типа", assignment.Span);
+		}
 
+		if (field.Field.IsRequired)
+			_flow.MarkFieldAssigned(field.Field);
 		return new BoundFieldAssignment(field.Receiver, field.Field, field.Type, value, assignment.Span);
 	}
 

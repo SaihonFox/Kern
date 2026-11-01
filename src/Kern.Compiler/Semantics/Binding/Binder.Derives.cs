@@ -44,6 +44,22 @@ public sealed partial class Binder
 					$"Протокол 'clone' уже реализован типом '{type.Name}': #[derive(clone)] конфликтует с ручным членом",
 					clone.Span);
 			}
+
+			if (DeriveCatalog.Find(declaration, DerivedProtocol.ToStr) is { } toStr && HasManualSimple(type, "to_str"))
+			{
+				Report(
+					"KRN2106",
+					$"Протокол 'to_str' уже реализован типом '{type.Name}': #[derive(to_str)] конфликтует с ручным членом",
+					toStr.Span);
+			}
+
+			if (DeriveCatalog.Find(declaration, DerivedProtocol.ToDebug) is { } toDebug && HasManualSimple(type, "to_debug"))
+			{
+				Report(
+					"KRN2106",
+					$"Протокол 'to_debug' уже реализован типом '{type.Name}': #[derive(to_debug)] конфликтует с ручным членом",
+					toDebug.Span);
+			}
 		}
 	}
 
@@ -66,5 +82,10 @@ public sealed partial class Binder
 		type.Members.Operators.Any(function =>
 			function.OpSymbol == CloneOperator && function.Parameters.Count == 0) ||
 		type.Members.GetFunctions(CloneOperator).Any(function =>
+			!function.IsStatic && function.Parameters.Count == 0);
+
+	/// <summary>Ручной <c>to_str</c>/<c>to_debug</c>: нестатический метод без параметров.</summary>
+	private static bool HasManualSimple(TypeSymbol type, string name) =>
+		type.Members.GetFunctions(name).Any(function =>
 			!function.IsStatic && function.Parameters.Count == 0);
 }

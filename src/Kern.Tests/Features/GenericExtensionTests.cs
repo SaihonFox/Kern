@@ -25,7 +25,7 @@ public sealed class GenericExtensionTests
 	{
 		const string source = """
 			fun list<T>.first_or(T fallback) -> T {
-				if $.is_empty { fallback } else { $.get(0) }
+				if $is_empty { fallback } else { $get(0) }
 			}
 
 			fun numbers() -> i32 [7, 8].first_or(0)
@@ -44,7 +44,7 @@ public sealed class GenericExtensionTests
 	{
 		const string source = """
 			unit Box<T>(T inner)
-			T Box<T>.value $.inner
+			T Box<T>.value $inner
 
 			fun number() -> i32 Box(5).value
 			fun text() -> str Box("hi").value
@@ -59,7 +59,7 @@ public sealed class GenericExtensionTests
 	{
 		const string source = """
 			unit Box<T>(T inner)
-			op Box<T>.+(Box<T> other) -> Box<T> Box($.inner)
+			op Box<T>.+(Box<T> other) -> Box<T> Box($inner)
 
 			fun value() -> i32 {
 				Box<i32> sum = Box(1) + Box(2)
@@ -75,7 +75,7 @@ public sealed class GenericExtensionTests
 	{
 		const string source = """
 			fun list<T>.first_or(T fallback) -> T {
-				if $.is_empty { fallback } else { $.get(0) }
+				if $is_empty { fallback } else { $get(0) }
 			}
 
 			fun value() -> i32 {
@@ -93,7 +93,7 @@ public sealed class GenericExtensionTests
 		var project = CompileProject(
 			("src/lib.kern", """
 				fun list<T>.first_or(T fallback) -> T {
-					if $.is_empty { fallback } else { $.get(0) }
+					if $is_empty { fallback } else { $get(0) }
 				}
 				"""),
 			("src/main.kern", """

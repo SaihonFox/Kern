@@ -46,9 +46,9 @@ fun main {
 
 	// --- рефлексия во время компиляции: значения вычисляются компилятором ---
 	println(name_of<User>())               // User
-	println(field_names<User>())           // [name, age, email]
+	println(field_names<User>())           // ["email", "name", "age"]
 	println(has_attribute<User>("entity")) // true
-	println(attribute_names<User>())       // [entity]
+	println(attribute_names<User>())       // ["entity"]
 
 	// поиск по модулю
 	loop var e in reflect.types_with_attribute("entity") {

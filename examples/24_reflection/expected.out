@@ -8,7 +8,7 @@ age: i32 = 30
 Point3(x=1, y=2, z=3)
 Point3: 3 поля, z = 3
 User
-[email, name, age]
+["email", "name", "age"]
 true
-[entity]
+["entity"]
 entity: User

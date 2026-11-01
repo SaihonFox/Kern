@@ -81,6 +81,16 @@ public sealed partial class Parser
 			if (!TryGetPrecedence(Current, out var precedence) || precedence < minimumPrecedence)
 				break;
 			var operatorToken = Advance();
+			if (operatorToken.Text is "is" or "!is")
+			{
+				var pattern = ParsePattern();
+				left = new IsPatternExpression(
+					left,
+					pattern,
+					operatorToken.Text == "!is",
+					new TextSpan(left.Span.Start, pattern.Span.End - left.Span.Start));
+				continue;
+			}
 			var right = operatorToken.Text == "?:" && Current.Kind == TokenKind.Ret
 				? ParseReturnExpression()
 				: ParseExpression(precedence + (operatorToken.Text == "**" ? 0 : 1));
@@ -332,6 +342,18 @@ public sealed partial class Parser
 				if (Current.Kind != TokenKind.Dot)
 					Report("PAR003", "После выбора родителя ожидалась точка и имя члена", superSpan);
 				return new SuperExpression(parent.Text, superSpan);
+			}
+			// Q19: у приёмника только короткая форма `$field`; `$.field` — ошибка.
+			if (Current.Kind == TokenKind.Dot)
+			{
+				var dot = Advance();
+				var member = ConsumeMemberName("Ожидалось имя члена после '$.'");
+				Report(
+					"PAR003",
+					"Точка после '$' запрещена: используйте короткую форму '$field'",
+					new TextSpan(dollar.Span.Start, member.Span.End - dollar.Span.Start));
+				return new MemberAccessExpression(new SelfExpression(dollar.Span), member.Text, false,
+					new TextSpan(dollar.Span.Start, member.Span.End - dollar.Span.Start));
 			}
 			if (Current.Kind == TokenKind.Identifier &&
 				!HasNewlineBetween(dollar.Span.End, Current.Span.Start))
