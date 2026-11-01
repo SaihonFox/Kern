@@ -1020,7 +1020,7 @@ fun main {
 -   **M7 целиком (2026-11-01):** `kern.events` (`event<T>`/`signal`), `kern.compress`, `kern.http` (оба варианта клиента, включая `http_client.proxy<Api>` на атрибутах `#[get/post/put/patch/delete]`), `kern.threading` (`thread/worker/channel/mutex/amutex/rw_lock/atomic/semaphore/shared/conc_list/conc_dict/conc_queue`), `kern.tasks` (`tasks.all/any/race/settled/select/timeout/delay/run/retry/with_cancel`, `cancel_token`, `pipe<T>`, `pipe_stream`), `kern.parallel` (`map/each/for_range/reduce`, `pool`), моки `kern.test.mock` (прокси-объекты абстрактных типов) и базовая рефлексия `kern.reflection`/члены `type` (`name/fields/attribute(s)/get_method/create/get`, `reflect.define_type/types_with_attribute/type_of`). `async fun` теперь запускает корутину и сразу возвращает `task<T>`, поэтому работают `tasks.all/race/timeout`, `async loop` по `async_iter<T>` и `thread.run`. Финализированные члены (`panic`, `exit`) имеют тип `never`; постфиксный `!` сужает `T?` до `T`.
 -   `kern.http` (клиент, async): `await http.get(url)` → `result<http_reply, str>`; `post/put/delete/post_json/request`.
 -   `kern.web` + `kern.server`: `web_server s(port)`, `s.get("/u/{id}", fun (web_request r) -> web_response …)`, `await s.serve()`; обработчики выполняются в потоке VM.
--   `kern.db.sqlite`: `sqlite db(путь)`, `exec/query/scalar/begin/commit/rollback`; `kern.db`: `orm.table<T>(db)` → `table<T>` (`create/insert/update/delete/all/where/find/count`), поле `id` — ключ.
+-   `kern.db.sqlite`: `sqlite db(путь)`, `exec/query/scalar/begin/commit/rollback`; `kern.db`: `orm.table<T>(db)` → `table<T>` (`create/insert/update/delete/all/where/find/count`), поле `id` — ключ. **Реализовано (2026-11-02):** внешняя `libs/Kern.Lib.Db` (SQLite/PostgreSQL/MySQL + ORM), SQLite проверен на `examples/15_databases`; PG/MySQL API компилируются, но требуют живых серверов. Ограничения — `docs/LIBRARIES.md`.
 
 ### Раунд 6: потоки, сжатие, оптимизатор, команды (написано, не проверено компилятором)
 -   **Потоки (`kern.threading`)** — потоки с общей памятью (с раунда 24, см. ниже): `thread.spawn(f)`, `thread.spawn_with(f, arg[, arg2])` → `worker<R>`; `w.join()` (блокирует) / `await w.wait()` → `result<R, str>` (Err — сообщение паники потока), `w.is_done`. Функция потока может быть замыканием.
@@ -1190,10 +1190,10 @@ fun map_member(str target, str owner, str name, str receiver) -> str?           
 use kern.di[container]
 
 var c = container()
-c.singleton<logger>(fun { logger("app") })                              // фабрика
-c.transient<user_service>(fun(container k) { user_service(k.get<logger>(), k.get<mailer>()) })
+c.singleton<logger>(fun -> logger { logger("app") })                              // фабрика
+c.transient<user_service>(fun(container k) -> user_service { user_service(k.get<logger>(), k.get<mailer>()) })
 c.singleton_as<mailer, console_mailer>()                                // интерфейс → реализация
-c.singleton<logger>(fun { logger("audit") }, "audit")                   // именованная
+c.singleton<logger>(fun -> logger { logger("audit") }, "audit")                   // именованная
 
 #[singleton] type clock { … }                                           // атрибуты + c.scan()
 type report { #[inject] logger log { get; set } }                       // внедрение в свойства
@@ -1203,7 +1203,7 @@ var s = c.scope()                                                       // об�
 s.dispose()                                                             // dispose() у созданных объектов
 ```
 
-`get<T>()` (panic, если не зарегистрирован), `try_get<T>()` → `T?`, `has<T>()`, `inject(obj)`. Жизненные циклы: `singleton` / `scoped` / `transient`. Подробности — docs/LIBRARIES.md, пример — examples/26_di.
+`get<T>()` (panic, если не зарегистрирован), `try_get<T>()` → `T?`, `has<T>()`, `inject(obj)`. Жизненные циклы: `singleton` / `scoped` / `transient`. **Реализовано (2026-11-02):** `libs/Kern.Lib.Di` собирается в `libs/_out/Kern.Lib.Di`; проверено на `examples/26_di`. Подробности и ограничения — `docs/LIBRARIES.md`.
 
 ## Раунд 21 — backend-фреймворк (kern.backend)
 

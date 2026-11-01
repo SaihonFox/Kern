@@ -115,7 +115,7 @@ Accept: formatter idempotence tests over all examples; optimizer equivalence tes
 ## M12 - Hardening
 Every stage-1 example has `expected.out` and passes; CI matrix windows/ubuntu/macos green (if CI is used); docs synced (`spec`, `ARCHITECTURE`, `STATUS`); `KNOWN_ISSUES` updated; final report to the owner.
 
-**Status 2026-11-01 - M12 nearly closed:** goldens for 09/18/23 and the un-parked 04_flow, formatter idempotence and clean parsing on every example source, `ExampleCompileTests` for `.compile-only` 16/17/31-mathx, and the Windows/Linux/macOS CI matrix. Suite **369/369**, style clean, goldens **21 active**. Only blocker: CI must run after the owner pushes to GitHub.
+**Status 2026-11-01 - M12 nearly closed:** goldens for 09/18/23 and the un-parked 04_flow, formatter idempotence and clean parsing on every example source, `ExampleCompileTests` for `.compile-only` 16/17/31-mathx, and the Windows/Linux/macOS CI matrix. Suite **370/370**, style clean, goldens **21 active**. Only blocker: CI must run after the owner pushes to GitHub.
 
 ## M14 — Round 27 additions (2026-10-26)
 Cross-cutting milestone for the owner's round-27 items (spec «Раунд 27», `DECISIONS.md` §J). Slices may be pulled into M1/M3/M7/M8/M11 when the touched subsystem is already stable, but M14 closes only when all slices are green. Do not start std/tools slices before the core syntax is implemented.
@@ -150,6 +150,8 @@ Accept: each slice green (build 0 errors, full `dotnet test`, style), spec + `CH
 
 ## Examples status for stage 1 (golden)
 Run + golden: 01-12, 14, 18, 21-24, 28-31 (04 is active since Q25). Compile-only: 16 (`#[test]` is run by `kernc test`; `kernc run` prints only a hint), 17 (needs the internet; the typed clients are covered by loopback xunit tests), 31-mathx (library; covered by `ExampleCompileTests`).
-4. **Stage-2 examples:** 13, 15, 19, 20, 25, 26, and 27 are syntax-audited with all examples but require external libraries to run; keep them in the repository without `.stage2` markers.
+4. **Stage-2 examples:** 13, 19, 20, 25, and 27 still require external libraries to run. 15 (DB/ORM) and 26 (DI) now run with `libs/Kern.Lib.Db` / `libs/Kern.Lib.Di` (built via `dotnet build libs/Kern.Libs.slnx`).
+
+**Status 2026-11-02 - DB/DI libraries implemented:** `libs/Kern.Lib.Db` (SQLite/PostgreSQL/MySQL + `orm.table<T>`) and `libs/Kern.Lib.Di` (`container`: singleton/transient/scoped, factories, scan/inject, scope/dispose) build into `libs/_out`; examples 15 and 26 check and run (SQLite end-to-end; PG/MySQL need live servers). Native `e_sqlite3` is resolved from the library's `runtimes/<rid>/native`. Examples clean **25/31**.
 
 ## Stage 2 (needs explicit owner go-ahead) — see `docs/WISHLIST.md`

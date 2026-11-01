@@ -457,6 +457,8 @@ public sealed partial class CodeGenerator
 			case "**": Emit(OpCode.Pow); break;
 			case "==": Emit(OpCode.Eq); break;
 			case "!=": Emit(OpCode.Ne); break;
+			case "===": Emit(OpCode.Eq); break;
+			case "!==": Emit(OpCode.Ne); break;
 			case "<": Emit(OpCode.Lt); break;
 			case "<=": Emit(OpCode.Le); break;
 			case ">": Emit(OpCode.Gt); break;

@@ -254,6 +254,8 @@ public sealed partial class Binder
 
 			case "==":
 			case "!=":
+			case "===":
+			case "!==":
 			case "<":
 			case ">":
 			case "<=":
@@ -324,6 +326,14 @@ public sealed partial class Binder
 
 	private BoundExpression BindComparison(string symbol, BoundExpression left, BoundExpression right, TextSpan span)
 	{
+		// spec §3: `===`/`!==` сравнивают только ссылки значений `type`.
+		if (symbol is "===" or "!==")
+		{
+			if (left.Type is ClassType && right.Type is ClassType)
+				return new BoundBinaryExpression(left, symbol, right, PrimitiveType.Bool, span);
+			return Incompatible(symbol, left, right, span);
+		}
+
 		if (left.Type is PrimitiveType { Primitive: PrimitiveKind.None } ||
 			right.Type is PrimitiveType { Primitive: PrimitiveKind.None })
 			return BindNoneComparison(symbol, left, right, span);

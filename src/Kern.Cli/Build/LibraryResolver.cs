@@ -1,4 +1,6 @@
 using System.Reflection;
+using System.Runtime.InteropServices;
+using System.Runtime.Loader;
 
 namespace Kern.Cli.Build;
 
@@ -12,12 +14,14 @@ internal static class LibraryResolver
 {
 	private static readonly Dictionary<string, Assembly> Cache = new(StringComparer.OrdinalIgnoreCase);
 	private static readonly Lock Gate = new();
+	private static bool _nativeResolverInstalled;
 
 	public static IReadOnlyList<Assembly> Resolve(BuildSession session, TargetModel target)
 	{
 		if (target.Libs.Count == 0)
 			return [];
 
+		InstallNativeResolver();
 		var roots = SearchRoots(session, target);
 		var assemblies = new List<Assembly>(target.Libs.Count);
 		foreach (string library in target.Libs)
@@ -46,6 +50,48 @@ internal static class LibraryResolver
 		}
 
 		return assemblies;
+	}
+
+	private static void InstallNativeResolver()
+	{
+		lock (Gate)
+		{
+			if (_nativeResolverInstalled)
+				return;
+			_nativeResolverInstalled = true;
+			NativeLibrary.SetDllImportResolver(typeof(LibraryResolver).Assembly, ResolveDll);
+			AssemblyLoadContext.Default.ResolvingUnmanagedDll += (assembly, name) => ResolveNative(assembly, name);
+		}
+	}
+
+	private static IntPtr ResolveDll(string name, Assembly assembly, DllImportSearchPath? searchPath)
+	{
+		_ = searchPath;
+		return ResolveNative(assembly, name);
+	}
+
+	private static IntPtr ResolveNative(Assembly? assembly, string name)
+	{
+		if (assembly?.Location is { Length: > 0 } location)
+		{
+			string? directory = Path.GetDirectoryName(location);
+			if (directory is not null)
+			{
+				string rid = RuntimeInformation.RuntimeIdentifier;
+				string[] candidates =
+				[
+					Path.Combine(directory, "runtimes", rid, "native", name + ".dll"),
+					Path.Combine(directory, "runtimes", rid, "native", name),
+					Path.Combine(directory, name + ".dll"),
+					Path.Combine(directory, name),
+				];
+				foreach (string candidate in candidates)
+					if (NativeLibrary.TryLoad(candidate, out IntPtr handle))
+						return handle;
+			}
+		}
+
+		return IntPtr.Zero;
 	}
 
 	private static IReadOnlyList<string> SearchRoots(BuildSession session, TargetModel target)

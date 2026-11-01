@@ -46,15 +46,15 @@ fun main {
 	var c = container()
 
 	// фабрики: без аргументов и с контейнером
-	c.singleton<logger>(fun { logger("app") })
+	c.singleton<logger>(fun -> logger { logger("app") })
 	c.singleton_as<mailer, console_mailer>()
-	c.transient<user_service>(fun(container k) { user_service(k.get<logger>(), k.get<mailer>()) })
+	c.transient<user_service>(fun(container k) -> user_service { user_service(k.get<logger>(), k.get<mailer>()) })
 
 	var svc = c.get<user_service>()
 	svc.register("аня")
 
 	// именованные регистрации
-	c.singleton<logger>(fun { logger("audit") }, "audit")
+	c.singleton<logger>(fun -> logger { logger("audit") }, "audit")
 	c.get<logger>("audit").info("проверка")
 
 	// атрибуты

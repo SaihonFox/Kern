@@ -1,6 +1,6 @@
-# Внешние библиотеки Kern — ВТОРОЙ ЭТАП
+# Внешние библиотеки Kern — частично реализованы
 
-> Не входит в первый проход. Документ описывает старый замысел (`reference/libs`, ни разу не собиралось). Поиск библиотек в новой версии — без `kern.toml` (см. `docs/BUILDER.md` §6).
+> `Kern.Lib.Db` и `Kern.Lib.Di` реализованы и собираются в этом репозитории; `Ui`, `Ffi`, `Transpile` и `Backend` пока остаются замыслом (`reference/libs`). Поиск библиотек — без `kern.toml` (см. `docs/BUILDER.md` §6).
 
 Ядро (`src/`) содержит только язык, компилятор, VM и базовую стандартную библиотеку. Всё остальное — внешние библиотеки в `libs/`.
 
@@ -9,11 +9,11 @@
     libs/
       Directory.Build.props   — вывод каждой библиотеки в libs/_out/<имя>/ (DLL + её зависимости)
       Kern.Libs.slnx          — решение для сборки всех библиотек
-      Kern.Lib.Db/            — kern.db, kern.db.sqlite, kern.db.postgres, kern.db.mysql (SQLite, Npgsql, MySqlConnector)
-      Kern.Lib.Ui/            — kern.ui (Avalonia)
-      Kern.Lib.Ffi/           — kern.ffi (вызов C/C++ DLL)
-      Kern.Lib.Transpile/     — kern.transpile (транспилятор Kern → C# / Kotlin)
-      Kern.Lib.Di/            — kern.di (контейнер внедрения зависимостей)
+      Kern.Lib.Db/            — kern.db, kern.db.sqlite, kern.db.postgres, kern.db.mysql (реализовано)
+      Kern.Lib.Ui/            — kern.ui (Avalonia; замысел)
+      Kern.Lib.Ffi/           — kern.ffi (вызов C/C++ DLL; замысел)
+      Kern.Lib.Transpile/     — kern.transpile (Kern → C# / Kotlin; замысел)
+      Kern.Lib.Di/            — kern.di (контейнер внедрения зависимостей; реализовано)
 
 Сборка: `dotnet build libs/Kern.Libs.slnx`. Ядро: `dotnet build Kern.slnx` — без пакетов СУБД и Avalonia.
 
@@ -58,15 +58,24 @@
 
 Известные ограничения: множественное наследование (берётся первый родитель), данные в enum, union (→ `object`/`Any`), кортежи длиннее 3 в Kotlin, сложные guard в `match`, порядок побочных эффектов внутри выражений if/match в позиции значения (они выносятся во временные переменные), std-функции, написанные на Kern (не переносятся).
 
+## Kern.Lib.Db (kern.db, kern.db.sqlite, kern.db.postgres, kern.db.mysql)
+
+Реализована (2026-11-02). Внешняя библиотека `libs/Kern.Lib.Db` (пакеты Microsoft.Data.Sqlite, Npgsql, MySqlConnector) собирается в `libs/_out/Kern.Lib.Db`.
+
+- **Базы:** `sqlite db(path)` (`:memory:`), `postgres db(url)` / `postgres db(host, port, database, user, password)`, `mysql db(...)`; также `postgres.connect(url)` / `mysql.connect(url)` → `result<..., str>`. URL: `postgres://user:pass@host:5432/db`, `mysql://user:pass@host:3306/db`.
+- **SQL:** `exec(sql[, args])`, `query(sql[, args])`, `scalar(sql[, args])`, `begin/commit/rollback`, `last_id`, `close`; async — `exec_async`, `query_async`. Плейсхолдеры — `?` (для PostgreSQL компилятор SQL заменяет на `$1, $2, …`), ошибки SQL возвращаются как `Err(str)`. `query` возвращает `list<dict<str, object>>`.
+- **ORM:** `orm.table<T>(db)` → `table<T>` (`create/drop/insert/update/delete/all/where/find/count`, `name`). Имя таблицы — snake_case + `s`; поле `id` целого типа — автоинкрементный ключ. Поддерживаются примитивные поля и `str`/`char`/`bool`/числа; остальные значения хранятся текстом (`to_str`), без JSON-разбора обратно.
+- **Проверка:** `examples/15_databases` проходит `check` и `run` на SQLite (create/insert/ORM where). PostgreSQL/MySQL API компилируются, но для end-to-end нужны живые серверы. `e_sqlite3` ищется загрузчиком CLI в `runtimes/<rid>/native` рядом с DLL библиотеки.
+
 ## Kern.Lib.Di (kern.di)
 
-Тип `container` (Container/KernContainer.cs), построен на рефлексии VM (`Reflector`, `TypeInfo.CreateInstance`). Оба способа описания связей работают вместе.
+Реализована (2026-11-02). Внешняя библиотека `libs/Kern.Lib.Di`, тип `container` построен на текущих `TypeDef`/`KClassType`/`KObject` VM.
 
-- **Регистрация:** `singleton<T>()`, `singleton<T>(fun { … })`, `singleton<T>(fun(container c) { … })`, то же для `transient` и `scoped`; последним аргументом можно дать имя (`"audit"`). Интерфейс → реализация: `singleton_as<I, Impl>()` (и `transient_as`, `scoped_as`). Готовый объект: `instance<T>(v)`.
-- **Атрибуты:** `#[singleton]`, `#[transient]`, `#[scoped]` на типах + `c.scan()` (регистрирует тип под своим именем и под каждым объявленным родителем); `#[inject]`, `#[inject("имя")]`, `#[inject(optional: true)]` на свойствах и полях.
-- **Получение:** `get<T>()`, `get<T>("имя")`, `try_get<T>()` (nil), `has<T>()`, `create<T>()` (без регистрации: конструктор + `#[inject]`), `inject(obj)` (для готового объекта), `scope()` (дочерняя область), `dispose()` (вызывает `dispose()` у созданных объектов в обратном порядке; работает с `use`).
-- **Конструктор:** с `#[inject]`, иначе самый длинный из тех, чьи параметры зарегистрированы (параметры по умолчанию необязательны). Циклы определяются и дают panic с цепочкой типов.
-- Риски (не собиралось): перегрузки generic-методов с `KFunc<T>` и `KFunc<container, T>`; значение `Count`/`Has`; `TypeInfo.Constructors` для первичного конструктора; поиск `dispose` у объектов.
+- **Регистрация:** `singleton<T>()`, `singleton<T>(fun -> T { … })`, `singleton<T>(fun(container k) -> T { … })`, то же для `transient` и `scoped`; последним аргументом можно дать имя (`"audit"`). Интерфейс → реализация: `singleton_as<I, Impl>()` (и `transient_as`, `scoped_as`). Готовый объект: `instance<T>(v)`.
+- **Атрибуты:** `#[singleton]`, `#[transient]`, `#[scoped]` на типах + `c.scan()` (регистрирует тип под своим именем и под объявленными родителями); `#[inject]`, `#[inject("имя")]`, `#[inject(optional: true)]` на свойствах и полях. Это библиотечные атрибуты, поэтому компилятор по-прежнему выдаёт про них `KRN2307`-предупреждение.
+- **Получение:** `get<T>()`, `get<T>("имя")`, `try_get<T>()` (nil), `has<T>()`, `create<T>()` (конструктор + `#[inject]`), `inject(obj)`, `scope()`, `dispose()` (вызывает `dispose()` у созданных объектов в обратном порядке; работает с `use`).
+- **Конструктор:** помеченный `#[inject]`, иначе единственный/самый длинный; зависимости разрешаются по типу, цикл даёт panic с цепочкой.
+- **Проверка:** `examples/26_di` проходит `check` и `run`: фабрики, named, scan, inject, scope, dispose, try_get.
 
 ## Kern.Lib.Backend (kern.backend)
 Backend-фреймворк: роутер (`app`, `route_group`), middleware, атрибутные контроллеры, JWT/сессии/роли, WebSocket и SSE. Зависит от `Kern.Lib.Di` (контроллеры создаются через `container`). Типы: `app`, `ctx`, `res`, `chain`, `middleware`, `jwt`, `claims`, `session`, `socket`, `sse`, `work`. Std-модуль `kern.backend.server` даёт `app.serve()`. Подробности — kern.md, «Раунд 21».

@@ -16,7 +16,7 @@ fun demo_sqlite {
 	users.insert(User(0, "Аня", 25))
 	users.insert(User(0, "Борис", 31))
 	match users.where("age > ?", [26]) {
-		Ok(list) => println(f"sqlite: ${list}")
+		Ok(rows) => println(f"sqlite: ${rows}")
 		Err(e) => println(f"sqlite: ошибка ${e}")
 	}
 }
@@ -29,10 +29,10 @@ fun demo_postgres(str url) {
 			users.create()
 			users.insert(User(0, "Аня", 25))
 			db.begin()
-			db.exec("update users set age = age + ? where name = ?", [1, "Аня"])
+			db.exec("update users set age = age + ? where name = ?", <object>[1, "Аня"])
 			db.commit()
 			match users.all() {
-				Ok(list) => println(f"postgres: ${list}")
+				Ok(rows) => println(f"postgres: ${rows}")
 				Err(e) => println(f"postgres: ошибка ${e}")
 			}
 		}
