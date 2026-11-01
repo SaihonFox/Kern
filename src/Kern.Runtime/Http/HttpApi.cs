@@ -245,14 +245,40 @@ public static class HttpClientApi
 	[KernStatic]
 	[KernName("proxy")]
 	[KernReturn("T")]
-	public static KValue Proxy<T>(Interpreter interpreter, string baseUrl, [KernTypeArgs] KType[] typeArguments)
+	public static KValue Proxy<T>(Interpreter interpreter, string baseUrl, [KernTypeArgs] KType[] typeArguments) =>
+		ProxyCore(interpreter, baseUrl, null, typeArguments);
+
+	/// <summary><c>http_client.proxy&lt;Api&gt;(base, headers)</c>: клиент с заголовками.</summary>
+	[KernStatic]
+	[KernName("proxy")]
+	[KernReturn("T")]
+	public static KValue Proxy<T>(
+		Interpreter interpreter,
+		string baseUrl,
+		KValue headers,
+		[KernTypeArgs] KType[] typeArguments)
+	{
+		var parsed = headers.Ref is KDict dictionary
+			? dictionary.Items.ToDictionary(
+				pair => pair.Key.Kind == ValueKind.Str ? pair.Key.AsStr : Kern.Binding.Formatting.KernFormat.Value(pair.Key),
+				pair => pair.Value.Kind == ValueKind.Str ? pair.Value.AsStr : Kern.Binding.Formatting.KernFormat.Value(pair.Value),
+				StringComparer.OrdinalIgnoreCase)
+			: throw new KernPanic("http_client.proxy: заголовки должны быть dict<str, str>");
+		return ProxyCore(interpreter, baseUrl, parsed, typeArguments);
+	}
+
+	private static KValue ProxyCore(
+		Interpreter interpreter,
+		string baseUrl,
+		IReadOnlyDictionary<string, string>? headers,
+		KType[] typeArguments)
 	{
 		if (typeArguments.Length != 1 || typeArguments[0] is not KClassType @class)
 			throw new KernPanic("http_client.proxy: нужен один аргумент типа — абстрактный @type");
 
 		KValue[] fields = new KValue[@class.Definition.Fields.Count];
 		Array.Fill(fields, KValue.None);
-		var target = new KObject(@class, fields) { Native = new HttpProxy(baseUrl) };
+		var target = new KObject(@class, fields) { Native = new HttpProxy(baseUrl, headers) };
 		return KValue.Obj(target);
 	}
 
