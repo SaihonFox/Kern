@@ -8,6 +8,7 @@ namespace Kern.Tests.Features;
 /// <c>kern.threading</c> (spec round 24): потоки с общей памятью, канал, atomic,
 /// mutex, потокобезопасные коллекции и общая ячейка.
 /// </summary>
+[Collection("timing")]
 public sealed class ThreadingModuleTests
 {
 	[Fact]

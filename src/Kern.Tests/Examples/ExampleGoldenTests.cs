@@ -15,6 +15,7 @@ namespace Kern.Tests.Examples;
 /// Переводы строк нормализуются, хвостовые пробелы/пустые строки игнорируются.
 /// Набор пополняется по мере появления эталонов у остальных примеров.
 /// </summary>
+[Collection("timing")]
 public sealed class ExampleGoldenTests
 {
 	[Theory]

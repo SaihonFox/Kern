@@ -19,7 +19,7 @@
   when used before the declaration (else it sees earlier block variables), postfix `!` non-nil assert,
   `panic`/`exit` typed `never`, proxy dispatch (`MemberFlags.Abstract` + `IKProxyHandler` on
   `KObject.Native`). Tests `Compress/Events/Http/Threading/Tasks/Mock/ReflectionModuleTests` (+23 facts,
-  suite **298/298**); examples clean **22/31** (added 07, 11, 14, 16, 17, 22, 24, 29, 30); M7 acceptance
+  suite **303/303** with the new goldens for 07/14/22/29/30); examples clean **22/31** (added 07, 11, 14, 16, 17, 22, 24, 29, 30); M7 acceptance
   examples 07, 09, 12, 14, 18, 22, 23, 29, 30 all run end-to-end. Reflection's dynamic builder is
   intentionally minimal (no generic params); `kern.db.*`/`kern.ui`/`kern.ffi`/`kern.di`/`kern.backend`
   stay stage-2; `kern.macro` data types belong to M9.

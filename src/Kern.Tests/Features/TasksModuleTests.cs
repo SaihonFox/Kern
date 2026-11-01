@@ -5,6 +5,7 @@ using Xunit;
 namespace Kern.Tests.Features;
 
 /// <summary><c>kern.tasks</c> и <c>kern.parallel</c> (spec rounds 23/24).</summary>
+[Collection("timing")]
 public sealed class TasksModuleTests
 {
 	[Fact]

@@ -11,6 +11,7 @@ namespace Kern.Tests.Features;
 /// <c>kern.http</c> (spec rounds 5/10): оба варианта типизированного клиента проверяются
 /// на локальном loopback-сервере (без интернета).
 /// </summary>
+[Collection("timing")]
 public sealed class HttpModuleTests
 {
 	[Fact]
