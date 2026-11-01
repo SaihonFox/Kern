@@ -120,7 +120,7 @@ public sealed partial class DeclarationCollector
 
 		// 5. spec §2: конкретный type обязан реализовать оставшиеся абстрактные методы.
 		// Проверка идёт после разрешения выборов родителей (шаг 3); собственный метод или
-		// явный $[A].foo снимает требование.
+		// явный $[A]foo снимает требование.
 		AuditAbstractMembers();
 
 		var extensions = BuildExtensions();

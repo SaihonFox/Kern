@@ -98,7 +98,7 @@ Language details live in `docs/spec/kern.en.md`; this file is the index of *why*
 
 ## J. Round 27 additions (2026-10-26)
 - [FINAL] **Tail recursion:** only direct self-recursion in tail position is guaranteed; the VM must keep a constant stack for it. Mutual recursion and non-tail calls are not optimized.
-- [FINAL, 2026-11-01] **Diamond inheritance:** one shared ancestor. In `type C()[A, B]` where `B[A]`, the fields of `A` exist once in `C` and `A` is initialized once; initialization order is direct parents in declaration order with every ancestor before its descendants (topological, de-duplicated). Selectors `$[A].member` and `$[B].member` reach the same shared `A` member.
+- [FINAL, 2026-11-01] **Diamond inheritance:** one shared ancestor. In `type C()[A, B]` where `B[A]`, the fields of `A` exist once in `C` and `A` is initialized once; initialization order is direct parents in declaration order with every ancestor before its descendants (topological, de-duplicated). Selectors `$[A]member` and `$[B]member` reach the same shared `A` member.
 - [FINAL] **`with`:** `x:{ a = 1, b = 2 }` returns a copy with named fields replaced for both `unit` and `type`; the original is unchanged; nested `with` is allowed; no new keyword.
 - [FINAL] **Loop labels:** `loop@outer ...`, `stop outer`, `next outer` work for every `loop` form; labels are lexical, may target any enclosing labeled loop, and duplicates are errors.
 - [FINAL] **Generators:** a function declared `-> seq<T>` that contains `yield` is lazy; calling it returns a sequence whose body runs during iteration; `yield v` emits one element. `seq<T>` supports lazy chains.

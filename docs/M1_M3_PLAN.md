@@ -58,7 +58,7 @@ Then: one test file per feature group + `kernc check` on examples 02, 03, 05, 06
 7. `result<T,E>` type + `Ok`/`Err` constructors and methods.
 8. M3-F imports: module per file, `use path.module[items]`, `use path.module.*`, duplicate/unknown
    item diagnostics.
-9. Inheritance audit: `@type`/`~fun`, multiple inheritance `[A(x), B(y)]`, `$[A].member`,
+9. Inheritance audit: `@type`/`~fun`, multiple inheritance `[A(x), B(y)]`, `$[A]member`,
    abstract members left abstract.
 10. Extension functions/properties/operators audit and missing pieces.
 Then: tests for these five groups; re-run examples 07, 09, 12, 15, 17, 23.

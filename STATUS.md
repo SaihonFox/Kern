@@ -2,13 +2,17 @@
 
 ## Now
 - **Owner batch "доделай всё" closed (2026-11-01):** Q17 (unit! ctor writes), Q18 (`KRN2192`
-  required fields), Q19 (`$.field` rejected), Q23 (op `==` + dict hash/equality overrides),
+  required fields), Q19 (`$.field` and `$[A].member` rejected; `$[A]member` is the new form),
+  Q23 (op `==` + dict hash/equality overrides),
   Q25/B8b (`to_str`/`to_debug` convention, 04_flow golden active), Q32 (`regex_match` +
   `r.match`), plus confirmed Q20/Q21/Q22/Q24/Q26/Q27. `is` patterns landed: full match-pattern
   RHS, bindings under `&&`/then-branch, smart casts, `KRN2101` for bindings under negation/`||`.
   Tests added: `SelfAndImmutableTests`, `RequiredFieldTests`, `EqualityOperatorTests`,
-  `FormattingConventionTests`, `IsPatternTests` (7). Suite **365/365**; style clean; goldens
+  `FormattingConventionTests`, `IsPatternTests` (7). Suite **366/366**; style clean; goldens
   **21 active**; examples clean **23/31**.
+- **Q19 syntax correction (2026-11-01, owner request):** parent selection no longer uses a dot:
+  `$[A]member`, `fun $[A]foo(...)`, `str $[A]name`; `$[A].member` is `PAR003`, `$[A]` alone is
+  the parent value. Parser, diagnostics, tests and example 06 migrated; full suite 366/366.
 - **M14 `with` + `is` landed (2026-11-01):** `x:{ a = 1 }` returns a copy of a `unit`/`type`
   with instance fields replaced (parser, binder, codegen: `CloneObject` + `StoreField`);
   inherited fields and generic receiver substitution work, `unit!`/static/unknown/duplicate
@@ -17,7 +21,7 @@
   generators/`seq<T>`, tail calls, data structures, docs/CLI.
 - **M12 hardening (2026-11-01, nearly closed):** goldens for 09/18/23 plus 04 (all active),
   formatter idempotence over every example, compile-only checks for 16/17/31-mathx, CI matrix
-  enabled. Suite **365/365**; style clean; goldens **21 active**. Only CI needs an actual push
+  enabled. Suite **366/366**; style clean; goldens **21 active**. Only CI needs an actual push
   by the owner.
 - **M9 closed (2026-11-01, owner request):** reflection and macros finished. Runtime: the `type`
   value exposes `name/full_name/args/parents/fields/properties/methods/constructors/attributes`,

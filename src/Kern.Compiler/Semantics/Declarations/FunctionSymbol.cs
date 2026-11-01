@@ -89,7 +89,7 @@ public sealed class FunctionSymbol(string name, FunctionKind kind)
 	/// <summary>Цепочка конструктора <c>: $(...)</c>, сохраняется для binder'а.</summary>
 	public ConstructorChainNode? Chain { get; init; }
 
-	/// <summary>Родитель из выбора <c>fun $[A].foo</c>; null для обычного члена.</summary>
+	/// <summary>Родитель из выбора <c>fun $[A]foo</c>; null для обычного члена.</summary>
 	public string? ParentSelector { get; init; }
 
 	public SyntaxNode? Declaration { get; init; }

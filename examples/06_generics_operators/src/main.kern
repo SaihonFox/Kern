@@ -34,8 +34,8 @@ open type A { str name = "a"
 open type B { str name = "b"
 	fun hello(i32 x) -> str f"B: ${x}" }
 type C()[A, B] {
-	fun $[A].hello(i32 x) -> str
-	str $[A].name
+	fun $[A]hello(i32 x) -> str
+	str $[A]name
 }
 
 type Stack<T> {

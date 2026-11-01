@@ -26,7 +26,7 @@ public sealed record FieldSymbol(
 	/// <summary>Скрытое backing-поле автосвойства; не участвует в проверках имён.</summary>
 	public bool IsBackingField { get; init; }
 
-	/// <summary>Выбор поля родителя: <c>str $[A].name</c>.</summary>
+	/// <summary>Выбор поля родителя: <c>str $[A]name</c>.</summary>
 	public string? ParentSelector { get; init; }
 
 	public string? ParentSelectorType { get; init; }

@@ -10,7 +10,7 @@ public sealed record ParentSelectionProblem(string Code, string Message, TextSpa
 /// Члены одного типа: методы, сгруппированные по имени для перегрузок, поля, свойства,
 /// конструкторы, операторы и выборы родителей (spec §15). Наследование ленивое: таблица хранит
 /// символы прямых родителей и при первом обращении сливает их видимые экземплярные члены
-/// (slice A3a). Собственный член важнее унаследованного; выбор <c>$[A].member</c> снимает
+/// (slice A3a). Собственный член важнее унаследованного; выбор <c>$[A]member</c> снимает
 /// неоднозначность и открывает член конкретного родителя.
 /// </summary>
 public sealed class MemberTable
@@ -91,10 +91,10 @@ public sealed class MemberTable
 
 	public IReadOnlyList<FunctionSymbol> Operators { get; }
 
-	/// <summary>Выборы методов родителя <c>fun $[A].foo(...)</c>.</summary>
+	/// <summary>Выборы методов родителя <c>fun $[A]foo(...)</c>.</summary>
 	public IReadOnlyList<FunctionSymbol> ParentSelections { get; }
 
-	/// <summary>Выборы полей родителя <c>str $[A].name</c>.</summary>
+	/// <summary>Выборы полей родителя <c>str $[A]name</c>.</summary>
 	public IReadOnlyList<FieldSymbol> ParentFieldSelections { get; }
 
 	/// <summary>Синтезированная функция инициализации статических полей, если она нужна.</summary>
@@ -200,7 +200,7 @@ public sealed class MemberTable
 			var candidate = type.Members.FindField(name);
 			if (candidate is null || candidate.IsStatic)
 				continue;
-			// Одноимённые поля разных родителей неоднозначны: нужен $[A].name.
+			// Одноимённые поля разных родителей неоднозначны: нужен $[A]name.
 			if (found is not null && !ReferenceEquals(found, candidate))
 				return null;
 			found = candidate;

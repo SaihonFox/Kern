@@ -13,7 +13,7 @@
 | 03_units | `unit`/`unit!`, операторы, деструктуризация, union из unit («enum с данными»), generic unit |
 | 04_flow | `if`/`match`/`loop` как выражения, диапазоны, `stop`/`next` |
 | 05_functions | значения по умолчанию, именованные аргументы, замыкания, variadic, расширения, `op i32.*` |
-| 06_generics_operators | классы, `@type`, свойства, цепочка конструкторов `: $(...)`, `$[A].member`, generics, `typeof<T>()` |
+| 06_generics_operators | классы, `@type`, свойства, цепочка конструкторов `: $(...)`, `$[A]member`, generics, `typeof<T>()` |
 | 07_async_errors | `async`/`await`, `result`, `ret`, `panic` |
 | 08_multi_module | несколько файлов, `use`, `pub` |
 | 09_collections_json | dict, set/queue/stack (нативные, `collection<T>`), json, файлы, env |

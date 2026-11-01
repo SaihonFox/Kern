@@ -14,7 +14,7 @@ using Xunit;
 namespace Kern.Tests.Features;
 
 /// <summary>
-/// Выбор родителя в выражении (spec §2): <c>$[A].member</c> — супер-вызов в стиле
+/// Выбор родителя в выражении (spec §2): <c>$[A]member</c> — супер-вызов в стиле
 /// <c>base.</c>. Член ищется в предке <c>A</c> и вызывается статически: виртуальный
 /// диспатч по runtime-типу получателя отключён, поэтому переопределение наследника
 /// не перехватывает вызов.
@@ -30,7 +30,7 @@ public sealed class SuperCallTests
 			}
 
 			type B()[A] {
-				~fun greet() -> str f"B(${$[A].greet()})"
+				~fun greet() -> str f"B(${$[A]greet()})"
 			}
 
 			fun go() -> str {
@@ -50,11 +50,11 @@ public sealed class SuperCallTests
 			}
 
 			open type B()[A] {
-				~fun greet() -> str f"B(${$[A].greet()})"
+				~fun greet() -> str f"B(${$[A]greet()})"
 			}
 
 			type C()[B] {
-				~fun greet() -> str f"C(${$[B].greet()})"
+				~fun greet() -> str f"C(${$[B]greet()})"
 			}
 
 			fun go() -> str {
@@ -75,7 +75,7 @@ public sealed class SuperCallTests
 
 			type B()[A] {
 				str name = "b"
-				fun parent_name() -> str $[A].name
+				fun parent_name() -> str $[A]name
 				fun own_name() -> str name
 			}
 
@@ -103,7 +103,7 @@ public sealed class SuperCallTests
 
 			type B()[A] {
 				i32 v => 20
-				fun parent_value() -> i32 $[A].v
+				fun parent_value() -> i32 $[A]v
 			}
 
 			fun parent_property() -> i32 {
@@ -140,8 +140,8 @@ public sealed class SuperCallTests
 			}
 
 			type C()[A, B] {
-				fun direct_a() -> str $[A].foo()
-				fun direct_b() -> str $[B].foo()
+				fun direct_a() -> str $[A]foo()
+				fun direct_b() -> str $[B]foo()
 			}
 
 			fun go_a() -> str {
@@ -167,8 +167,8 @@ public sealed class SuperCallTests
 			}
 
 			type B()[A] {
-				~fun greet() -> str f"B(${$[A].greet()})"
-				fun plain() -> str f"${$[A].greet()}"
+				~fun greet() -> str f"B(${$[A]greet()})"
+				fun plain() -> str f"${$[A]greet()}"
 			}
 
 			fun plain_interpolation() -> str {
@@ -180,7 +180,27 @@ public sealed class SuperCallTests
 	}
 
 	[Fact]
-	public void Unknown_parent_outside_instance_and_bare_selector_report_errors()
+	public void Parent_selector_without_member_returns_the_parent_value()
+	{
+		const string source = """
+			open type A {
+				fun name() -> str "A"
+			}
+
+			type B()[A] {
+				fun parent() -> A $[A]
+			}
+
+			fun go() -> str {
+				B b()
+				b.parent().name()
+			}
+			""";
+		Assert.Equal(KValue.Str("A"), Run(source, "go"));
+	}
+
+	[Fact]
+	public void Unknown_parent_outside_instance_and_old_dotted_selector_report_errors()
 	{
 		var unknown = CompileWithDiagnostics("""
 			open type A {
@@ -188,7 +208,7 @@ public sealed class SuperCallTests
 			}
 
 			type B()[A] {
-				fun call() -> str $[Missing].greet()
+				fun call() -> str $[Missing]greet()
 			}
 
 			fun main { }
@@ -202,26 +222,26 @@ public sealed class SuperCallTests
 				fun greet() -> str "A"
 			}
 
-			fun free() -> str $[A].greet()
+			fun free() -> str $[A]greet()
 
 			fun main { }
 			""");
 		Assert.Contains(outside.Diagnostics, diagnostic => diagnostic.Code == "KRN2106" && diagnostic.IsError);
 		Assert.Null(outside.Code);
 
-		var bare = CompileWithDiagnostics("""
+		var oldDotted = CompileWithDiagnostics("""
 			open type A {
 				fun greet() -> str "A"
 			}
 
 			type B()[A] {
-				fun call() -> A $[A]
+				fun call() -> str $[A].greet()
 			}
 
 			fun main { }
 			""");
-		Assert.Contains(bare.Diagnostics, diagnostic => diagnostic.Code == "PAR003" && diagnostic.IsError);
-		Assert.Null(bare.Code);
+		Assert.Contains(oldDotted.Diagnostics, diagnostic => diagnostic.Code == "PAR003" && diagnostic.IsError);
+		Assert.Null(oldDotted.Code);
 	}
 
 	[Fact]
@@ -229,7 +249,7 @@ public sealed class SuperCallTests
 	{
 		var outcome = CompileWithDiagnostics("""
 			unit Point(i32 x) {
-				fun choose() -> i32 $[Point].x
+				fun choose() -> i32 $[Point]x
 			}
 
 			fun main { }

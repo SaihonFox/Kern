@@ -15,7 +15,7 @@ namespace Kern.Tests.Features;
 
 /// <summary>
 /// Множественное наследование (spec §2, срез A3a): два независимых родителя, выбор родителя
-/// <c>$[A].member</c> для конфликтующих членов, вызов всех родительских конструкторов,
+/// <c>$[A]member</c> для конфликтующих членов, вызов всех родительских конструкторов,
 /// upcast/<c>is</c> к каждому родителю. Ромб пока диагностируется (<c>KRN2101</c>).
 /// </summary>
 public sealed class MultipleInheritanceTests
@@ -35,8 +35,8 @@ public sealed class MultipleInheritanceTests
 			}
 
 			type C()[A, B] {
-				fun $[A].hello(i32 x) -> str
-				str $[A].name
+				fun $[A]hello(i32 x) -> str
+				str $[A]name
 			}
 
 			fun hello() -> str {
@@ -105,7 +105,7 @@ public sealed class MultipleInheritanceTests
 			open type A { str name = "a" }
 			open type B { str name = "b" }
 			type C()[A, B] {
-				str $[A].name
+				str $[A]name
 			}
 
 			fun as_a() -> str {
@@ -165,7 +165,7 @@ public sealed class MultipleInheritanceTests
 			open type A { str name = "a" }
 			type B1()[A] { }
 			type B2()[A] { }
-			type C()[B1, B2] { str $[B1].name }
+			type C()[B1, B2] { str $[B1]name }
 
 			fun name() -> str {
 				C c()

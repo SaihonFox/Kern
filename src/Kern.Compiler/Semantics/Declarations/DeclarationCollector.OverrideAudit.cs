@@ -32,7 +32,7 @@ public sealed partial class DeclarationCollector
 				{
 					if (!function.IsOverride || function.IsStatic || function.Kind != FunctionKind.Method)
 						continue;
-					// Явный выбор родителя `~fun $[A].foo` привязывается к конкретному члену
+					// Явный выбор родителя `~fun $[A]foo` привязывается к конкретному члену
 					// и не требует open: это форма реализации, а не переопределение по имени.
 					if (function.ParentSelector is not null)
 						continue;

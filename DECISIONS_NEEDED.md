@@ -4,7 +4,7 @@
 
 Owner instruction: finish every item from the third section (open questions) and implement `is` patterns. Choices below follow the recorded recommendations; all are language-visible and reflected in `docs/spec/kern.en.md` + `CHANGELOG_LANG.md`.
 
-- **Q19:** `$.field` is an error (`PAR003`); only `$field` and `$[A].member` remain. Implemented; tests `SelfAndImmutableTests`.
+- **Q19:** `$.field` and `$[A].member` are errors (`PAR003`); only `$field`, `$[A]member` and `$[A]` (parent value) remain. Implemented; tests `SelfAndImmutableTests`, `SuperCallTests`.
 - **Q20:** option 1 (C#-like `async fun f() -> T` returns `task<T>`). Already implemented; confirmed.
 - **Q17:** option 1 - `unit!` fields may be written in the type's constructor and `init` accessor; writes after construction stay forbidden (`KRN2105`). Implemented; tests `SelfAndImmutableTests`.
 - **Q18:** option 1 - required `!` fields are checked in the root constructor on every path; violation is `KRN2192`. Implemented; tests `RequiredFieldTests`.
@@ -47,7 +47,7 @@ Recorded as given; the corresponding code/spec work is done in its own slice, no
 
 ## Decided - owner answers (2026-10-27)
 
-- **Q19 -> decided:** the receiver `$` has exactly one member-access spelling: `$field` (`$x = 5`, `$x + 1`, `$ * 2`). The long form `$.field` is an **error** (`$.x = 5` must not compile). Spec §1 line 34 currently documents both forms ("сокращённо: `$field`, полная: `$.field`") - that sentence must become short-form-only, with a Russian diagnostic for `$.` when this lands. Change scope when implemented: parser/AST (`$.` rejection), spec line 34 and any `$.` samples, `CHANGELOG_LANG.md`, examples (already short-form only: 0 occurrences of `$.` in `examples/`), existing tests (already use `$field`). The parent-selection form from spec §2 (`fun $[A].foo(...)`, `$[A].member`) is a qualified name rather than a `this.` access, so it is assumed to keep its dot - please correct that reading if it is wrong. **Implemented 2026-11-01: `$.field` is a `PAR003` syntax error; `$[A].member` still works. Tests `SelfAndImmutableTests`.**
+- **Q19 -> decided:** the receiver `$` has exactly one member-access spelling: `$field` (`$x = 5`, `$x + 1`, `$ * 2`). The long form `$.field` is an **error** (`$.x = 5` must not compile). **2026-11-01 owner correction:** parent selection is also written without a dot: `$[A]member`, `fun $[A]foo(...)`, `str $[A]name`; the old `$[A].member` form is a `PAR003` error, while `$[A]` alone remains the parent value. Change scope: parser/AST, spec §1/§2, examples, tests, diagnostics. **Implemented 2026-11-01: `$.field` and `$[A].member` are `PAR003`; `$field`, `$[A]member` and `$[A]` work. Tests `SelfAndImmutableTests`, `SuperCallTests`.**
 
 ## Decided — owner additions (2026-10-27, batch "language polish")
 

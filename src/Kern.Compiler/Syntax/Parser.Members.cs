@@ -252,7 +252,12 @@ public sealed partial class Parser
 		Consume(TokenKind.LeftBracket, "Ожидалась [ после $");
 		var parentType = Consume(TokenKind.Identifier, "Ожидалось имя родительского типа").Text;
 		Consume(TokenKind.RightBracket, "Ожидалась ] после имени родителя");
-		Consume(TokenKind.Dot, "Ожидалась точка после выбора родителя");
+		// Q19: `$[A]member` — без точки; старую `$[A]member` отклоняем.
+		if (Current.Kind == TokenKind.Dot)
+		{
+			Report("PAR003", "Точка после $[A] запрещена: используйте $[A]member", Current.Span);
+			Advance();
+		}
 		return parentType;
 	}
 

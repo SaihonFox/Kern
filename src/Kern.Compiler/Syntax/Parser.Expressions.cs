@@ -331,16 +331,29 @@ public sealed partial class Parser
 		if (Current.Kind == TokenKind.Dollar)
 		{
 			var dollar = Advance();
-			// `$[A].member` — выбор родителя в выражении (spec §2): член после точки
-			// разбирается обычным постфиксным путём.
+			// `$[A]member` — выбор родителя в выражении (spec §2, Q19): член идёт сразу
+			// после `]`, без точки; старую `$[A]member` отклоняем.
 			if (Current.Kind == TokenKind.LeftBracket)
 			{
 				Advance();
 				var parent = Consume(TokenKind.Identifier, "Ожидалось имя родительского типа после $[");
 				Consume(TokenKind.RightBracket, "Ожидалась ] после имени родителя");
 				var superSpan = new TextSpan(dollar.Span.Start, Previous.Span.End - dollar.Span.Start);
-				if (Current.Kind != TokenKind.Dot)
-					Report("PAR003", "После выбора родителя ожидалась точка и имя члена", superSpan);
+				if (Current.Kind == TokenKind.Dot)
+				{
+					Report("PAR003", "Точка после $[A] запрещена: используйте $[A]member", Current.Span);
+					Advance();
+				}
+				if (Current.Kind == TokenKind.Identifier &&
+					!HasNewlineBetween(Previous.Span.End, Current.Span.Start))
+				{
+					var member = Advance();
+					return new MemberAccessExpression(
+						new SuperExpression(parent.Text, superSpan),
+						member.Text,
+						false,
+						new TextSpan(dollar.Span.Start, member.Span.End - dollar.Span.Start));
+				}
 				return new SuperExpression(parent.Text, superSpan);
 			}
 			// Q19: у приёмника только короткая форма `$field`; `$.field` — ошибка.
