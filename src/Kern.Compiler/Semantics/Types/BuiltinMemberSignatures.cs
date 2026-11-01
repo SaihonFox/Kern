@@ -29,8 +29,21 @@ internal static class BuiltinMemberSignatures
 				ResolveSequence(receiver, receiver.Arguments[0], member, argumentTypes, isArray: true, out error),
 			BuiltinGenericKind.Dict when receiver.Arguments.Count == 2 =>
 				ResolveDict(receiver.Arguments[0], receiver.Arguments[1], member, out error),
+			BuiltinGenericKind.Set when receiver.Arguments.Count == 1 =>
+				ResolveSet(receiver.Arguments[0], member, out error),
 			_ => null
 		};
+	}
+
+	/// <summary>
+	/// Тип параметра нативного члена, который мост описывает как <c>object</c>, но по смыслу
+	/// это элемент контейнера: <c>set&lt;T&gt;.add/remove/contains(T)</c>.
+	/// </summary>
+	public static KernType? ElementParameterType(BuiltinGenericType receiver, string member)
+	{
+		if (receiver.BuiltinKind != BuiltinGenericKind.Set || receiver.Arguments.Count != 1)
+			return null;
+		return member is "add" or "remove" or "contains" ? receiver.Arguments[0] : null;
 	}
 
 	private static KernType? ResolveSequence(
@@ -79,6 +92,20 @@ internal static class BuiltinMemberSignatures
 			default:
 				return null;
 		}
+	}
+
+	/// <summary>
+	/// <c>set&lt;T&gt;</c>: <c>to_list() -&gt; list&lt;T&gt;</c>; <c>len</c>/<c>is_empty</c>
+	/// и предикаты <c>add/remove/contains</c> описываются мостом (int/bool/void).
+	/// </summary>
+	private static KernType? ResolveSet(KernType element, string member, out string? error)
+	{
+		error = null;
+		return member switch
+		{
+			"to_list" => new BuiltinGenericType(BuiltinGenericKind.List, [element]),
+			_ => null
+		};
 	}
 
 	private static KernType? ResolveDict(

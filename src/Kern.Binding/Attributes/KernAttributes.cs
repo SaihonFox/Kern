@@ -14,6 +14,13 @@ public sealed class KernTypeAttribute(string name) : Attribute
 
 	/// <summary>Тип встроенный: его имя нельзя переопределять обычным <c>type</c>.</summary>
 	public bool IsBuiltin { get; init; }
+
+	/// <summary>
+	/// Арность generic-параметров Kern-типа (<c>set&lt;T&gt;</c> — 1). Нужна не-generic
+	/// C#-классам-дескрипторам: члены всё равно принимают <c>KValue</c>/<c>KNativeBox</c>,
+	/// а generic-аргументы подставляет компилятор (spec §16).
+	/// </summary>
+	public int GenericArity { get; init; }
 }
 
 /// <summary>Явное Kern-имя члена/параметра; по умолчанию C#-имя переводится в <c>snake_case</c>.</summary>

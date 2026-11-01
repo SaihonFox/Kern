@@ -26,6 +26,9 @@ public sealed partial class Binder
 			BuiltinGenericType { BuiltinKind: BuiltinGenericKind.Dict } dictionary
 				when dictionary.Arguments.Count == 2 =>
 				CallContains(right, "contains_key", left, dictionary.Arguments[0], span),
+			BuiltinGenericType { BuiltinKind: BuiltinGenericKind.Set } set
+				when set.Arguments.Count == 1 =>
+				CallContains(right, "contains", left, set.Arguments[0], span),
 			PrimitiveType { Primitive: PrimitiveKind.Str } =>
 				BindStringMembership(right, left, span),
 			_ => null,
@@ -90,9 +93,12 @@ public sealed partial class Binder
 				continue;
 			function = native;
 			// Приёмник у нативных членов может входить в список параметров — берём последний;
-			// generic-параметр встроенного типа заменяем типом элемента/ключа.
+			// generic-параметр встроенного типа заменяем типом элемента/ключа. `object` —
+			// заглушка моста для элемента контейнера (`set<T>.contains`), тоже заменяется.
 			var parameter = native.Parameters[^1].Type;
-			target = parameter is TypeParameterType ? itemType : parameter;
+			target = parameter is TypeParameterType or PrimitiveType { Primitive: PrimitiveKind.Object }
+				? itemType
+				: parameter;
 			break;
 		}
 

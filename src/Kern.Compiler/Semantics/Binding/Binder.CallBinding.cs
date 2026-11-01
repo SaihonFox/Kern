@@ -13,30 +13,31 @@ namespace Kern.Compiler.Semantics.Binding;
 
 public sealed partial class Binder
 {
-	private BoundExpression BindCall(CallExpression call)
+	private BoundExpression BindCall(CallExpression call, KernType? hint = null)
 	{
 		var arguments = new CallArgumentNode[call.Arguments.Count];
 		for (var index = 0; index < call.Arguments.Count; index++)
 			arguments[index] = new CallArgumentNode(null, call.Arguments[index], call.Arguments[index].Span);
-		return BindCall(call.Target, arguments, [], call.Span);
+		return BindCall(call.Target, arguments, [], call.Span, hint);
 	}
 
 	private BoundExpression BindStructuredCall(StructuredCallExpression call) =>
 		BindCall(call.Target, call.Arguments, call.TypeArguments, call.Span);
 
-	private BoundExpression BindGenericCall(GenericCallExpression call)
+	private BoundExpression BindGenericCall(GenericCallExpression call, KernType? hint = null)
 	{
 		var arguments = new CallArgumentNode[call.Arguments.Count];
 		for (var index = 0; index < call.Arguments.Count; index++)
 			arguments[index] = new CallArgumentNode(null, call.Arguments[index], call.Arguments[index].Span);
-		return BindCall(call.Target, arguments, call.TypeArguments, call.Span);
+		return BindCall(call.Target, arguments, call.TypeArguments, call.Span, hint);
 	}
 
 	private BoundExpression BindCall(
 		ExpressionNode target,
 		IReadOnlyList<CallArgumentNode> arguments,
 		IReadOnlyList<TypeSyntax> typeArguments,
-		TextSpan span)
+		TextSpan span,
+		KernType? hint = null)
 	{
 		if (target is MemberAccessExpression member)
 		{
@@ -60,6 +61,14 @@ public sealed partial class Binder
 		// Локальная или захваченная переменная функционального типа важнее одноимённой функции.
 		if (_scope.Lookup(identifier.Name) is { } variable && variable.Type is FunctionType)
 			return BindValueCall(identifier, variable, arguments, typeArguments, span);
+
+		// `set<i32> s()`: targetless-вызов имени generic-нативного контейнера, тип даёт
+		// подсказка объявления (spec §16). Вызов без аргументов и без явных generic-аргументов.
+		if (arguments.Count == 0 && typeArguments.Count == 0 &&
+			TryBindContainerCreation(identifier.Name, hint, span) is { } container)
+		{
+			return container;
+		}
 
 		// Рефлексия времени компиляции (spec §17/§18): `typeof<T>()`/`name_of<T>()`.
 		// Пользовательская функция с тем же именем важнее, если аргументов-типов нет.
@@ -94,6 +103,31 @@ public sealed partial class Binder
 		}
 
 		return BindNamedCall(identifier.Name, arguments, typeArguments, span);
+	}
+
+	/// <summary>
+	/// Создание generic-нативного контейнера по подсказке типа (<c>set&lt;i32&gt; s()</c>):
+	/// находит <c>[KernCtor]</c>-фабрику с тем же именем и типизирует вызов подсказкой,
+	/// потому что мост возвращает <c>object</c>, а generic-аргумент знает только binder.
+	/// </summary>
+	private BoundExpression? TryBindContainerCreation(string name, KernType? hint, TextSpan span)
+	{
+		bool matches = hint switch
+		{
+			BuiltinGenericType builtin => name == BuiltinGenericType.GetCanonicalName(builtin.BuiltinKind),
+			ClassType { Symbol.Kind: Semantics.Types.SymbolKind.Native } native => name == native.Symbol.Name,
+			_ => false,
+		};
+		if (!matches)
+			return null;
+
+		foreach (var function in VisibleFunctions(name))
+		{
+			if (function.Kind == FunctionKind.Constructor && function.NativeSelfType is null)
+				return new BoundCallExpression(function, [], hint!, span);
+		}
+
+		return null;
 	}
 
 	/// <summary>Создание <c>Ok(value)</c>/<c>Err(error)</c> для встроенного result (spec §16).</summary>
@@ -231,6 +265,10 @@ public sealed partial class Binder
 		}
 
 		var ordered = new List<BoundExpression>(resolution.Arguments.Count);
+		// Мост `set<T>` описывает элемент как object; строгий T даёт binder (spec §16).
+		KernType? nativeElement = fromNative && receiver.Type is BuiltinGenericType nativeReceiver
+			? BuiltinMemberSignatures.ElementParameterType(nativeReceiver, member.Member)
+			: null;
 		foreach (var argument in resolution.Arguments)
 		{
 			if (argument.Argument is null)
@@ -246,6 +284,13 @@ public sealed partial class Binder
 			}
 
 			var expression = byCallArgument[argument.Argument];
+			if (nativeElement is not null &&
+				argument.Parameter.Type is PrimitiveType { Primitive: PrimitiveKind.Object })
+			{
+				ordered.Add(Convert(expression, nativeElement, expression.Span));
+				continue;
+			}
+
 			ordered.Add(ConvertWithConversion(expression, argument.Parameter.Type, argument.Conversion, expression.Span));
 		}
 

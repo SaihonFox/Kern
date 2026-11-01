@@ -162,8 +162,8 @@ public sealed class NativeCatalog
 						Name = typeAttribute.Name,
 						ClrType = type,
 						IsBuiltin = typeAttribute.IsBuiltin,
-						GenericArity = BuiltinArity(typeAttribute),
-						GenericParameterNames = BuiltinTypeParameters(typeAttribute),
+						GenericArity = NativeArity(typeAttribute),
+						GenericParameterNames = NativeTypeParameters(typeAttribute),
 						Members = members,
 					});
 				}
@@ -271,11 +271,48 @@ public sealed class NativeCatalog
 				continue;
 			KernMemberAttribute? member = method.GetCustomAttribute<KernMemberAttribute>();
 			KernPropertyAttribute? property = method.GetCustomAttribute<KernPropertyAttribute>();
-			if (member is null && property is null)
+			KernCtorAttribute? constructor = method.GetCustomAttribute<KernCtorAttribute>();
+			if (member is null && property is null && constructor is null)
 				continue;
 			if (method.IsGenericMethodDefinition)
 			{
 				diagnostics.Add($"метод '{type.Name}.{method.Name}' generic; для встроенных типов используйте KValue-сигнатуры");
+				continue;
+			}
+
+			// `[KernCtor]` на статическом методе — фабрика generic-контейнера (`set<T>()`):
+			// параметра self нет, вызов targetless, тип результата задаёт подсказка binder'а.
+			if (constructor is not null)
+			{
+				NativeParameterDescriptor[]? factoryParameters = MapParameters(
+					method, typeParameters, skipFirst: 0, diagnostics, out _);
+				if (factoryParameters is null)
+					continue;
+				string factoryReturn = MapReturn(method, typeParameters, diagnostics);
+				if (factoryReturn.Length == 0)
+					continue;
+
+				string factoryName = KernName(method);
+				string factoryKey = NativeKey.Create(
+					attribute.Name,
+					factoryName,
+					NativeMemberKind.Constructor,
+					isStatic: true,
+					[.. factoryParameters.Select(parameter => parameter.Type)]);
+				functions.Add(new NativeFunctionDescriptor
+				{
+					Name = factoryName,
+					Owner = attribute.Name,
+					OwnerIsModule = false,
+					Kind = NativeMemberKind.Constructor,
+					IsStatic = true,
+					ReturnType = factoryReturn,
+					Parameters = factoryParameters,
+					KeyTypes = [.. factoryParameters.Select(parameter => parameter.Type)],
+					GenericParameters = typeParameters,
+					NativeKey = factoryKey,
+					Method = method,
+				});
 				continue;
 			}
 
@@ -393,12 +430,35 @@ public sealed class NativeCatalog
 		_ => 0,
 	};
 
+	/// <summary>
+	/// Арность нативного типа: явная <see cref="KernTypeAttribute.GenericArity"/> важнее
+	/// таблицы встроенных имён, иначе — историческая таблица (<c>list</c>/<c>dict</c>).
+	/// </summary>
+	private static int NativeArity(KernTypeAttribute attribute) =>
+		Math.Max(attribute.GenericArity, BuiltinArity(attribute));
+
 	private static List<string> BuiltinTypeParameters(KernTypeAttribute attribute) => attribute.Name switch
 	{
 		"list" or "array" or "set" => ["T"],
 		"dict" => ["K", "V"],
 		_ => [],
 	};
+
+	/// <summary>
+	/// Имена generic-параметров нативного типа: у встроенных контейнеров они исторические
+	/// (<c>T</c>, <c>K</c>/<c>V</c>), у новых native-типов — <c>T</c> или <c>T1..Tn</c>.
+	/// </summary>
+	private static List<string> NativeTypeParameters(KernTypeAttribute attribute)
+	{
+		List<string> builtin = BuiltinTypeParameters(attribute);
+		if (builtin.Count > 0)
+			return builtin;
+
+		var names = new List<string>(attribute.GenericArity);
+		for (var index = 0; index < attribute.GenericArity; index++)
+			names.Add(attribute.GenericArity == 1 ? "T" : $"T{index + 1}");
+		return names;
+	}
 
 	private static string FormatTypeArguments(IReadOnlyList<string> arguments) =>
 		arguments.Count == 0 ? "" : $"<{string.Join(",", arguments)}>";

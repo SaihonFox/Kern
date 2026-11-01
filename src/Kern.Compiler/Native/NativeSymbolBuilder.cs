@@ -110,7 +110,19 @@ public static class NativeSymbolBuilder
 
 			if (descriptor.GenericArity > 0)
 			{
-				problems.Add($"нативный тип '{descriptor.Name}': generic-параметры пока не поддержаны");
+				// Generic-нативные контейнеры (`set<T>`, `queue<T>`): символ типа с именами
+				// параметров; члены регистрируются в NativeFunctions с SelfType содержащим T,
+				// а подстановку аргументов делает binder (spec §16).
+				var names = descriptor.GenericParameterNames.Count == descriptor.GenericArity
+					? descriptor.GenericParameterNames
+					: DefaultGenericNames(descriptor.GenericArity);
+				types[descriptor.Name] = new TypeSymbol
+				{
+					Name = descriptor.Name,
+					Kind = SymbolKind.Native,
+					GenericParameterNames = [.. names],
+					GenericParameters = [.. names.Select(name => new TypeParameterType(name, []))],
+				};
 				continue;
 			}
 
@@ -121,6 +133,9 @@ public static class NativeSymbolBuilder
 			};
 		}
 	}
+
+	private static IReadOnlyList<string> DefaultGenericNames(int arity) =>
+		arity == 1 ? ["T"] : [.. Enumerable.Range(1, arity).Select(index => $"T{index}")];
 
 	private static bool IsBuiltinName(string name) =>
 		TypeCatalog.TryGetPrimitiveKind(name, out _) || TypeCatalog.TryGetBuiltin(name, out _);
