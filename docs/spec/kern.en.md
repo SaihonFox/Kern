@@ -1064,7 +1064,7 @@ fun main {
 -   **match:** ветка пишется `pattern [if guard] => body`; старое `->` — ошибка с подсказкой.
 -   **loop-переменные:** `loop i32 i in 0..5` и `loop var i in 0..5` объявляют переменную; `loop i in 0..5` без объявления присваивает уже существующей (необъявленное имя — ошибка). Кортежи: `loop (str k, i32 v) in ages`, `loop (var k, var v) in ages`.
 -   **Повтор без переменной:** `loop 0..5 body` выполняется 5 раз.
--   **`kern.time`:** `time` (now, utc_now, unix, sleep…), `duration`, `datetime`, `stopwatch`; арифметика `datetime ± duration`, `datetime - datetime`, сравнения. Пример: `examples/18_time`.
+-   **`kern.time`:** `time` (now, utc_now, unix, sleep…), `duration`, `datetime`, `stopwatch`; арифметика `datetime ± duration`, `datetime - datetime`, сравнения. Пример: `examples/18_time`. **Реализовано (2026-11-01):** `duration.from_ms/from_seconds/from_minutes/from_hours/parse`, `total_ms/seconds/minutes/hours/days`, `+ - *`, сравнения, печать `1m 30s`/`1m 30.5s`/`1d 12h`; `datetime.of/now`, поля, `weekday` (ISO), `format(pattern)`, `add_months`, ISO `to_str`, `+ duration`, разность и сравнения; `stopwatch()` (запускается сразу), `elapsed`, `start/stop/reset`; `time.sleep/measure/unix_ms/unix_s`. Нативные статические члены (`duration.from_ms`) и нативные операторы работают через `[KernStatic]`/`[KernMember(Operator = …)]`; `time.sleep(...)` — квалифицированный вызов нативного модуля.
 -   **Время работы:** `kernc run --time` или `KERN_TIME=1` печатает длительность выполнения программы.
 -   **Итерация:** асинхронный протокол переименован `async_stream<T>` → `async_iter<T>` (парный к `iter<T>`).
 -   **`<=>`:** для decimal/bigint добавлен `<=>`; `> < >= <=` выражаются через него.

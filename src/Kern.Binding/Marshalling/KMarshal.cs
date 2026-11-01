@@ -137,6 +137,11 @@ public static class KMarshal
 		if (value.Ref is not null && target.IsInstanceOfType(value.Ref))
 			return value.Ref;
 
+		// Handle-тип хранится в KNativeBox: нативный член принимает сам CLR-объект
+		// (`KernDuration`, `KernDateTime`), а не обёртку (spec §12.4).
+		if (value.Ref is KNativeBox nativeBox && target.IsInstanceOfType(nativeBox.Value))
+			return nativeBox.Value;
+
 		throw new KernPanic($"нельзя преобразовать {value.TypeName} в CLR-тип {target.Name}");
 	}
 

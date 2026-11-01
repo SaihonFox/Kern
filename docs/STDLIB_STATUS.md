@@ -14,10 +14,11 @@
 | `kern.collections` | нативные `list`/`array`/`dict` (включая `first/last/get/set/map/filter/keys/values/get_or`), члены `str`/`char`; generic-контейнеры `set<T>` (add/remove/contains/clear/len/is_empty/to_list), `queue<T>` (enqueue/dequeue/peek/clear/len/is_empty/to_list), `stack<T>` (push/pop/peek/clear/len/is_empty/to_list) | нет `observable`, нет `collection<T>`-протокола/адаптеров |
 | `str`/`char` (встроенные) | `len`, `upper`, `lower`, `trim*`, `contains`, `starts_with`, `ends_with`, `index_of`, `substring`, `replace`, `split`, `chars`, `lines`, `join`, `pad_left/right`, `repeat`, `to_str`, `to_i32/to_i64/to_f64/to_bool` | `str` пока не все члены из старых примеров |
 | `kern.regex` | `regex(pattern[, flags])` → `regex` (panic по-русски на неверный шаблон/флаг), `try_new(pattern[, flags]) -> regex?`, члены `is_match/find/find_all/replace/split`, свойства `pattern/options`; `x"…"`/`fx"…"` lowering реализован | тип результата `match` не реализован (Q32); `regex.try_new(…)` пока только как `try_new(…)` |
+| `kern.time` | `duration` (parse/from_*/total_*/арифметика/сравнения/печать), `datetime` (of/now/поля/weekday/format/add_months/±/сравнения), `stopwatch` (запускается сразу), `time.sleep/measure/unix_*` | нативные параметры по умолчанию не поддерживаются: `datetime.of` требует все 6 аргументов |
 
 ## Отсутствует (M7 и stage-2)
 
-`kern.json`, `kern.env`, `kern.time`, `kern.path`, `kern.process`, `kern.cli`, `kern.config`, `kern.log`, `kern.ansi`,
+`kern.json`, `kern.env`, `kern.path`, `kern.process`, `kern.cli`, `kern.config`, `kern.log`, `kern.ansi`,
 `kern.csv`, `kern.yaml`, `kern.toml`, `kern.ini`, `kern.xml`, `kern.uuid`, `kern.crypto`, `kern.compress`,
 `kern.net`, `kern.http`, `kern.server`, `kern.web`, `kern.db.*`, `kern.threading`, `kern.tasks`, `kern.pipes`,
 `kern.events`, `kern.reflection`, `kern.macro`, `kern.di`, `kern.build`, `kern.ffi`, `kern.transpile`, `kern.ui`,
@@ -36,7 +37,7 @@
 | 15_databases | неизвестные функции | `kern.db.*` |
 | 16_mocks | `mock` | `kern.mock`/proxy (M9) |
 | 17_http_clients | `#[get]` и `http_client` | `kern.http` + атрибуты HTTP |
-| 18_time | `time` | `kern.time` |
+| 18_time | ✅ clean+run 2026-11-01 | — |
 | 19_gui | stage-2 UI | вне первого прохода |
 | 20_ffi | stage-2 FFI | вне первого прохода |
 | 21_syntax_round15 | ✅ clean+run 2026-11-01 | — |

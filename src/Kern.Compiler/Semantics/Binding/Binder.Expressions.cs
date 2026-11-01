@@ -283,6 +283,15 @@ public sealed partial class Binder
 				return tupleOrder;
 		}
 
+		// Нативные операторы (`duration`, `datetime`) важнее протокола `op compare`:
+		// они объявлены через `[KernMember(Operator = …)]` и возвращают bool.
+		if ((left.Type is ClassType { Symbol.Kind: Semantics.Types.SymbolKind.Native } ||
+			 right.Type is ClassType { Symbol.Kind: Semantics.Types.SymbolKind.Native }) &&
+			TryBindNativeOperator(symbol, left, right, span) is { } earlyNative)
+		{
+			return earlyNative;
+		}
+
 		if (left.Type.Equals(right.Type))
 		{
 			var comparable = IsNumeric(left.Type) || IsBool(left.Type) ||
@@ -335,6 +344,11 @@ public sealed partial class Binder
 				ConvertWithConversion(right, common, span),
 				PrimitiveType.Bool,
 				span);
+
+		// `==`/`!=`/`<`/`<=`/`>`/`>=` нативного типа (`duration`, `datetime`): оператор
+		// объявлен через `[KernMember(Operator = …)]` и возвращает bool (spec §12).
+		if (TryBindNativeOperator(symbol, left, right, span) is { } nativeComparison)
+			return nativeComparison;
 
 		return Incompatible(symbol, left, right, span);
 	}
@@ -471,6 +485,21 @@ public sealed partial class Binder
 
 	private BoundExpression BindMemberAccess(MemberAccessExpression member)
 	{
+		// `env.os`: свойство нативного модуля (`[KernModule]`), а не члена значения.
+		if (member.Target is IdentifierExpression moduleTarget)
+		{
+			foreach (var native in _module.NativeFunctions)
+			{
+				if (NativeModuleMatches(native.NativeModuleName, moduleTarget.Name) &&
+					native.Name == member.Member &&
+					native.Kind == FunctionKind.Getter &&
+					native.ReturnType is not null)
+				{
+					return new BoundCallExpression(native, [], native.ReturnType, member.Span, null);
+				}
+			}
+		}
+
 		// `T.field`: приёмник — имя типа, а не выражение (M3-D3b).
 		if (TypeReceiverOf(member.Target) is { } staticType)
 			return BindStaticMemberAccess(staticType, member);

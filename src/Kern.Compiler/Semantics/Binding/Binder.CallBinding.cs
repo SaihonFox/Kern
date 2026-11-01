@@ -41,6 +41,16 @@ public sealed partial class Binder
 	{
 		if (target is MemberAccessExpression member)
 		{
+			// `time.sleep(...)`: имя нативного модуля (`[KernModule]`), а не значение.
+			if (member.Target is IdentifierExpression moduleTarget &&
+				VisibleFunctions(member.Member).Any(function => NativeModuleMatches(function.NativeModuleName, moduleTarget.Name)))
+			{
+				var moduleFunctions = VisibleFunctions(member.Member)
+					.Where(function => NativeModuleMatches(function.NativeModuleName, moduleTarget.Name))
+					.ToList();
+				return BindTargetlessCall(moduleFunctions, member.Member, arguments, typeArguments, span);
+			}
+
 			// `T.method(...)`: приёмник — имя типа, а не выражение (M3-D3b). Локальная
 			// переменная с тем же именем важнее типа — это решает TypeReceiverOf.
 			return TypeReceiverOf(member.Target) is { } staticType

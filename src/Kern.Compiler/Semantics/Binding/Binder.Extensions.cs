@@ -71,6 +71,43 @@ public sealed partial class Binder
 			}
 		}
 
+		return TryBindNativeOperator(symbol, left, right, span);
+	}
+
+	/// <summary>
+	/// Оператор нативного типа (<c>[KernMember(Operator = "+")]</c> в <c>Kern.Runtime</c>):
+	/// <c>duration + duration</c>, <c>duration * i64</c>, <c>datetime - datetime</c>. Приёмник
+	/// может неявно приводиться к типу self (например, <c>i32 * duration</c> → self <c>i64</c>).
+	/// </summary>
+	private BoundExpression? TryBindNativeOperator(
+		string symbol,
+		BoundExpression left,
+		BoundExpression right,
+		TextSpan span)
+	{
+		if (_module.NativeFunctions.Count == 0)
+			return null;
+
+		foreach (FunctionSymbol function in _module.NativeFunctions)
+		{
+			if (function.Kind != FunctionKind.Operator ||
+				function.OpSymbol != symbol ||
+				function.NativeSelfType is null ||
+				function.Parameters.Count != 1)
+				continue;
+
+			var receiver = left;
+			if (!NativeReceiverMatches(function.NativeSelfType, left.Type))
+			{
+				if (!Conversions.TryClassify(left.Type, function.NativeSelfType, out var receiverConversion))
+					continue;
+				receiver = ConvertWithConversion(left, function.NativeSelfType, receiverConversion, left.Span);
+			}
+
+			if (TryBindOperatorCall(function, receiver, right, span) is { } call)
+				return call;
+		}
+
 		return null;
 	}
 

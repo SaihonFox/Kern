@@ -34,6 +34,15 @@ public sealed class FunctionSymbol(string name, FunctionKind kind)
 	/// </summary>
 	public KernType? NativeSelfType { get; init; }
 
+	/// <summary>
+	/// Тип-владелец статического нативного члена (<c>datetime.now</c>): вызывается через имя
+	/// типа, приёмника-экземпляра нет. У экземплярных нативных членов null.
+	/// </summary>
+	public KernType? NativeOwnerType { get; init; }
+
+	/// <summary>Имя нативного модуля для члена `[KernModule]` (<c>kern.time</c>), иначе null.</summary>
+	public string? NativeModuleName { get; init; }
+
 	/// <summary>Ключ нативной привязки; null у обычной функции (spec §12).</summary>
 	public string? NativeKey { get; init; }
 

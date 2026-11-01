@@ -27,9 +27,18 @@ public sealed class NativeFunctionDescriptor
 
 	public bool IsStatic { get; init; } = true;
 
+	/// <summary>
+	/// Статический член Kern-типа (<c>[KernStatic]</c>): вызывается через имя типа
+	/// (<c>datetime.now()</c>, <c>duration.from_ms(1)</c>), приёмника-экземпляра нет.
+	/// </summary>
+	public bool IsStaticMember { get; init; }
+
+	/// <summary>Символ оператора (<c>+</c>, <c>&lt;</c>, …) для <c>[KernMember(Operator = …)]</c>.</summary>
+	public string? Operator { get; init; }
+
 	public required string ReturnType { get; init; }
 
-	/// <summary>Тип получателя для членов; null для top-level функций.</summary>
+	/// <summary>Тип получателя для членов; null для top-level функций и статических членов.</summary>
 	public string? SelfType { get; init; }
 
 	/// <summary>Параметры Kern-сигнатуры без `self`.</summary>
@@ -211,7 +220,8 @@ public sealed class NativeCatalog
 			KernMemberAttribute? member = method.GetCustomAttribute<KernMemberAttribute>();
 			KernPropertyAttribute? property = method.GetCustomAttribute<KernPropertyAttribute>();
 			KernCtorAttribute? constructor = method.GetCustomAttribute<KernCtorAttribute>();
-			if (member is null && property is null && constructor is null)
+			KernStaticAttribute? staticAttribute = method.GetCustomAttribute<KernStaticAttribute>();
+			if (member is null && property is null && constructor is null && staticAttribute is null)
 				continue;
 			if (method.IsGenericMethodDefinition)
 			{
@@ -274,7 +284,8 @@ public sealed class NativeCatalog
 			KernMemberAttribute? member = method.GetCustomAttribute<KernMemberAttribute>();
 			KernPropertyAttribute? property = method.GetCustomAttribute<KernPropertyAttribute>();
 			KernCtorAttribute? constructor = method.GetCustomAttribute<KernCtorAttribute>();
-			if (member is null && property is null && constructor is null)
+			KernStaticAttribute? staticAttribute = method.GetCustomAttribute<KernStaticAttribute>();
+			if (member is null && property is null && constructor is null && staticAttribute is null)
 				continue;
 			if (method.IsGenericMethodDefinition)
 			{
@@ -318,6 +329,43 @@ public sealed class NativeCatalog
 				continue;
 			}
 
+			// `[KernStatic]` на методе статического класса — статический член типа
+			// (`time.sleep`, `duration.from_ms`): приёмника-экземпляра нет, первый параметр —
+			// первый аргумент вызова (spec §16, «нативные статические типы»).
+			if (method.GetCustomAttribute<KernStaticAttribute>() is not null)
+			{
+				NativeParameterDescriptor[]? staticParameters = MapParameters(
+					method, typeParameters, skipFirst: 0, diagnostics, out _);
+				if (staticParameters is null)
+					continue;
+				string staticReturn = MapReturn(method, typeParameters, diagnostics);
+				if (staticReturn.Length == 0)
+					continue;
+
+				NativeMemberKind staticKind = property is null
+					? NativeMemberKind.Method
+					: staticParameters.Length == 0 ? NativeMemberKind.PropertyGet : NativeMemberKind.PropertySet;
+				string staticName = KernName(method);
+				string[] staticKeyTypes = [.. staticParameters.Select(parameter => EraseGenerics(parameter.Type, typeParameters))];
+				string staticKey = NativeKey.Create(attribute.Name, staticName, staticKind, isStatic: true, staticKeyTypes);
+				functions.Add(new NativeFunctionDescriptor
+				{
+					Name = staticName,
+					Owner = attribute.Name,
+					OwnerIsModule = false,
+					Kind = staticKind,
+					IsStatic = true,
+					IsStaticMember = true,
+					ReturnType = staticReturn,
+					Parameters = staticParameters,
+					KeyTypes = staticKeyTypes,
+					GenericParameters = typeParameters,
+					NativeKey = staticKey,
+					Method = method,
+				});
+				continue;
+			}
+
 			NativeParameterDescriptor[]? parameters = MapParameters(
 				method,
 				typeParameters,
@@ -350,6 +398,7 @@ public sealed class NativeCatalog
 				OwnerIsModule = false,
 				Kind = kind,
 				IsStatic = true,
+				Operator = member?.Operator,
 				ReturnType = returnType,
 				SelfType = selfType,
 				Parameters = parameters,

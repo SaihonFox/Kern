@@ -132,4 +132,13 @@ public sealed partial class Binder
 
 	private static MemberAccessExpression ImplicitMember(string name, TextSpan span) =>
 		new(new SelfExpression(span), name, IsConditional: false, span);
+
+	/// <summary>
+	/// Совпадает ли нативный модуль члена с именем в исходнике: полное имя
+	/// (<c>kern.time</c>) или его короткая форма (<c>time</c>).
+	/// </summary>
+	private static bool NativeModuleMatches(string? moduleName, string shortName) =>
+		moduleName is not null &&
+		(moduleName == shortName ||
+			moduleName.EndsWith("." + shortName, StringComparison.Ordinal));
 }

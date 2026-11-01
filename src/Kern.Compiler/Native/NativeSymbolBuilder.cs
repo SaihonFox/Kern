@@ -50,13 +50,15 @@ public static class NativeSymbolBuilder
 			natives.Add(symbol);
 		}
 
+		AttachStaticMembers(types, natives, problems);
+
 		var functions = new Dictionary<string, List<FunctionSymbol>>(StringComparer.Ordinal);
 		foreach (var (name, group) in module.Functions)
 			functions[name] = [.. group];
 
 		foreach (FunctionSymbol native in natives)
 		{
-			if (native.NativeSelfType is not null)
+			if (native.NativeSelfType is not null || native.NativeOwnerType is not null)
 				continue;
 			if (!functions.TryGetValue(native.Name, out List<FunctionSymbol>? group))
 				functions[native.Name] = group = [];
@@ -137,6 +139,38 @@ public static class NativeSymbolBuilder
 	private static IReadOnlyList<string> DefaultGenericNames(int arity) =>
 		arity == 1 ? ["T"] : [.. Enumerable.Range(1, arity).Select(index => $"T{index}")];
 
+	/// <summary>
+	/// Статические нативные члены (<c>[KernStatic]</c>) раскладываются в
+	/// <see cref="TypeSymbol.Members"/> своего типа: <c>datetime.now()</c> ищется обычным
+	/// путём «вызов через имя типа» (spec §8), а не как свободная функция модуля.
+	/// </summary>
+	private static void AttachStaticMembers(
+		Dictionary<string, TypeSymbol> types,
+		IReadOnlyList<FunctionSymbol> natives,
+		List<string> problems)
+	{
+		foreach (var group in natives
+			.Where(function => function.NativeOwnerType is ClassType)
+			.GroupBy(function => ((ClassType)function.NativeOwnerType!).Symbol.Name, StringComparer.Ordinal))
+		{
+			if (!types.TryGetValue(group.Key, out TypeSymbol? symbol) || symbol.Kind != SymbolKind.Native)
+			{
+				problems.Add($"нативный тип '{group.Key}': статические члены без символа типа");
+				continue;
+			}
+
+			var members = new Dictionary<string, List<FunctionSymbol>>(StringComparer.Ordinal);
+			foreach (FunctionSymbol function in group)
+			{
+				if (!members.TryGetValue(function.Name, out List<FunctionSymbol>? overloads))
+					members[function.Name] = overloads = [];
+				overloads.Add(function);
+			}
+
+			symbol.Members = MemberTable.Create(members, [], [], [], [], [], [], null);
+		}
+	}
+
 	private static bool IsBuiltinName(string name) =>
 		TypeCatalog.TryGetPrimitiveKind(name, out _) || TypeCatalog.TryGetBuiltin(name, out _);
 
@@ -163,6 +197,14 @@ public static class NativeSymbolBuilder
 				name => types.TryGetValue(name, out TypeSymbol? named) ? new ClassType(named, []) : null);
 
 			KernType? self = descriptor.SelfType is null ? null : Parse(descriptor.SelfType);
+			KernType? owner = null;
+			if (descriptor.IsStaticMember)
+			{
+				if (!types.TryGetValue(descriptor.Owner, out TypeSymbol? ownerSymbol))
+					throw new FormatException($"владелец статического члена '{descriptor.Name}' не найден");
+				owner = new ClassType(ownerSymbol, []);
+			}
+
 			var parameters = new List<ParameterSymbol>(descriptor.Parameters.Count);
 			foreach (NativeParameterDescriptor parameter in descriptor.Parameters)
 			{
@@ -175,13 +217,15 @@ public static class NativeSymbolBuilder
 					Span: default));
 			}
 
-			FunctionKind kind = descriptor.Kind switch
-			{
-				Vm.Native.NativeMemberKind.PropertyGet => FunctionKind.Getter,
-				Vm.Native.NativeMemberKind.PropertySet => FunctionKind.Setter,
-				Vm.Native.NativeMemberKind.Constructor => FunctionKind.Constructor,
-				_ => FunctionKind.Function,
-			};
+			FunctionKind kind = descriptor.Operator is not null
+				? FunctionKind.Operator
+				: descriptor.Kind switch
+				{
+					Vm.Native.NativeMemberKind.PropertyGet => FunctionKind.Getter,
+					Vm.Native.NativeMemberKind.PropertySet => FunctionKind.Setter,
+					Vm.Native.NativeMemberKind.Constructor => FunctionKind.Constructor,
+					_ => FunctionKind.Function,
+				};
 
 			symbol = new FunctionSymbol(descriptor.Name, kind)
 			{
@@ -190,8 +234,11 @@ public static class NativeSymbolBuilder
 				ReturnType = Parse(descriptor.ReturnType),
 				ReceiverType = self,
 				NativeSelfType = self,
+				NativeOwnerType = owner,
+				NativeModuleName = descriptor.OwnerIsModule ? descriptor.Owner : null,
 				NativeKey = descriptor.NativeKey,
 				IsStatic = descriptor.IsStatic,
+				OpSymbol = descriptor.Operator,
 			};
 			error = null;
 			return true;
