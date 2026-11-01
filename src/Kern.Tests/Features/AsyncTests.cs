@@ -20,6 +20,7 @@ namespace Kern.Tests.Features;
 /// для <c>task&lt;T&gt;</c>; <c>await delay(1)</c> припарковывает состояние и возобновляется
 /// планировщиком; паника внутри async всплывает при <c>await</c>.
 /// </summary>
+[Collection("timing")]
 public sealed class AsyncTests
 {
 	[Fact]

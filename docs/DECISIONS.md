@@ -62,7 +62,7 @@ Language details live in `docs/spec/kern.en.md`; this file is the index of *why*
 
 ## E. Libraries (stage 1 inside core std)
 - [FINAL] `kern.http` client (async, `result<http_reply,str>`) + typed client in **two variants**: generic `http_client.get<T>()` and attribute-based Refit-like proxy `#[get("/users/{id}")]`.
-- [FINAL] `kern.test`: assertions + mocks (`mock.create<T>()` for abstract types, `returns/returns_for/handle/fail/verify/...`). `kernc test` runner is NOT in stage 1.
+- [FINAL] `kern.test`: assertions + mocks (`mock.create<T>()` for abstract types, `returns/returns_for/handle/fail/verify/...`). `kernc test` runner is implemented (2026-11-01) for `#[test]` functions; the separate test task in `build.kern` remains `<target>:test`.
 - [FINAL] `kern.time`: `time`, `duration`, `datetime`, `stopwatch`; `kernc run --time` prints program run time.
 - [FINAL] `kernc fmt`: tabs + CRLF, comments preserved, token-checked; `kernc repl`; `-O0/-O1/-O2`.
 - [FINAL] Compression: gzip/deflate/brotli, zip.
@@ -73,12 +73,12 @@ Language details live in `docs/spec/kern.en.md`; this file is the index of *why*
 - [FINAL] **`kern.toml` is removed entirely.** Everything lives in the Gradle-like Kern builder `build.kern` (`docs/BUILDER.md`). A project without `build.kern` works by convention: `src/` + `main.kern`; `kernc run file.kern` works for a single file.
 - [FINAL] Builder must support: `.kbc` deps and external Kern DLL libs (`kern.db`, …), compiler settings, profiles + environment variables, multi-project (`include`). Package fetching by name: **both** forms wanted — local paths first, then minimal URL+hash packages and a wrapper-like pinned launcher (stage 1.5/2).
 - **[FINAL, SUPERSEDED 2026-10-21]** Builder DSL originally allowed trailing lambda callbacks (`w.target("app") fun (target t) { … }`). The current language form places callbacks inside the call argument list: `w.target("app", fun (target t) { … })`; no trailing-lambda syntax is accepted.
-- [FINAL] CLI scope stage 1: `run / check / build / dis`, `exe / dll`, workspace via `build.kern`, `fmt`, `repl`. No test runner.
+- [FINAL] CLI scope stage 1: `run / check / test / build / dis`, `exe / dll`, workspace via `build.kern`, `fmt`, `repl`. `test` runs `#[test]` functions (added 2026-11-01).
 
 ## G. UI, architecture examples, tooling (stage 2)
 - [DEFERRED] UI is NOT in the first pass. Wishes: own UI base (not Avalonia-only), desktop + mobile + web, React-like routing, widget hierarchy (`button/label/…` with a common base), Compose-style state. Avalonia may be one backend.
 - [DEFERRED] Architecture examples: mvvm, mvc, mvp, mvi, viper, state.
-- [DEFERRED] LSP; test runner/mocks in CLI; transpiler (Kern → C# and Kotlin, user mapping scripts, external library); DI library (both: factory/type registration and `#[inject]`); backend library (middleware+router, `#[controller]`, auth/sessions, WebSocket+SSE; function-based and attribute-based over one pipeline); DB library (SQLite/PostgreSQL/MySQL, mini-ORM `orm.table<T>`); ffi (`use` C/C++ DLLs).
+- [DEFERRED] LSP; transpiler (Kern → C# and Kotlin, user mapping scripts, external library); DI library (both: factory/type registration and `#[inject]`); backend library (middleware+router, `#[controller]`, auth/sessions, WebSocket+SSE; function-based and attribute-based over one pipeline); DB library (SQLite/PostgreSQL/MySQL, mini-ORM `orm.table<T>`); ffi (`use` C/C++ DLLs).
 - Design of stage-2 libraries is documented in `docs/spec/kern.en.md` (rounds 13–21) and `docs/LIBRARIES.md`.
 
 ## H. Owner preferences (apply always)

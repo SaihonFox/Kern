@@ -8,11 +8,16 @@
   `r.match`), plus confirmed Q20/Q21/Q22/Q24/Q26/Q27. `is` patterns landed: full match-pattern
   RHS, bindings under `&&`/then-branch, smart casts, `KRN2101` for bindings under negation/`||`.
   Tests added: `SelfAndImmutableTests`, `RequiredFieldTests`, `EqualityOperatorTests`,
-  `FormattingConventionTests`, `IsPatternTests` (7). Suite **366/366**; style clean; goldens
+  `FormattingConventionTests`, `IsPatternTests` (7). Suite **369/369**; style clean; goldens
   **21 active**; examples clean **23/31**.
+- **`kernc test` added (2026-11-01, owner request):** command `kernc test <файл.kern|папка>`
+  compiles and runs every `#[test]` function without arguments; a panic/assert failure counts
+  as a failed test, the rest continue. For a `build.kern` project all targets are tested, for a
+  convention folder — its single target. Examples 10 and 16 pass (`3` and `2` tests); a failing
+  test returns exit code 1. Help text, spec and decisions updated; tests `TestCommandTests`.
 - **Q19 syntax correction (2026-11-01, owner request):** parent selection no longer uses a dot:
   `$[A]member`, `fun $[A]foo(...)`, `str $[A]name`; `$[A].member` is `PAR003`, `$[A]` alone is
-  the parent value. Parser, diagnostics, tests and example 06 migrated; full suite 366/366.
+  the parent value. Parser, diagnostics, tests and example 06 migrated; full suite 369/369.
 - **M14 `with` + `is` landed (2026-11-01):** `x:{ a = 1 }` returns a copy of a `unit`/`type`
   with instance fields replaced (parser, binder, codegen: `CloneObject` + `StoreField`);
   inherited fields and generic receiver substitution work, `unit!`/static/unknown/duplicate
@@ -21,7 +26,7 @@
   generators/`seq<T>`, tail calls, data structures, docs/CLI.
 - **M12 hardening (2026-11-01, nearly closed):** goldens for 09/18/23 plus 04 (all active),
   formatter idempotence over every example, compile-only checks for 16/17/31-mathx, CI matrix
-  enabled. Suite **366/366**; style clean; goldens **21 active**. Only CI needs an actual push
+  enabled. Suite **369/369**; style clean; goldens **21 active**. Only CI needs an actual push
   by the owner.
 - **M9 closed (2026-11-01, owner request):** reflection and macros finished. Runtime: the `type`
   value exposes `name/full_name/args/parents/fields/properties/methods/constructors/attributes`,

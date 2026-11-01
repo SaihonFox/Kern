@@ -17,6 +17,7 @@ Owner instruction: finish every item from the third section (open questions) and
 - **Q27:** option 1 - named tuple literals are not added; names come from the expected type. Current behaviour confirmed.
 - **Q32:** option 1 - the regex match result type is `regex_match`, returned by `r.match(text) -> regex_match?`; `find_match` remains an alias. Implemented; tests `RegexModuleTests`.
 - **Q14:** API surfaces of M14 structures/libraries are fixed in the spec before each slice; no blanket API is invented now.
+- **`kernc test` (owner request):** new CLI command runs `#[test]` functions (project/all targets, convention folder, or one file); implemented 2026-11-01 with `TestRunner`/`TestCommand`, docs and `TestCommandTests`. The earlier "no test runner in stage 1" decision is superseded.
 
 ## Decided — owner answers (2026-10-26)
 

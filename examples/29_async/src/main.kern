@@ -31,20 +31,20 @@ async fun main {
 	var all = await tasks.all([fetch(1, 30), fetch(2, 10), fetch(3, 20)])
 	println(f"all: ${all}")
 	println(f"any: ${await tasks.any([failing(), fetch(7, 20)])}")
-	println(f"race: ${await tasks.race([fetch(1, 50), fetch(2, 5)])}")
+	println(f"race: ${await tasks.race([fetch(1, 500), fetch(2, 5)])}")
 
 	// settled: ошибки не прерывают ожидание
 	var settled = await tasks.settled([fetch(4, 5), failing()])
 	println(f"settled: ${settled.len} результата")
 
 	// timeout
-	match await tasks.timeout(fetch(9, 500), 50) {
+	match await tasks.timeout(fetch(9, 5000), 50) {
 		Ok(v) => println(f"успели: ${v}")
 		Err(e) => println(f"таймаут: ${e}")
 	}
 
 	// select: индекс первой готовой
-	println(f"select: ${await tasks.select([fetch(1, 40), fetch(2, 5), fetch(3, 20)])}")
+	println(f"select: ${await tasks.select([fetch(1, 400), fetch(2, 5), fetch(3, 50)])}")
 
 	// отмена: токен + таймер
 	var tok = cancel_token()

@@ -54,7 +54,7 @@ M12 почти закрыт: эталоны 09/18/23 и 04_flow, форматт�
 | 13_db_web | старый `use path` | refresh примеров + `kern.db` |
 | 14_threads_compress | ✅ clean+run 2026-11-01 | — |
 | 15_databases | неизвестные функции | `kern.db.*` |
-| 16_mocks | ✅ check 2026-11-01 (тесты — `#[test]`, запуск позже) | — |
+| 16_mocks | ✅ `kernc test` 2026-11-01 (2 теста); `kernc run` печатает подсказку | — |
 | 17_http_clients | ✅ clean+run 2026-11-01 (оба клиента) | — |
 | 18_time | ✅ clean+run 2026-11-01 | — |
 | 19_gui | stage-2 UI | вне первого прохода |

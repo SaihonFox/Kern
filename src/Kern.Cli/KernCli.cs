@@ -42,6 +42,7 @@ public static class KernCli
 			"version" => ShowVersion(stdout),
 			"run" => RunCommand.Run(args[1..], stdout, stderr),
 			"check" => CheckCommand.Run(args[1..], stdout, stderr),
+			"test" => TestCommand.Run(args[1..], stdout, stderr),
 			"build" => BuildCommand.Run(args[1..], stdout, stderr),
 			"dll" => DllCommand.Run(args[1..], stdout, stderr),
 			"exe" => ExeCommand.Run(args[1..], stdout, stderr),
@@ -92,7 +93,7 @@ public static class KernCli
 	}
 
 	private static bool KnownCommand(string command) => command is
-		"help" or "version" or "run" or "check" or "build" or "dll" or "exe" or
+		"help" or "version" or "run" or "check" or "test" or "build" or "dll" or "exe" or
 		"tasks" or "do" or "clean" or "fmt" or "repl" or "dis" or
 		"-h" or "--help" or "-v" or "--version";
 }
