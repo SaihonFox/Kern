@@ -31,14 +31,14 @@
 `kern.events`, `kern.reflection`, `kern.macro`, `kern.di`, `kern.ffi`, `kern.transpile`, `kern.ui`,
 `kern.backend`, `kern.mod`, `kern.stub`.
 
-## Блокеры примеров (23 из 31 не проходят `kernc check`)
+## Блокеры примеров (16 из 31 не проходят `kernc check`; 14 чистых)
 
 | Пример | Первый блокер | Что нужно |
 |---|---|---|
 | 07_async_errors | `async_iter<T>` loop, `await` вне async | M5 источник/`async_iter` + `kern.tasks` |
-| 09_collections_json | `json`/`env`/`file` | `kern.json`, `kern.env`, `file.*` (`set<T>`/`queue<T>`/`stack<T>` готовы) |
+| 09_collections_json | ✅ clean+run 2026-11-01 | — |
 | 11_workspace | `build.kern`/`workspace` | M8 builder |
-| 12_text_data | `regex`, `csv`, `yaml`, `loop` по `T` | `kern.regex` + `kern.csv`/`yaml` + `iter<T>` на generic-параметре |
+| 12_text_data | ✅ clean+run 2026-11-01 | — |
 | 13_db_web | старый `use path` | refresh примеров + `kern.db` |
 | 14_threads_compress | `KRN1001` типы | `kern.compress`, `kern.threading` |
 | 15_databases | неизвестные функции | `kern.db.*` |
@@ -49,7 +49,7 @@
 | 20_ffi | stage-2 FFI | вне первого прохода |
 | 21_syntax_round15 | ✅ clean+run 2026-11-01 | — |
 | 22_events_patterns | `KRN1001` | `kern.events` |
-| 23_native_inheritance | `collection<i32>` | M6 native inheritance + контейнеры |
+| 23_native_inheritance | ✅ clean+run 2026-11-01 (M6) | — |
 | 24_reflection | `typeof(x)`/`reflect.*` | M9 runtime reflection |
 | 25_transpile | старый `use path` | refresh примеров + `kern.transpile` |
 | 26_di | `container` | `kern.di` |
@@ -70,7 +70,7 @@
 
 ## Технические долги, влияющие на библиотеки
 
-- **Native generic types** (`set<T>`, `queue<T>`, `stack<T>`, `observable<T>`, `collection<T>`): базовый механизм реализован и обкатан на `set<T>`/`queue<T>`/`stack<T>` 2026-11-01 (`[KernType(..., GenericArity = 1)]`, регистрация generic-символов, `[KernCtor]`-фабрика, подстановка `T` в членах); `observable<T>` и native inheritance/`collection<T>` остаются.
-- **Native inheritance/adapters** (`collection<T>` как родитель для list/str/контейнеров) — M6.
+- **Native generic types** (`set<T>`, `queue<T>`, `stack<T>`, `observable<T>`, `collection<T>`): механизм закрыт в M6 — `[KernType(..., GenericArity = 1)]`, регистрация generic-символов, `[KernCtor]`-фабрики возвращают контейнер, `T` подставляется в членах; `collection<T>` — общий протокол с адаптерами.
+- **Native inheritance/adapters**: родители берутся из C#-иерархии (`streamwriter/streamreader -> stream`), upcast и `is` сохраняют runtime-тип; `collection<T>` обслуживает list/array/dict/str/set/queue/stack/observable.
 - **`iter<T>`/`async_iter<T>`** протоколы: sync-цикл реализован; async — M5.
 - `PropertyDef` не эмитится в `.kbc` (атрибуты свойств на аксессорах).
