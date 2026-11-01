@@ -3,7 +3,7 @@ using System.Text;
 using Kern.Binding.Catalog;
 using Kern.Bytecode;
 using Kern.Cli.Infrastructure;
-using Kern.Runtime.Core;
+using Kern.Cli.Kbc;
 
 namespace Kern.Cli.Build;
 
@@ -22,8 +22,6 @@ internal sealed record BuildTargetResult(TargetModel Target, CompileResult Compi
 /// </summary>
 internal static class BuildTargetCompiler
 {
-	private static readonly NativeCatalog CoreCatalog = NativeCatalog.Scan(typeof(CoreModule).Assembly);
-
 	/// <summary>Собрать все цели в порядке зависимостей; при первой ошибке остановиться.</summary>
 	public static IReadOnlyList<BuildTargetResult> BuildAll(BuildSession session, string? output)
 	{
@@ -44,6 +42,31 @@ internal static class BuildTargetCompiler
 			if (!result.Compile.Success && !result.UpToDate)
 				break;
 		}
+
+		foreach (BuildSession included in session.Included)
+			results.AddRange(BuildAll(included, output: null));
+
+		return results;
+	}
+
+	/// <summary>Проверить все цели без записи (<c>:check</c>).</summary>
+	public static IReadOnlyList<BuildTargetResult> BuildAllCheck(BuildSession session)
+	{
+		ArgumentNullException.ThrowIfNull(session);
+		IReadOnlyList<TargetModel> targets = BuildGraph.TopologicalOrder(session.Workspace);
+		if (targets.Count == 0)
+			throw new BuildException("в build.kern не объявлено ни одной цели");
+		var results = new List<BuildTargetResult>(targets.Count);
+		foreach (TargetModel target in targets)
+		{
+			BuildTargetResult result = Compile(session, target, output: null, write: false);
+			results.Add(result);
+			if (!result.Compile.Success)
+				break;
+		}
+
+		foreach (BuildSession included in session.Included)
+			results.AddRange(BuildAllCheck(included));
 
 		return results;
 	}
@@ -79,17 +102,20 @@ internal static class BuildTargetCompiler
 		if (target.IsConvention)
 			return CompileConvention(session, target, output, write);
 
+		IReadOnlyList<KbcDependency> dependencies = KbcDependency.Load(session.Root, target.KbcPaths);
 		IReadOnlyList<BuildSourceFile> files = BuildTargetSources.Collect(session, target);
+		files = WithStubs(files, dependencies);
 		string path = output ?? Path.Combine(session.Root, "out", target.Name + ".kbc");
-		string hash = Hash(files.Select(file => (file.ModulePath, file.Text)), session.OptionsFor(target), target);
+		string hash = Hash(files.Select(file => (file.ModulePath, file.Text)), session.OptionsFor(target), target, session.Root);
 		if (write && output is null && IsUpToDate(path, hash))
 			return new BuildTargetResult(target, new CompileResult(), path) { UpToDate = true };
 
 		CompileResult compiled = SourceCompiler.CompileFiles(
 			[.. files.Select(file => (file.ModulePath, file.Text))],
 			target.Name,
-			CoreCatalog,
-			session.OptionsFor(target));
+			session.CatalogFor(target),
+			session.OptionsFor(target),
+			[.. dependencies.Select(dependency => dependency.Module)]);
 		compiled = WithProjectPaths(compiled, files, session.Root);
 		if (!compiled.Success)
 			return new BuildTargetResult(target, compiled, null);
@@ -108,6 +134,28 @@ internal static class BuildTargetCompiler
 		return new BuildTargetResult(target, compiled, path);
 	}
 
+	private static IReadOnlyList<BuildSourceFile> WithStubs(
+		IReadOnlyList<BuildSourceFile> files,
+		IReadOnlyList<KbcDependency> dependencies)
+	{
+		if (dependencies.Count == 0)
+			return files;
+
+		var result = new List<BuildSourceFile>(files);
+		var paths = new HashSet<string>(files.Select(file => file.ModulePath), StringComparer.Ordinal);
+		foreach (KbcDependency dependency in dependencies)
+			foreach (StubSource stub in dependency.Stubs)
+			{
+				if (!paths.Add(stub.Path))
+					throw new BuildException(
+						$"модуль '{stub.Path}' из .kbc-зависимости конфликтует с исходником проекта");
+				result.Add(new BuildSourceFile(stub.Path, $"{dependency.Path}:{stub.Path}", stub.Text));
+			}
+
+		result.Sort((left, right) => string.CompareOrdinal(left.ModulePath, right.ModulePath));
+		return result;
+	}
+
 	private static BuildTargetResult CompileConvention(
 		BuildSession session,
 		TargetModel target,
@@ -121,7 +169,8 @@ internal static class BuildTargetCompiler
 		string hash = Hash(
 			project!.Files.Select(file => (file.Path, file.Text)),
 			options,
-			target);
+			target,
+			session.Root);
 		string path = project.OutputKbcPath(output);
 		if (write && output is null && IsUpToDate(path, hash))
 			return new BuildTargetResult(target, new CompileResult(), path) { UpToDate = true };
@@ -141,7 +190,8 @@ internal static class BuildTargetCompiler
 	private static string Hash(
 		IEnumerable<(string Path, string Text)> files,
 		CompileOptions options,
-		TargetModel target)
+		TargetModel target,
+		string root)
 	{
 		var builder = new StringBuilder();
 		builder.Append(KernCli.Version).Append('|')
@@ -154,6 +204,24 @@ internal static class BuildTargetCompiler
 			.Append(options.DebugInfo).Append('|');
 		foreach (var (path, text) in files)
 			builder.Append(path).Append('\0').Append(text).Append('\0');
+
+		// `.kbc`-зависимости: их содержимое меняет линковку, поэтому входят в хэш (§4).
+		foreach (string dependency in target.KbcPaths.OrderBy(path => path, StringComparer.Ordinal))
+		{
+			string full = Path.IsPathRooted(dependency)
+				? dependency
+				: Path.GetFullPath(Path.Combine(root, dependency));
+			builder.Append("kbc:").Append(dependency).Append('\0');
+			try
+			{
+				builder.Append(Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(full)))).Append('\0');
+			}
+			catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+			{
+				builder.Append("missing").Append('\0');
+			}
+		}
+
 		return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(builder.ToString())));
 	}
 

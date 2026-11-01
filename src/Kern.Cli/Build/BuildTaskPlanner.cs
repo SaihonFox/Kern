@@ -1,3 +1,4 @@
+using Kern.Bytecode;
 using Kern.Cli.Commands;
 using Kern.Cli.Infrastructure;
 using Kern.Vm.Execution;
@@ -14,6 +15,24 @@ internal sealed record CompileStep(string Id, TargetModel? Target) : BuildStep(I
 
 /// <summary>Встроенная <c>:clean</c> — удаление out/ и dist/ проекта (как <c>kernc clean</c>).</summary>
 internal sealed record CleanStep(string Id) : BuildStep(Id);
+
+/// <summary>Встроенная <c>:check</c> — компиляция без записи.</summary>
+internal sealed record CheckStep(string Id, TargetModel? Target) : BuildStep(Id);
+
+/// <summary>Встроенная <c>:run</c> — собрать app-цель и выполнить её.</summary>
+internal sealed record RunStep(string Id, TargetModel? Target) : BuildStep(Id);
+
+/// <summary>Встроенная <c>:exe</c> — собрать dist/&lt;имя&gt;[.exe].</summary>
+internal sealed record ExeStep(string Id, TargetModel? Target) : BuildStep(Id);
+
+/// <summary>Встроенная <c>:dll</c> — собрать .kbc с интерфейсными исходниками.</summary>
+internal sealed record DllStep(string Id, TargetModel? Target) : BuildStep(Id);
+
+/// <summary>Встроенная <c>:dis</c> — листинг байткода цели.</summary>
+internal sealed record DisStep(string Id, TargetModel? Target) : BuildStep(Id);
+
+/// <summary>Встроенная <c>:test</c> — выполнить <c>#[test]</c>-функции.</summary>
+internal sealed record TestStep(string Id, TargetModel? Target) : BuildStep(Id);
 
 /// <summary>
 /// План <c>kernc do</c> (docs/BUILDER.md §4): <c>after</c> — предварительные задачи,
@@ -108,9 +127,22 @@ internal static class BuildTaskPlanner
 				return new CompileStep(id, target);
 			case "clean":
 				return new CleanStep(id);
+			case "check":
+				return new CheckStep(id, target);
+			case "run":
+				return new RunStep(id, target);
+			case "exe":
+				return new ExeStep(id, target);
+			case "dll":
+				return new DllStep(id, target);
+			case "dis":
+				return new DisStep(id, target);
+			case "test":
+				return new TestStep(id, target);
 			default:
 				throw new BuildException(
-					$"встроенная задача '{id}' пока не реализована; доступны: <цель>:compile, :compile, :clean");
+					$"встроенная задача '{id}' пока не реализована; доступны: <цель>:compile, :compile, " +
+					"<цель>:run, <цель>:exe, <цель>:dll, <цель>:check, <цель>:dis, <цель>:test, :clean");
 		}
 	}
 
@@ -166,6 +198,30 @@ internal static class BuildTaskRunner
 					if (cleanCode != 0)
 						return cleanCode;
 					break;
+				case CheckStep check:
+					if (RunCheck(session, check, stderr) is { } checkFailure)
+						return checkFailure;
+					break;
+				case RunStep run:
+					if (RunProgramStep(session, run, stderr) is { } runFailure)
+						return runFailure;
+					break;
+				case ExeStep exe:
+					if (RunExe(session, exe, stdout, stderr) is { } exeFailure)
+						return exeFailure;
+					break;
+				case DllStep dll:
+					if (RunDll(session, dll, stdout, stderr) is { } dllFailure)
+						return dllFailure;
+					break;
+				case DisStep dis:
+					if (RunDis(session, dis, stdout, stderr) is { } disFailure)
+						return disFailure;
+					break;
+				case TestStep test:
+					if (TestRunner.Run(session, test.Target, stdout, stderr) is var testCode && testCode != 0)
+						return testCode;
+					break;
 			}
 		}
 
@@ -182,8 +238,23 @@ internal static class BuildTaskRunner
 
 		try
 		{
-			_ = interpreter.RunValue(step.Task.Action);
-			return null;
+			var applied = new List<(string Name, string? Old)>();
+			foreach (var (name, value) in session.EnvironmentFor())
+			{
+				applied.Add((name, Environment.GetEnvironmentVariable(name)));
+				Environment.SetEnvironmentVariable(name, value);
+			}
+
+			try
+			{
+				_ = interpreter.RunValue(step.Task.Action);
+				return null;
+			}
+			finally
+			{
+				for (var index = applied.Count - 1; index >= 0; index--)
+					Environment.SetEnvironmentVariable(applied[index].Name, applied[index].Old);
+			}
 		}
 		catch (KernPanic panic)
 		{
@@ -219,6 +290,110 @@ internal static class BuildTaskRunner
 		foreach (BuildTargetResult result in results)
 			if (result.OutputPath is { } path)
 				stdout.WriteLine(path);
+		return null;
+	}
+
+	private static int? RunCheck(BuildSession session, CheckStep step, TextWriter stderr)
+	{
+		List<BuildTargetResult> results;
+		try
+		{
+			results = step.Target is { } target
+				? [BuildTargetCompiler.Compile(session, target, output: null, write: false)]
+				: [.. BuildTargetCompiler.BuildAllCheck(session)];
+		}
+		catch (BuildException exception)
+		{
+			stderr.WriteLine($"ошибка: {exception.Message}");
+			return 1;
+		}
+
+		foreach (BuildTargetResult result in results)
+			SourceCompiler.Report(result.Compile, stderr);
+		return results.Any(result => !result.Compile.Success) ? 1 : null;
+	}
+
+	private static int? RunProgramStep(BuildSession session, RunStep step, TextWriter stderr)
+	{
+		TargetModel target = step.Target
+			?? session.Workspace.DefaultAppTarget()
+			?? throw new BuildException("в build.kern нет app-цели для :run");
+		if (target.IsLibrary)
+			throw new BuildException($"цель '{target.Name}' — библиотека; :run требует app-цель");
+
+		BuildTargetResult built;
+		try
+		{
+			built = BuildTargetCompiler.Compile(session, target, output: null, write: false);
+		}
+		catch (BuildException exception)
+		{
+			stderr.WriteLine($"ошибка: {exception.Message}");
+			return 1;
+		}
+
+		SourceCompiler.Report(built.Compile, stderr);
+		if (!built.Compile.Success)
+			return 1;
+		return RunCommand.RunCompiled(built.Compile.Program!, target.Args, session.EnvironmentFor(target), stderr);
+	}
+
+	private static int? RunExe(BuildSession session, ExeStep step, TextWriter stdout, TextWriter stderr)
+	{
+		try
+		{
+			stdout.WriteLine(ExeCompiler.Build(session, step.Target));
+			return null;
+		}
+		catch (BuildException exception)
+		{
+			stderr.WriteLine($"ошибка: {exception.Message}");
+			return 1;
+		}
+	}
+
+	private static int? RunDll(BuildSession session, DllStep step, TextWriter stdout, TextWriter stderr)
+	{
+		try
+		{
+			stdout.WriteLine(DllCompiler.Build(session, step.Target, output: null));
+			return null;
+		}
+		catch (BuildException exception)
+		{
+			stderr.WriteLine($"ошибка: {exception.Message}");
+			return 1;
+		}
+	}
+
+	private static int? RunDis(BuildSession session, DisStep step, TextWriter stdout, TextWriter stderr)
+	{
+		IReadOnlyList<TargetModel> targets = step.Target is { } target
+			? [target]
+			: session.Workspace.Targets;
+		foreach (TargetModel current in targets)
+		{
+			BuildTargetResult built;
+			try
+			{
+				built = BuildTargetCompiler.Compile(session, current, output: null, write: false);
+			}
+			catch (BuildException exception)
+			{
+				stderr.WriteLine($"ошибка: {exception.Message}");
+				return 1;
+			}
+
+			if (!built.Compile.Success)
+			{
+				SourceCompiler.Report(built.Compile, stderr);
+				return 1;
+			}
+
+			stdout.WriteLine($"; цель {current.Name}");
+			stdout.Write(Disassembler.Disassemble(built.Compile.Program!.Module));
+		}
+
 		return null;
 	}
 }

@@ -1,6 +1,20 @@
 # STATUS
 
 ## Now
+- **M8 + M10 closed (2026-11-01, owner request):** CLI/builder finished: `kernc dll|exe`, built-in
+  tasks `<target>:compile|run|exe|dll|check|dis|test` plus `:compile`/`:clean`, profiles (`-p`:
+  optimize/warnings-as-errors/env), `t.args` defaults, env exported to run/tasks, hash skip includes
+  `.kbc` contents, `w.include` recursively builds child workspaces, library discovery
+  (`KERN_LIBS`, `libs`, `~/.kern/libs`, project/target `lib_path`, `t.lib`) loads external
+  `Kern.Lib.*.dll` into the native catalog. `exe` writes `<dist>/<name>[.exe]` as host + `program.kbc`;
+  the host runs the adjacent bytecode, so example 11's `app:exe` produces a working executable.
+  M10: `kernc dll` embeds interface stubs (`kern.stub(path, module, text)`, bodies → `panic("kbc")`,
+  inferred-return bodies kept, `main` cut); consumers with `t.kbc(path)` compile against the stubs and
+  `KbcLinker` replaces them with real code (type/field/function/global maps, field-layout check,
+  pool-operand relocation, appended lambdas/helpers, chained static init). Example 31 now runs
+  end-to-end. Tests `BuilderM8Tests` + `KbcLinkTests`; suite **314/314**. Limits: cross-project
+  `t.deps`/task ids into `w.include` projects are not resolved, `t.lib` success only once a stage-2
+  library exists, and stub field initializers may run before linked static init (idempotent constants).
 - **M7 full (2026-11-01, owner request):** std libraries closed. New modules: `kern.events`
   (`event<T>`/`signal`, `+=`/`-=`/`emit`/`len`/`clear`), `kern.compress` (gzip/deflate/brotli,
   `*_file`, `zip_dir`/`unzip`/`zip_list`), `kern.http` (`http.get/post/put/delete/post_json/request`,
@@ -19,7 +33,7 @@
   when used before the declaration (else it sees earlier block variables), postfix `!` non-nil assert,
   `panic`/`exit` typed `never`, proxy dispatch (`MemberFlags.Abstract` + `IKProxyHandler` on
   `KObject.Native`). Tests `Compress/Events/Http/Threading/Tasks/Mock/ReflectionModuleTests` (+23 facts,
-  suite **303/303** with the new goldens for 07/14/22/29/30); examples clean **22/31** (added 07, 11, 14, 16, 17, 22, 24, 29, 30); M7 acceptance
+  suite **314/314** with the new goldens for 07/14/22/29/30); examples clean **22/31** (added 07, 11, 14, 16, 17, 22, 24, 29, 30); M7 acceptance
   examples 07, 09, 12, 14, 18, 22, 23, 29, 30 all run end-to-end. Reflection's dynamic builder is
   intentionally minimal (no generic params); `kern.db.*`/`kern.ui`/`kern.ffi`/`kern.di`/`kern.backend`
   stay stage-2; `kern.macro` data types belong to M9.

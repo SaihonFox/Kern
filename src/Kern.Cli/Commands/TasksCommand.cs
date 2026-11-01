@@ -47,8 +47,23 @@ internal static class TasksCommand
 				? $"задача {task.Name} (после: {string.Join(", ", task.After)})"
 				: $"задача {task.Name}");
 
-		stdout.WriteLine("встроенные задачи: <цель>:compile, :compile, :clean");
+		PrintIncluded(session, stdout, "");
+
+		stdout.WriteLine("встроенные задачи: <цель>:compile|run|exe|dll|check|dis|test, :compile, :clean");
 		return 0;
+	}
+
+	private static void PrintIncluded(BuildSession session, TextWriter stdout, string prefix)
+	{
+		foreach (BuildSession included in session.Included)
+		{
+			string relative = Path.GetRelativePath(session.Root, included.Root).Replace('\\', '/');
+			string id = prefix.Length == 0 ? relative : $"{prefix}/{relative}";
+			stdout.WriteLine($"проект: {included.Workspace.Name} ({id})");
+			foreach (TargetModel target in included.Workspace.Targets)
+				stdout.WriteLine($"цель {id}:{target.Name} ({target.Kind})");
+			PrintIncluded(included, stdout, id);
+		}
 	}
 
 	private static bool TryDirectory(string[] args, TextWriter stderr, out string directory)

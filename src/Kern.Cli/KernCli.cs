@@ -1,4 +1,5 @@
 using Kern.Cli.Commands;
+using Kern.Cli.Infrastructure;
 
 namespace Kern.Cli;
 
@@ -19,6 +20,10 @@ public static class KernCli
 		ArgumentNullException.ThrowIfNull(stdout);
 		ArgumentNullException.ThrowIfNull(stderr);
 
+		// `kernc exe` кладёт рядом с хостом program.kbc: без команды запускаем его.
+		if (EmbeddedProgram.Exists && (args.Length == 0 || !KnownCommand(args[0])))
+			return EmbeddedProgram.Run(args, stderr);
+
 		if (args.Length == 0)
 		{
 			stdout.WriteLine(HelpText.General);
@@ -38,6 +43,8 @@ public static class KernCli
 			"run" => RunCommand.Run(args[1..], stdout, stderr),
 			"check" => CheckCommand.Run(args[1..], stdout, stderr),
 			"build" => BuildCommand.Run(args[1..], stdout, stderr),
+			"dll" => DllCommand.Run(args[1..], stdout, stderr),
+			"exe" => ExeCommand.Run(args[1..], stdout, stderr),
 			"tasks" => TasksCommand.Run(args[1..], stdout, stderr),
 			"do" => DoCommand.Run(args[1..], stdout, stderr),
 			"clean" => CleanCommand.Run(args[1..], stdout, stderr),
@@ -83,4 +90,9 @@ public static class KernCli
 		stderr.WriteLine("Использование: kernc <команда> [аргументы]; список команд: kernc help");
 		return 2;
 	}
+
+	private static bool KnownCommand(string command) => command is
+		"help" or "version" or "run" or "check" or "build" or "dll" or "exe" or
+		"tasks" or "do" or "clean" or "fmt" or "repl" or "dis" or
+		"-h" or "--help" or "-v" or "--version";
 }

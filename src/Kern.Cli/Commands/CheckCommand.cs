@@ -34,6 +34,7 @@ internal static class CheckCommand
 		{
 			BuildSession session = BuildSession.Open(path);
 			session.OptimizeOverride = options.Optimize;
+			session.ProfileName = options.Profile;
 			built = BuildTargetCompiler.CompileApp(session);
 		}
 		catch (BuildException exception)

@@ -46,11 +46,14 @@ internal static class RunCommand
 		TextWriter stderr)
 	{
 		BuildTargetResult built;
+		IReadOnlyDictionary<string, string> environment;
 		try
 		{
 			BuildSession session = BuildSession.Open(path);
 			session.OptimizeOverride = options.Optimize;
+			session.ProfileName = options.Profile;
 			built = BuildTargetCompiler.CompileApp(session);
+			environment = session.EnvironmentFor(built.Target);
 		}
 		catch (BuildException exception)
 		{
@@ -62,14 +65,24 @@ internal static class RunCommand
 		if (!built.Compile.Success)
 			return 1;
 
-		return Execute(built.Compile.Program!, SourceKind.Project, programArguments, stderr);
+		IReadOnlyList<string> arguments = programArguments.Count > 0 ? programArguments : built.Target.Args;
+		return Execute(built.Compile.Program!, SourceKind.Project, arguments, stderr, environment);
 	}
+
+	/// <summary>Выполнить уже скомпилированный проект (встроенная задача <c>:run</c>).</summary>
+	internal static int RunCompiled(
+		CompiledProgram program,
+		IReadOnlyList<string> arguments,
+		IReadOnlyDictionary<string, string>? environment,
+		TextWriter stderr) =>
+		Execute(program, SourceKind.Project, arguments, stderr, environment);
 
 	private static int Execute(
 		CompiledProgram program,
 		SourceKind kind,
 		IReadOnlyList<string> programArguments,
-		TextWriter stderr)
+		TextWriter stderr,
+		IReadOnlyDictionary<string, string>? environment = null)
 	{
 		int entry = program.Module.EntryPoint;
 		if (entry < 0)
@@ -81,8 +94,16 @@ internal static class RunCommand
 		}
 
 		FunctionDef entryPoint = program.Module.FunctionPool[entry];
+		var applied = new List<(string Name, string? Old)>();
 		try
 		{
+			if (environment is not null)
+				foreach (var (name, value) in environment)
+				{
+					applied.Add((name, Environment.GetEnvironmentVariable(name)));
+					Environment.SetEnvironmentVariable(name, value);
+				}
+
 			var interpreter = new Interpreter(program.Module, new NativeResolver(program.Catalog));
 			KValue[] mainArguments = entryPoint.ParamCount == 1
 				? [KValue.Obj(new KList(interpreter.Types.Prim(PrimKind.Str), programArguments.Select(KValue.Str)))]
@@ -95,6 +116,11 @@ internal static class RunCommand
 		{
 			stderr.WriteLine($"ошибка выполнения: {panic.Message}");
 			return 1;
+		}
+		finally
+		{
+			for (var index = applied.Count - 1; index >= 0; index--)
+				Environment.SetEnvironmentVariable(applied[index].Name, applied[index].Old);
 		}
 	}
 

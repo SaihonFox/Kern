@@ -342,14 +342,17 @@ public sealed class BuilderTests : IDisposable
 	}
 
 	[Fact]
-	public void Do_command_reports_unimplemented_builtin()
+	public void Do_command_runs_builtin_exe()
 	{
 		string root = WorkspaceProject();
 
-		(int code, _, string stderr) = Run("do", "app:exe", root);
+		(int code, string stdout, string stderr) = Run("do", "app:exe", root);
 
-		Assert.Equal(1, code);
-		Assert.Contains("встроенная задача 'app:exe' пока не реализована", stderr, StringComparison.Ordinal);
+		Assert.Equal(0, code);
+		Assert.Equal(string.Empty, stderr);
+		Assert.True(File.Exists(Path.Combine(root, "dist", OperatingSystem.IsWindows() ? "app.exe" : "app")));
+		Assert.True(File.Exists(Path.Combine(root, "dist", "program.kbc")));
+		Assert.Contains("app", stdout, StringComparison.Ordinal);
 	}
 
 	private string WorkspaceProject() => Create(

@@ -39,6 +39,7 @@ internal static class BuildCommand
 		{
 			session = BuildSession.Open(directory);
 			session.OptimizeOverride = options.Optimize;
+			session.ProfileName = options.Profile;
 		}
 		catch (BuildException exception)
 		{

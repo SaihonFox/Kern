@@ -59,7 +59,8 @@ internal static class SourceCompiler
 		IReadOnlyList<(string Path, string Text)> files,
 		string moduleName,
 		NativeCatalog catalog,
-		CompileOptions options)
+		CompileOptions options,
+		IReadOnlyList<KbcModule>? libraries = null)
 	{
 		ArgumentNullException.ThrowIfNull(files);
 		ArgumentNullException.ThrowIfNull(catalog);
@@ -102,10 +103,22 @@ internal static class SourceCompiler
 				ProjectDiagnostics = result.Diagnostics,
 			};
 
+		if (options.WarningsAsErrors && messages.Any(message => message.Contains("предупреждение", StringComparison.Ordinal)))
+			return new CompileResult
+			{
+				Sources = result.Bundle,
+				ProjectMessages = messages,
+				ProjectDiagnostics = result.Diagnostics,
+				FailureMessage = "включён режим warnings_as_errors: есть предупреждения",
+			};
+
 		KbcModule module = generated.Module;
 		try
 		{
+			if (libraries is { Count: > 0 })
+				Kern.Cli.Kbc.KbcLinker.Link(module, libraries);
 			module = OptimizationPass.Apply(module, options.Optimize, out _);
+			ApplyDebugInfo(module, options);
 			KbcModuleValidator.Validate(module);
 		}
 		catch (Exception ex) when (ex is KbcFormatException or InvalidOperationException)
@@ -185,9 +198,19 @@ internal static class SourceCompiler
 		if (HasError(diagnostics))
 			return Failed(source, bundle, diagnostics);
 
+		if (options.WarningsAsErrors && diagnostics.Any(diagnostic => !diagnostic.IsError))
+			return new CompileResult
+			{
+				Source = source,
+				Sources = bundle,
+				Diagnostics = diagnostics,
+				FailureMessage = "включён режим warnings_as_errors: есть предупреждения",
+			};
+
 		try
 		{
 			KbcModule optimized = OptimizationPass.Apply(generated.Module, options.Optimize, out _);
+			ApplyDebugInfo(optimized, options);
 			KbcModuleValidator.Validate(optimized);
 			return new CompileResult
 			{
@@ -242,6 +265,18 @@ internal static class SourceCompiler
 
 	private static bool HasError(IEnumerable<Diagnostic> diagnostics) =>
 		diagnostics.Any(diagnostic => diagnostic.IsError);
+
+	/// <summary>Без <c>debug_info</c> таблицы строк не попадают в байткод (§7a).</summary>
+	private static void ApplyDebugInfo(KbcModule module, CompileOptions options)
+	{
+		if (options.DebugInfo)
+			return;
+		foreach (FunctionDef function in module.FunctionPool)
+		{
+			function.LineTable.Clear();
+			function.SourceFile = null;
+		}
+	}
 
 	private static CompileResult Failed(
 		SourceText source,

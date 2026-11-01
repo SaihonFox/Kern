@@ -19,12 +19,18 @@ internal sealed class BuildSession
 	public const string ScriptName = "build.kern";
 	private const string ScriptModule = "build";
 
-	private BuildSession(string root, string? scriptPath, BuildModel workspace, Interpreter? interpreter)
+	private BuildSession(
+		string root,
+		string? scriptPath,
+		BuildModel workspace,
+		Interpreter? interpreter,
+		IReadOnlyList<BuildSession>? included = null)
 	{
 		Root = root;
 		ScriptPath = scriptPath;
 		Workspace = workspace;
 		Interpreter = interpreter;
+		Included = included ?? [];
 	}
 
 	/// <summary>Абсолютный путь корня проекта без завершающего разделителя.</summary>
@@ -38,8 +44,18 @@ internal sealed class BuildSession
 	/// <summary>Интерпретатор сценария сборки; <c>null</c> у проекта по соглашению.</summary>
 	public Interpreter? Interpreter { get; }
 
+	/// <summary>Подпроекты из <c>w.include(path)</c> (docs/BUILDER.md §5).</summary>
+	public IReadOnlyList<BuildSession> Included { get; }
+
 	/// <summary>Уровень оптимизации из CLI (<c>-O0..-O2</c>); <c>null</c> — из build.kern/по умолчанию.</summary>
 	public int? OptimizeOverride { get; set; }
+
+	/// <summary>Профиль из CLI (<c>-p release</c>); <c>null</c> — профиль по умолчанию.</summary>
+	public string? ProfileName { get; set; }
+
+	/// <summary>Выбранный профиль (если объявлен) — влияет на оптимизацию и окружение.</summary>
+	public ProfileModel? ActiveProfile =>
+		ProfileName is { Length: > 0 } name ? Workspace.FindProfile(name) : null;
 
 	public bool HasBuildFile => ScriptPath is not null;
 
@@ -49,8 +65,27 @@ internal sealed class BuildSession
 	/// </summary>
 	public static BuildSession Open(string directory)
 	{
+		return Open(directory, new HashSet<string>(StringComparer.OrdinalIgnoreCase));
+	}
+
+	private static BuildSession Open(string directory, HashSet<string> visiting)
+	{
 		ArgumentNullException.ThrowIfNull(directory);
 		string root = ResolveRoot(directory);
+		if (!visiting.Add(root))
+			throw new BuildException($"цикл include: проект уже открывается: {root}");
+		try
+		{
+			return OpenCore(root, visiting);
+		}
+		finally
+		{
+			visiting.Remove(root);
+		}
+	}
+
+	private static BuildSession OpenCore(string root, HashSet<string> visiting)
+	{
 		string scriptPath = Path.Combine(root, ScriptName);
 		if (!File.Exists(scriptPath))
 			return OpenConvention(root);
@@ -91,7 +126,20 @@ internal sealed class BuildSession
 
 		BuildModel workspace = BuildObjectReader.ReadWorkspace(workspaceValue, root, scriptPath, hasBuildFile: true);
 		Validate(workspace);
-		return new BuildSession(root, scriptPath, workspace, interpreter);
+		var included = new List<BuildSession>(workspace.Includes.Count);
+		foreach (string include in workspace.Includes)
+		{
+			if (string.IsNullOrWhiteSpace(include))
+				throw new BuildException($"{ScriptName}: пустой путь в include");
+			string child = Path.IsPathRooted(include)
+				? include
+				: Path.GetFullPath(Path.Combine(root, include));
+			if (!Directory.Exists(child))
+				throw new BuildException($"{ScriptName}: включённый проект не найден: {include}");
+			included.Add(Open(child, visiting));
+		}
+
+		return new BuildSession(root, scriptPath, workspace, interpreter, included);
 	}
 
 	/// <summary>Настройки компиляции цели с учётом настроек рабочей области (§7a).</summary>
@@ -99,13 +147,40 @@ internal sealed class BuildSession
 	{
 		ArgumentNullException.ThrowIfNull(target);
 		CompilerSettingsModel settings = target.Compiler.IsDefault ? Workspace.Compiler : target.Compiler;
+		ProfileModel? profile = ActiveProfile;
+		if (ProfileName is { Length: > 0 } && profile is null)
+			throw new BuildException($"профиль '{ProfileName}' не объявлен в build.kern");
 		return new CompileOptions
 		{
-			Optimize = OptimizeOverride ?? settings.Optimize,
-			WarningsAsErrors = settings.WarningsAsErrors,
+			Optimize = OptimizeOverride ?? profile?.Optimize ?? settings.Optimize,
+			WarningsAsErrors = settings.WarningsAsErrors || profile?.WarningsAsErrors == true,
 			Macros = settings.Macros,
 			DebugInfo = settings.DebugInfo,
 		};
+	}
+
+	/// <summary>Окружение программы/задач: профиль, затем цель (цель важнее), §7.</summary>
+	public IReadOnlyDictionary<string, string> EnvironmentFor(TargetModel? target = null)
+	{
+		var environment = new Dictionary<string, string>(StringComparer.Ordinal);
+		if (ProfileName is { Length: > 0 } && ActiveProfile is null)
+			throw new BuildException($"профиль '{ProfileName}' не объявлен в build.kern");
+		if (ActiveProfile is { } profile)
+			foreach (var (name, value) in profile.Env)
+				environment[name] = value;
+		if (target is not null)
+			foreach (var (name, value) in target.Env)
+				environment[name] = value;
+		return environment;
+	}
+
+	/// <summary>Каталог нативов с учётом внешних <c>Kern.Lib.*.dll</c> цели (§6).</summary>
+	public NativeCatalog CatalogFor(TargetModel target)
+	{
+		IReadOnlyList<System.Reflection.Assembly> libraries = LibraryResolver.Resolve(this, target);
+		return libraries.Count == 0
+			? NativeCatalog.Scan(typeof(CoreModule).Assembly)
+			: NativeCatalog.Scan([typeof(CoreModule).Assembly, .. libraries]);
 	}
 
 	private static BuildSession OpenConvention(string root)

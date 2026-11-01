@@ -12,14 +12,39 @@ internal static class DoCommand
 {
 	public static int Run(string[] args, TextWriter stdout, TextWriter stderr)
 	{
-		if (args.Length is 0 or > 2 || args[0].StartsWith('-'))
+		string? profile = null;
+		var positional = new List<string>();
+		for (var index = 0; index < args.Length; index++)
+		{
+			if (args[index] == "-p")
+			{
+				if (index + 1 >= args.Length)
+				{
+					stderr.WriteLine("ошибка: параметр -p требует имя профиля");
+					return 2;
+				}
+
+				profile = args[++index];
+				continue;
+			}
+
+			if (args[index].StartsWith('-'))
+			{
+				stderr.WriteLine($"ошибка: неизвестный параметр '{args[index]}'");
+				return 2;
+			}
+
+			positional.Add(args[index]);
+		}
+
+		if (positional.Count is 0 or > 2)
 		{
 			stderr.WriteLine("ошибка: укажите задачу: kernc do <задача> [папка]");
 			return 2;
 		}
 
-		string task = args[0];
-		string directory = args.Length == 2 ? args[1] : ".";
+		string task = positional[0];
+		string directory = positional.Count == 2 ? positional[1] : ".";
 		if (!Directory.Exists(directory))
 		{
 			stderr.WriteLine($"ошибка: папка не найдена: {directory}");
@@ -29,6 +54,7 @@ internal static class DoCommand
 		try
 		{
 			BuildSession session = BuildSession.Open(directory);
+			session.ProfileName = profile;
 			IReadOnlyList<BuildStep> plan = BuildTaskPlanner.Plan(session, task);
 			return BuildTaskRunner.Run(plan, session, stdout, stderr);
 		}
