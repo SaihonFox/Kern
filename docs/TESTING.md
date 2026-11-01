@@ -1,7 +1,7 @@
 # TESTING
 
 ## Layers
-1. **Unit tests** (xunit, `src/Kern.Tests`): lexer, parser, conversions, overload resolution, binder diagnostics, codegen/round-trip of `.kbc`, optimizer equivalence (-O0/-O1/-O2 print the same), formatter idempotence, builder logic.
+1. **Unit tests** (xunit, `src/Kern.Tests`): lexer, parser, conversions, overload resolution, binder diagnostics, codegen/round-trip of `.kbc`, optimizer equivalence (-O0/-O1/-O2 print the same), formatter idempotence, builder logic. External libraries tested here too: `Features/Backend` covers `Kern.Lib.Backend` (units + loopback servers); DB/DI are covered by examples 15/26.
 2. **Snippet tests**: `KernHarness.Run("""…kern source…""")` compiles + runs a snippet in-process and returns captured stdout (normalise `\r\n` → `\n`). Use for language-feature tests.
 3. **Golden tests = the examples**: every `examples/<name>/` is a project (convention layout `src/main.kern`, optional `build.kern`). Next to `src/` lives:
    - `expected.out` — exact expected stdout (LF-normalised),

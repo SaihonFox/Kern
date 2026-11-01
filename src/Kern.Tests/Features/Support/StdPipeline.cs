@@ -1,3 +1,4 @@
+using Assembly = System.Reflection.Assembly;
 using Kern.Binding.Catalog;
 using Kern.Binding.Resolution;
 using Kern.Compiler.CodeGen;
@@ -19,8 +20,24 @@ internal static class StdPipeline
 	public static NativeCatalog Catalog() =>
 		NativeCatalog.Scan(typeof(Kern.Runtime.Core.CoreModule).Assembly);
 
+	public static NativeCatalog Catalog(params Assembly[] extra) =>
+		extra.Length == 0
+			? Catalog()
+			: NativeCatalog.Scan([typeof(Kern.Runtime.Core.CoreModule).Assembly, .. extra]);
+
 	public static KValue Run(string source, string function, params KValue[] arguments) =>
-		new Interpreter(Compile(source).Module, new NativeResolver(Catalog())).Run(function, arguments);
+		RunWithLibraries(source, function, [], arguments);
+
+	public static KValue RunWithLibraries(
+		string source,
+		string function,
+		Assembly[] libraries,
+		params KValue[] arguments)
+	{
+		NativeCatalog catalog = Catalog(libraries);
+		return new Interpreter(Compile(source, catalog).Module, new NativeResolver(catalog))
+			.Run(function, arguments);
+	}
 
 	/// <summary>Запуск async-функции: возвращает результат завершённой задачи.</summary>
 	public static KValue RunAsync(string source, string function, params KValue[] arguments)
@@ -38,9 +55,11 @@ internal static class StdPipeline
 		return Assert.Throws<KernPanic>(() => interpreter.Run(function));
 	}
 
-	public static CodegenResult Compile(string source)
+	public static CodegenResult Compile(string source) => Compile(source, Catalog());
+
+	public static CodegenResult Compile(string source, NativeCatalog catalog)
 	{
-		var outcome = CompileWithDiagnostics(source);
+		var outcome = CompileWithDiagnostics(source, catalog);
 		Assert.DoesNotContain(outcome.Diagnostics, diagnostic => diagnostic.IsError);
 		Assert.NotNull(outcome.Module);
 		return outcome.Module!;
@@ -48,14 +67,14 @@ internal static class StdPipeline
 
 	public static CodegenResult? CompileOrNull(string source, out IReadOnlyList<Diagnostic> diagnostics)
 	{
-		var outcome = CompileWithDiagnostics(source);
+		var outcome = CompileWithDiagnostics(source, Catalog());
 		diagnostics = outcome.Diagnostics;
 		return outcome.Module;
 	}
 
 	private sealed record Outcome(CodegenResult? Module, IReadOnlyList<Diagnostic> Diagnostics);
 
-	private static Outcome CompileWithDiagnostics(string source)
+	private static Outcome CompileWithDiagnostics(string source, NativeCatalog catalog)
 	{
 		var diagnostics = new List<Diagnostic>();
 		var parsed = Parser.Parse(source);
@@ -63,7 +82,6 @@ internal static class StdPipeline
 		var (table, tableDiagnostics) = SymbolTable.Collect(parsed.Tree);
 		diagnostics.AddRange(tableDiagnostics);
 
-		var catalog = Catalog();
 		var nativeTypes = NativeSymbolBuilder.CreateTypeSymbols(catalog);
 		var (module, collectorDiagnostics) = DeclarationCollector.Collect(
 			parsed.Tree,

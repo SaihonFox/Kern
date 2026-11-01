@@ -481,7 +481,9 @@ public sealed class KernContainer
 		optional = false;
 		foreach (KConst argument in attribute.Args)
 		{
-			string text = argument.Kind == KConstKind.Str ? argument.AsStr : argument.ToString();
+			string text = argument.Kind == KConstKind.Str
+				? argument.AsStr
+				: argument.ToString() ?? "";
 			if (text.StartsWith("optional", StringComparison.Ordinal))
 			{
 				optional = text.Contains("true", StringComparison.Ordinal);

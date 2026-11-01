@@ -16,5 +16,7 @@
 		<ProjectReference Include="../Kern.Runtime/Kern.Runtime.csproj" />
 		<ProjectReference Include="../Kern.Compiler/Kern.Compiler.csproj" />
 		<ProjectReference Include="../Kern.Cli/Kern.Cli.csproj" />
+		<ProjectReference Include="../../libs/Kern.Lib.Di/Kern.Lib.Di.csproj" />
+		<ProjectReference Include="../../libs/Kern.Lib.Backend/Kern.Lib.Backend.csproj" />
 	</ItemGroup>
 </Project>

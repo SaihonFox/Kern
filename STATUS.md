@@ -9,7 +9,9 @@
   (SQLite + ORM + HTTP); example 27 (DI, controllers, JWT, middleware, SSE, WebSocket, `/stop`)
   checks/runs too. Verified over `localhost` (users, login, todos CRUD, roles, WS echo, SSE hello).
   `LibraryResolver` now resolves sibling library dependencies (`Kern.Lib.Backend` → `Kern.Lib.Di`).
-  Examples clean **27/31**.
+  Backend tests: **25** unit/loopback tests in `src/Kern.Tests/Features/Backend` (routes, JWT,
+  sessions, responses, controllers/DI, middleware, static files, WS/SSE, broadcasts, accept/handle).
+  Full suite **395/395**; examples clean **27/31**.
 - **DB and DI libraries implemented (2026-11-02, owner request):** external `libs/Kern.Lib.Db`
   (SQLite/PostgreSQL/MySQL + `orm.table<T>`) and `libs/Kern.Lib.Di` (`container`) now build via
   `dotnet build libs/Kern.Libs.slnx` into `libs/_out`. SQLite CRUD/query/scalar/transactions and
