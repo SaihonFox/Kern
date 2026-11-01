@@ -13,6 +13,14 @@ public sealed record BoundTypeOfExpression(
 	TextSpan Span) : BoundExpression(PrimitiveType.Object, Span);
 
 /// <summary>
+/// <c>typeof(x)</c> (spec round 18): тип значения; codegen печатает значение и
+/// <c>TypeOfValue</c>. Статический результат — <c>object</c> (значение <c>type</c>).
+/// </summary>
+public sealed record BoundTypeOfValueExpression(
+	BoundExpression Value,
+	TextSpan Span) : BoundExpression(PrimitiveType.Object, Span);
+
+/// <summary>
 /// <c>name_of&lt;T&gt;()</c> (spec §18, рефлексия во время компиляции): биндер вычисляет
 /// канонический текст типа, в байткоде остаётся строковый литерал. Форма значения
 /// <c>name_of(x)</c> в этот слайс не входит.

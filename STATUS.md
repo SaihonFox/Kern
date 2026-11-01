@@ -1,6 +1,22 @@
 # STATUS
 
 ## Now
+- **M9 closed (2026-11-01, owner request):** reflection and macros finished. Runtime: the `type`
+  value exposes `name/full_name/args/parents/fields/properties/methods/constructors/attributes`,
+  `is_enum/is_unit/is_abstract/is_interface/is_declared`, `enum_names`,
+  `has_attribute/attribute`, `get_field/get_property/get_method(s)`, `get/set`, `create`,
+  `is_instance`, `is_assignable_from`; wrappers `field_info/property_info/method_info/param_info/
+  attribute_info` (including `matches/named`, `params`, `call_static`); static `reflect`
+  (`types/find_type/types_with_attribute/functions/find_function/functions_with_attribute/
+  module_attributes/type_of`) and a minimal `define_type` builder (unit/class, fields, field/type
+  attributes). Compile-time: `typeof<T>()`, `typeof(x)`, `name_of<T>()`, `field_names`,
+  `property_names`, `method_names`, `parent_names`, `attribute_names`, `has_attribute`. Macros:
+  `#[macro]`/`#[macro("expr")]`, `#[derive(name)]`, `name!(...)`, `macro_ctx` (`decl`, `args`,
+  `member/top/expr`, `error/warn`, `fresh`, `quote`), textual pipeline in the CLI before parsing,
+  separate mini-project for macro files, up to 16 expression passes, diagnostics KRN1502/1503.
+  Acceptance examples 24 and 28 check, run and have goldens. Limits: macros expand only through the
+  project/CLI pipeline (not single-file `CompileCore`); `define_type` has no generics/parents/methods;
+  `attribute_info.instantiate()` is not implemented. Suite **328/328**; style clean; examples clean **23/31**.
 - **M8 + M10 closed (2026-11-01, owner request):** CLI/builder finished: `kernc dll|exe`, built-in
   tasks `<target>:compile|run|exe|dll|check|dis|test` plus `:compile`/`:clean`, profiles (`-p`:
   optimize/warnings-as-errors/env), `t.args` defaults, env exported to run/tasks, hash skip includes

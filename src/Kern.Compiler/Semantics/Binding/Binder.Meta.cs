@@ -11,14 +11,17 @@ public sealed partial class Binder
 	private const string TypeOfName = "typeof";
 	private const string NameOfName = "name_of";
 	private const string FieldNamesName = "field_names";
+	private const string PropertyNamesName = "property_names";
+	private const string MethodNamesName = "method_names";
+	private const string ParentNamesName = "parent_names";
 	private const string AttributeNamesName = "attribute_names";
 	private const string HasAttributeName = "has_attribute";
 
 	/// <summary>
 	/// Контекстные встроенные формы рефлексии времени компиляции (spec §17/§18):
-	/// <c>typeof&lt;T&gt;()</c> (значение <c>type</c>) и <c>name_of&lt;T&gt;()</c> (строка).
-	/// Встроенная форма сильнее пользовательской функции только при явных аргументах-типах;
-	/// без них видимая функция с тем же именем побеждает (`typeof(x)` пока не реализован).
+	/// <c>typeof&lt;T&gt;()</c> (значение <c>type</c>), <c>typeof(x)</c> и
+	/// <c>name_of&lt;T&gt;()</c> (строка). Встроенная форма сильнее пользовательской функции только
+	/// при явных аргументах-типах или форме значения; видимая функция с тем же именем побеждает.
 	/// Неверное использование — KRN2101, новых кодов не вводим.
 	/// </summary>
 	private BoundExpression? TryBindMetaCall(
@@ -27,8 +30,17 @@ public sealed partial class Binder
 		IReadOnlyList<TypeSyntax> typeArguments,
 		TextSpan span)
 	{
-		if (name is not (TypeOfName or NameOfName or FieldNamesName or AttributeNamesName or HasAttributeName))
+		if (name is not (TypeOfName or NameOfName or FieldNamesName or PropertyNamesName or
+			MethodNamesName or ParentNamesName or AttributeNamesName or HasAttributeName))
 			return null;
+
+		if (name == TypeOfName && typeArguments.Count == 0 && arguments.Count == 1)
+		{
+			// `typeof(x)`: рефлексия значения (spec round 18); пользовательская функция важнее.
+			if (UserFunctionVisible(name))
+				return null;
+			return new BoundTypeOfValueExpression(BindExpression(arguments[0].Value), span);
+		}
 
 		var form = name;
 
@@ -66,6 +78,9 @@ public sealed partial class Binder
 			TypeOfName => new BoundTypeOfExpression(type, span),
 			NameOfName => new BoundNameOfExpression(type, span),
 			FieldNamesName => MetaFieldNames(type, span),
+			PropertyNamesName => MetaPropertyNames(type, span),
+			MethodNamesName => MetaMethodNames(type, span),
+			ParentNamesName => MetaParentNames(type, span),
 			AttributeNamesName => MetaAttributeNames(type, span),
 			_ => MetaHasAttribute(type, arguments, span),
 		};
@@ -75,6 +90,29 @@ public sealed partial class Binder
 	private BoundExpression MetaFieldNames(KernType type, TextSpan span)
 	{
 		var names = InstanceFields(type).Select(field => field.Name).ToArray();
+		return StringList(names, span);
+	}
+
+	/// <summary><c>property_names&lt;T&gt;()</c>: имена свойств.</summary>
+	private BoundExpression MetaPropertyNames(KernType type, TextSpan span)
+	{
+		var names = MetaTypeSymbol(type)?.Members.Properties
+			.Select(property => property.Name)
+			.ToArray() ?? [];
+		return StringList(names, span);
+	}
+
+	/// <summary><c>method_names&lt;T&gt;()</c>: имена методов (без операторов/аксессоров).</summary>
+	private BoundExpression MetaMethodNames(KernType type, TextSpan span)
+	{
+		var names = MetaTypeSymbol(type)?.Members.Functions.Keys.ToArray() ?? [];
+		return StringList(names, span);
+	}
+
+	/// <summary><c>parent_names&lt;T&gt;()</c>: имена прямых родителей.</summary>
+	private BoundExpression MetaParentNames(KernType type, TextSpan span)
+	{
+		var names = MetaTypeSymbol(type)?.Bases.Select(parent => parent.ToString()).ToArray() ?? [];
 		return StringList(names, span);
 	}
 

@@ -7,6 +7,7 @@ using Kern.Compiler.Semantics;
 using Kern.Compiler.Semantics.Binding;
 using Kern.Compiler.Semantics.Declarations;
 using Kern.Compiler.Syntax;
+using Kern.Cli.Macros;
 using Kern.Core.Diagnostics;
 using Kern.Core.Text;
 using Kern.Runtime.Core;
@@ -60,11 +61,33 @@ internal static class SourceCompiler
 		string moduleName,
 		NativeCatalog catalog,
 		CompileOptions options,
-		IReadOnlyList<KbcModule>? libraries = null)
+		IReadOnlyList<KbcModule>? libraries = null,
+		bool expandMacros = true)
 	{
 		ArgumentNullException.ThrowIfNull(files);
 		ArgumentNullException.ThrowIfNull(catalog);
 		ArgumentNullException.ThrowIfNull(options);
+
+		var macroMessages = new List<string>();
+		if (expandMacros)
+		{
+			MacroExpansion expansion = MacroEngine.Expand(
+				files,
+				moduleName,
+				macroFiles => CompileFiles(macroFiles, moduleName + "_macros", catalog, options, libraries: null, expandMacros: false));
+			macroMessages.AddRange(expansion.Messages.Select(message =>
+				$"{message.Path}:{message.Line}:{message.Column}: {(message.IsError ? "ошибка KRN1502" : "предупреждение KRN1503")}: {message.Text}"));
+			if (expansion.Messages.Any(message => message.IsError))
+			{
+				return new CompileResult
+				{
+					ProjectMessages = macroMessages,
+					FailureMessage = "макрос завершился ошибкой",
+				};
+			}
+
+			files = expansion.Files;
+		}
 
 		var projectFiles = files
 			.Select(file => new ProjectSourceFile(file.Path, file.Text))
@@ -75,6 +98,7 @@ internal static class SourceCompiler
 			texts[path] = new SourceText(text, path);
 
 		var messages = new List<string>();
+		messages.AddRange(macroMessages);
 		foreach (var diagnostic in result.Diagnostics)
 		{
 			texts.TryGetValue(diagnostic.Path, out var fileSource);
@@ -134,6 +158,7 @@ internal static class SourceCompiler
 		return new CompileResult
 		{
 			Sources = result.Bundle,
+			ExpandedFiles = files,
 			ProjectMessages = messages,
 			Program = new CompiledProgram(module, catalog),
 		};

@@ -102,6 +102,49 @@ public sealed class KbcLinkTests : IDisposable
 		Assert.Equal(firstOut, secondOut);
 	}
 
+	[Fact]
+	public void Dll_stubs_include_macro_generated_members()
+	{
+		string root = Create(
+			("lib/src/macros.kern", """
+				use kern.macro[macro_ctx]
+
+				#[macro]
+				fun to_text(macro_ctx m) {
+					var t = m.decl
+					var body = ""
+					var sep = ""
+					loop var f in t.fields {
+						body = body + sep + f.name + "=${" + f.name + "}"
+						sep = ", "
+					}
+					m.member("fun to_text() -> str f\"" + t.name + "(" + body + ")\"")
+				}
+				"""),
+			("lib/src/model.kern", """
+				#[derive(to_text)]
+				unit User(str name)
+				"""),
+			("app/build.kern", """
+				use kern.build[workspace, target]
+				fun build(workspace w) {
+					w.target("app", fun (target t) {
+						t.kbc("../lib/out/lib.kbc")
+					})
+				}
+				"""),
+			("app/src/main.kern", """
+				use model[User]
+
+				fun main {
+					println(User("аня").to_text())
+				}
+				"""));
+
+		Assert.Equal(0, Run("dll", Path.Combine(root, "lib")).Code);
+		Assert.Equal("User(name=аня)\n", RunApp(Path.Combine(root, "app")));
+	}
+
 	private string CreateLibAndApp()
 	{
 		string root = Create(

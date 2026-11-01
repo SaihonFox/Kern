@@ -18,7 +18,7 @@ namespace Kern.Tests.Features;
 /// M3, заготовки рефлексии времени компиляции (spec §17/§18): <c>typeof&lt;T&gt;()</c>
 /// (реифицированное значение <c>type</c>, статически <c>object</c>) и
 /// <c>name_of&lt;T&gt;()</c> (биндер вычисляет строку, в байткоде остаётся литерал).
-/// Форма значения <c>typeof(x)</c> и рантайм-члены <c>type</c> в этот слайс не входят.
+/// <c>typeof(x)</c> тоже поддержан (M9).
 /// </summary>
 public sealed class ReflectionStubTests
 {
@@ -55,9 +55,9 @@ public sealed class ReflectionStubTests
 	{
 		Assert.Equal(new[] { "KRN2101" }, Codes("fun main { println(typeof<i32, str>()) }"));
 		Assert.Equal(new[] { "KRN2101" }, Codes("fun main { println(typeof<i32>(1)) }"));
-		Assert.Equal(new[] { "KRN2101" }, Codes("fun main { println(typeof(1)) }"));
 		Assert.Equal(new[] { "KRN2101" }, Codes("fun main { println(typeof()) }"));
 		Assert.Equal(new[] { "KRN2101" }, Codes("fun main { println(name_of<i32, bool>()) }"));
+		Assert.Equal(KValue.Str("i32"), Run("fun f() -> str { format(typeof(1)) }", "f"));
 
 		// Без аргументов-типов видимая пользовательская функция важнее контекстной формы.
 		Assert.Equal(KValue.Str("user"), Run("""

@@ -18,11 +18,31 @@ public sealed class KernFieldInfo(KClassType owner, FieldDef field)
 
 /// <summary>Описание метода для <c>type.get_method</c>.</summary>
 [KernType("method_info")]
-public sealed class KernMethodInfo(KClassType owner, FunctionDef method)
+public sealed class KernMethodInfo(KClassType? owner, FunctionDef method)
+{
+	public KClassType? Owner { get; } = owner;
+
+	public FunctionDef Method { get; } = method;
+}
+
+/// <summary>Описание свойства (<c>property_info</c>).</summary>
+[KernType("property_info")]
+public sealed class KernPropertyInfo(KClassType owner, PropertyDef property)
 {
 	public KClassType Owner { get; } = owner;
 
-	public FunctionDef Method { get; } = method;
+	public PropertyDef Property { get; } = property;
+}
+
+/// <summary>Описание параметра функции (<c>param_info</c>).</summary>
+[KernType("param_info")]
+public sealed class KernParamInfo(int index, string name, TypeSig type)
+{
+	public int Index { get; } = index;
+
+	public string Name { get; } = name;
+
+	public TypeSig Type { get; } = type;
 }
 
 /// <summary>Описание атрибута (<c>#[entity("users")]</c>).</summary>
@@ -59,6 +79,16 @@ public static class FieldInfoApi
 	public static KValue Get(KNativeBox self, KValue target) =>
 		RequireTarget(self, target).GetField(Require(self).Field.Slot);
 
+	[KernProperty]
+	[KernReturn("list<attribute_info>")]
+	public static KValue Attributes(Interpreter interpreter, KNativeBox self)
+	{
+		var values = Require(self).Field.Attributes
+			.Select(attribute => KValue.Obj(new KNativeBox(new KernAttributeInfo(attribute))))
+			.ToArray();
+		return KValue.Obj(new KList(interpreter.Types.Prim(PrimKind.Object), values));
+	}
+
 	private static KernFieldInfo Require(KNativeBox self) => self.Value switch
 	{
 		KernFieldInfo info => info,
@@ -73,7 +103,7 @@ public static class FieldInfoApi
 
 /// <summary>Члены <c>method_info</c> (C#-стиль: <c>m.call(obj, [args])</c>).</summary>
 [KernType("method_info")]
-public static class MethodInfoApi
+public static partial class MethodInfoApi
 {
 	[KernProperty]
 	public static string Name(KNativeBox self) => Require(self).Method.Name;
@@ -93,11 +123,6 @@ public static class MethodInfoApi
 
 	private static FunctionDef _function(Interpreter interpreter, KernMethodInfo info)
 	{
-		foreach (TypeDef type in interpreter.Module.TypePool)
-			if (type == info.Owner.Definition)
-				foreach (int index in type.Methods)
-					if (interpreter.Module.FunctionPool[index] == info.Method)
-						return info.Method;
 		return info.Method;
 	}
 
@@ -115,7 +140,7 @@ public static class MethodInfoApi
 
 /// <summary>Члены <c>attribute_info</c>: имя и аргументы атрибута.</summary>
 [KernType("attribute_info")]
-public static class AttributeInfoApi
+public static partial class AttributeInfoApi
 {
 	[KernProperty]
 	public static string Name(KNativeBox self) => Require(self).Attribute.Name;
@@ -152,7 +177,7 @@ public static class AttributeInfoApi
 /// Значение приходит как <see cref="KType"/> в <c>KValue.Ref</c>.
 /// </summary>
 [KernType("object")]
-public static class TypeMembers
+public static partial class TypeMembers
 {
 	[KernProperty]
 	public static string Name(KValue self) => Require(self) switch

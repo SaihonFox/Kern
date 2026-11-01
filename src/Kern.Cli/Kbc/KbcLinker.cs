@@ -327,7 +327,7 @@ internal static class KbcLinker
 						OpCode.NewObjectGeneric when operand == 0 => MapType(value),
 						OpCode.NewObjectGeneric => MapSigList(value),
 						OpCode.Call or OpCode.CallVirtual or OpCode.CallBase or OpCode.MakeFunc or OpCode.MakeClosure
-							=> MapFunction(value),
+							when operand == 0 => MapFunction(value),
 						OpCode.LoadField or OpCode.StoreField => function.OwnerType >= 0
 							? MapSlot(library.TypePool[function.OwnerType], value)
 							: value,

@@ -22,17 +22,24 @@
 | `kern.csv` / `kern.yaml` / `kern.xml` | CSV RFC 4180 (`parse`, `parse_dicts`, `to_str`); YAML-подмножество (`parse`, `to_str`); XML (`parse`, `new`, `xml_node.name/text/children/attr/child/find_all/add`) | YAML без якорей/тегов; XML — только элементы и атрибуты |
 | `kern.crypto` / `kern.uuid` | sha1/sha256/sha512/md5, hmac_sha256, base64, random_hex, hash_password/verify_password; `uuid.new()` | — |
 | `kern.time` | `duration` (parse/from_*/total_*/арифметика/сравнения/печать), `datetime` (of/now/поля/weekday/format/add_months/±/сравнения), `stopwatch` (запускается сразу), `time.sleep/measure/unix_*` | нативные параметры по умолчанию не поддерживаются: `datetime.of` требует все 6 аргументов |
+| `kern.reflection` / `kern.macro` | `type` (`name/full_name/args/parents/fields/properties/methods/constructors/attributes`, `is_*`, `enum_names`, `get_*/get/set/create/is_instance/is_assignable_from`), `field_info/property_info/method_info/param_info/attribute_info`, `reflect.*`, `define_type`; `macro_ctx` + `#[macro]`/`#[macro("expr")]`/`#[derive]`/`name!(...)` | `define_type` без generics/родителей/методов; `instantiate()` атрибута нет; макросы не раскрываются в одиночном `CompileCore` |
 
 ## Отсутствует (stage-2 и другие этапы)
 
 `kern.db.*`, `kern.ui`, `kern.ffi`, `kern.transpile`, `kern.di`, `kern.backend`, `kern.mod`,
-`kern.stub`, `kern.macro` (M9), `kern.web`/`kern.server` (stage-2).
+`kern.stub`, `kern.web`/`kern.server` (stage-2).
 
 M7 закрыт 2026-11-01: `kern.events`, `kern.compress`, `kern.http` (оба варианта), `kern.threading`,
 `kern.tasks`, `kern.parallel`, `kern.pipes`, моки `kern.test.mock`, базовая рефлексия
 `kern.reflection` и `kern.build` (типы builder'а живут в `Kern.Cli/Build/BuildPrelude.cs`).
 
-## Блокеры примеров (9 из 31 не проходят `kernc check`; 22 чистых — на 2026-11-01)
+M9 закрыт 2026-11-01: полная рантайм-поверхность значения `type`, обёртки
+`field_info/property_info/method_info/param_info/attribute_info`, статический `reflect.*`,
+минимальный `define_type`, компиляторные `typeof(x)`/`property_names`/`method_names`/
+`parent_names`, а также `kern.macro` и текстовый конвейер макросов (`#[macro]`,
+`#[macro("expr")]`, `#[derive(name)]`, `name!(...)`, KRN1502/1503).
+
+## Блокеры примеров (8 из 31 не проходят `kernc check`; 23 чистых — на 2026-11-01)
 
 | Пример | Первый блокер | Что нужно |
 |---|---|---|
@@ -55,10 +62,10 @@ M7 закрыт 2026-11-01: `kern.events`, `kern.compress`, `kern.http` (оба 
 | 25_transpile | старый `use path` | refresh примеров + `kern.transpile` |
 | 26_di | `container` | `kern.di` |
 | 27_backend | stage-2 | вне первого прохода |
-| 28_macros | stage-2 macros | M9 |
+| 28_macros | ✅ clean+run 2026-11-01 (M9 macros) | — |
 | 29_async | ✅ clean+run 2026-11-01 | — |
 | 30_threads | ✅ clean+run 2026-11-01 | — |
-| 31_kbc | `check` без KRN-кодов | разобрать layout/`build.kern` (M8) |
+| 31_kbc | `kernc check` без KRN-кодов; `kernc dll mathx` + `kernc run app` работает (M10) | — |
 
 ## Рекомендуемый порядок
 

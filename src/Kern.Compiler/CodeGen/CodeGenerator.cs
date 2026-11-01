@@ -236,6 +236,11 @@ public sealed partial class CodeGenerator
 				Emit(OpCode.TypeOfSig, _module.InternTypeSig(TypeSigMap.From(typeOf.TypeArgument, _module.Name)));
 				break;
 
+			case BoundTypeOfValueExpression typeOfValue:
+				EmitExpression(typeOfValue.Value);
+				Emit(OpCode.TypeOfValue);
+				break;
+
 			case BoundNameOfExpression nameOf:
 				Emit(OpCode.PushConst, _module.InternConst(KConst.Str(nameOf.TypeArgument.ToString())));
 				break;

@@ -654,6 +654,13 @@ public sealed partial class Binder
 				result.Add(function);
 		}
 
+		// Точный нативный получатель важнее моста `object` (streamwriter, рефлексия):
+		// иначе члены `type`/`macro_decl_info` перекрывали бы методы конкретного типа.
+		if (result.Count > 1 &&
+			result.Any(function => function.NativeSelfType is not PrimitiveType { Primitive: PrimitiveKind.Object }))
+			result = [.. result.Where(function =>
+				function.NativeSelfType is not PrimitiveType { Primitive: PrimitiveKind.Object })];
+
 		return result;
 	}
 

@@ -86,6 +86,22 @@ Accept: example 11 (workspace) and conventions-based examples run through `kernc
 Runtime `kern.reflection` (type/field/property/method/param/attribute info, `reflect.*`, `define_type`), compile-time `name_of<T>()`, `field_names<T>()`, …; macro pipeline (text expansion before parsing, `#[macro]`/`#[macro("expr")]`, `macro_ctx`, `derive`, diagnostics KRN1502/1503, nested expansion ≤ 16 passes).
 Accept: examples 24, 28.
 
+**Status 2026-11-01 - M9 closed:** runtime reflection is the full `type` surface
+(`name/full_name/args/parents/fields/properties/methods/constructors/attributes`,
+`is_enum/is_unit/is_abstract/is_interface/is_declared`, `enum_names`, `has_attribute/attribute`,
+`get_field/get_property/get_method/get_methods`, `get/set`, `create`, `is_instance`,
+`is_assignable_from`) with `field_info/property_info/method_info/param_info/attribute_info`
+wrappers, static `reflect.*` and a minimal `define_type` builder (unit/class, fields, field/type
+attributes). Compile-time `typeof<T>()`, `typeof(x)`, `name_of<T>()`, `field_names`,
+`property_names`, `method_names`, `parent_names`, `attribute_names`, `has_attribute` are computed by
+the binder. Macros are a textual pipeline before parsing: macro files compile as a separate
+mini-project, attribute macros run on top-level `type`/`unit` (including `#[derive(name)]`),
+expression macros `name!(...)` expand in up to 16 passes, and `macro_ctx` reports KRN1502/KRN1503.
+Examples 24 and 28 check, run and have `expected.out`; suite **328/328**. `kernc dll` now builds
+stubs from macro-expanded sources, so generated members are visible to consumers. Limits: macro
+expansion is not run by single-file `CompileCore`; `define_type` has no generics/parents/methods;
+attribute `instantiate()` is absent.
+
 ## M10 — `.kbc` via `use`
 Interface stubs embedded by `kernc dll` (`kern.stub` module attributes), `KbcStubTransform`, `KbcLinker` (matching key `owner|name|flags|op|generics|paramSigs|ext|file`, operand relocation table per opcode, field-layout verification), builder `t.kbc(path)`.
 Accept: example 31 (build `mathx` as dll, then run `app`).

@@ -39,5 +39,11 @@ internal sealed class CompileResult
 	/// </summary>
 	public SourceBundle? Sources { get; init; }
 
+	/// <summary>
+	/// Исходники после раскрытия макросов (если оно выполнялось): <c>kernc dll</c> строит
+	/// интерфейсные заглушки по ним, чтобы члены, созданные макросами, были видны потребителю.
+	/// </summary>
+	public IReadOnlyList<(string Path, string Text)>? ExpandedFiles { get; init; }
+
 	public bool Success => Program is not null;
 }

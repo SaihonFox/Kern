@@ -21,9 +21,14 @@ internal static class DllCompiler
 
 		KbcModule module = compiled.Compile.Program!.Module;
 		module.EntryPoint = -1;
-		foreach (var (path, text) in Sources(session, selected))
+		IReadOnlyList<(string Path, string Text)> sources = Sources(session, selected);
+		var expanded = new Dictionary<string, string>(StringComparer.Ordinal);
+		foreach (var (path, text) in compiled.Compile.ExpandedFiles ?? sources)
+			expanded[path] = text;
+		foreach (var (path, text) in sources)
 		{
-			string stub = StubGenerator.Generate(text, path);
+			string source = expanded.TryGetValue(path, out string? expandedText) ? expandedText : text;
+			string stub = StubGenerator.Generate(source, path);
 			module.Attributes.Add(new AttributeUse(
 				"kern.stub",
 				KConst.Str(path),

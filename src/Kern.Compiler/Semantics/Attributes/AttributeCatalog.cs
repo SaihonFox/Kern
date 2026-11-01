@@ -25,7 +25,9 @@ public static class AttributeCatalog
 		"post",
 		"put",
 		"patch",
-		"delete"
+		"delete",
+		// Макросы (spec round 22): маркер функции-макроса; раскрывается до binder'а.
+		"macro"
 	];
 
 	private static readonly HashSet<string> Known = new(Names, StringComparer.Ordinal);
