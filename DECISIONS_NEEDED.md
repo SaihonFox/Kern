@@ -138,6 +138,8 @@ Options:
 
 Recommendation: option 1; pick option 3 if `to_str` and `to_debug` must visibly differ for units.
 
+Status 2026-11-01: `examples/04_flow` golden is parked (`.golden-pending`) because `KernFormat` prints tuple elements and `list<str>` unquoted (`(аня, 25)`) while `GOLDEN_ASSUMPTIONS.md` requires nested `str` quoted (`("аня", 25)`); `examples/24_reflection` comment also shows unquoted names. Decide the convention here, then either fix `KernFormat` or update the assumptions.
+
 ### Q26: `#[derive(clone)]` - shallow or deep copy
 B8c implements a shallow (memberwise) copy: `unit`/`unit!` fields are copied by value recursively, references (`type`, `list`, `dict`, closures) are shared, `unit`/`unit!` derive is a no-op.
 
