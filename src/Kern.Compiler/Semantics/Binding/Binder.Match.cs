@@ -22,11 +22,17 @@ public sealed partial class Binder
 		var entry = _flow.Clone();
 		var arms = new List<BoundMatchArm>(expression.Arms.Count);
 		var armStates = new List<FlowState>(expression.Arms.Count);
+		// После неохраняемой ветви `nil` остальные ветви видят не-nil тип (smart cast
+		// `T?` → `T`, spec §4): `match r.find_match(...) { nil => …  m => m.text }`.
+		var nilHandled = false;
 		foreach (var arm in expression.Arms)
 		{
 			_flow = entry.Clone();
-			arms.Add(BindMatchArm(arm, subject));
+			KernType? armSubject = nilHandled && subject is NullableType nullable ? nullable.Underlying : subject;
+			arms.Add(BindMatchArm(arm, armSubject));
 			armStates.Add(_flow);
+			if (arm.Guard is null && IsNilPattern(arm.Pattern))
+				nilHandled = true;
 		}
 
 		_flow = armStates.Count == 0 ? entry : FlowState.Join(armStates);
@@ -41,6 +47,13 @@ public sealed partial class Binder
 
 		return new BoundMatchExpression(target, converted, type, expression.Span);
 	}
+
+	private static bool IsNilPattern(PatternNode pattern) => pattern switch
+	{
+		IdentifierPattern identifier => identifier.Name == "nil",
+		LiteralPattern literal => literal.Text == "nil",
+		_ => false,
+	};
 
 	private BoundMatchArm BindMatchArm(MatchArm arm, KernType? subject)
 	{

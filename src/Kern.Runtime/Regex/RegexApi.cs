@@ -162,6 +162,18 @@ public static class RegexMembers
 	public static KList<string> Split(KNativeBox self, string text) =>
 		Strings(Require(self).Compiled.Split(text));
 
+	/// <summary>
+	/// <c>find_match(text)</c>: совпадение с позициями и группами или <c>nil</c> (spec §18c).
+	/// Имя <c>match</c> из спеки не парсится после точки — это ключевое слово (Q32).
+	/// </summary>
+	[KernName("find_match")]
+	[KernMember]
+	public static KernRegexMatch? Match(KNativeBox self, string text)
+	{
+		NetMatch match = Require(self).Compiled.Match(text);
+		return match.Success ? KernRegexMatch.From(match) : null;
+	}
+
 	internal static KernRegex Require(KNativeBox self) => self.Value switch
 	{
 		KernRegex regex => regex,

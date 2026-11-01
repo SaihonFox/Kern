@@ -10,7 +10,7 @@ fun main {
 	// регулярные выражения
 	regex r("(\\d+)-(\\d+)")
 	println(r.is_match("диапазон 10-20"))
-	match r.find("диапазон 10-20") {
+	match r.find_match("диапазон 10-20") {
 		nil => println("нет")
 		m => println(f"${m.text} → группы ${m.groups}")
 	}

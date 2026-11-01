@@ -13,7 +13,12 @@
 | `kern.math` | базовые функции | — |
 | `kern.collections` | нативные `list`/`array`/`dict` (включая `first/last/get/set/map/filter/keys/values/get_or`), члены `str`/`char`; generic-контейнеры `set<T>` (add/remove/contains/clear/len/is_empty/to_list), `queue<T>` (enqueue/dequeue/peek/clear/len/is_empty/to_list), `stack<T>` (push/pop/peek/clear/len/is_empty/to_list) | нет `observable`, нет `collection<T>`-протокола/адаптеров |
 | `str`/`char` (встроенные) | `len`, `upper`, `lower`, `trim*`, `contains`, `starts_with`, `ends_with`, `index_of`, `substring`, `replace`, `split`, `chars`, `lines`, `join`, `pad_left/right`, `repeat`, `to_str`, `to_i32/to_i64/to_f64/to_bool` | `str` пока не все члены из старых примеров |
-| `kern.regex` | `regex(pattern[, flags])` → `regex` (panic по-русски на неверный шаблон/флаг), `try_new(pattern[, flags]) -> regex?`, члены `is_match/find/find_all/replace/split`, свойства `pattern/options`; `x"…"`/`fx"…"` lowering реализован | тип результата `match` не реализован (Q32); `regex.try_new(…)` пока только как `try_new(…)` |
+| `kern.regex` | `regex(pattern[, flags])` → `regex` (panic по-русски), `try_new`, члены `is_match/find/find_all/find_match/replace/split`, свойства `pattern/options`; `x"…"`/`fx"…"` lowering | `find_match` (а не `match` — ключевое слово), Q32; `regex.try_new(…)` пока только `try_new(…)` |
+| `kern.json` | `to_str`, `to_str_pretty`, `parse` → `dict<str, object>`/`list<object>`, `from_str<T>` (reified `[KernTypeArgs]`) | `Err` только при ошибке разбора |
+| `kern.env` | `get`, `get_or`, `set`, свойства `os`, `cwd`, `home` | — |
+| `file.*` / `kern.path` | чтение/запись/список/копирование/удаление (IO → `result<T, str>`); `join/dir_name/file_name/ext/normalize/is_absolute/absolute` | — |
+| `kern.csv` / `kern.yaml` / `kern.xml` | CSV RFC 4180 (`parse`, `parse_dicts`, `to_str`); YAML-подмножество (`parse`, `to_str`); XML (`parse`, `new`, `xml_node.name/text/children/attr/child/find_all/add`) | YAML без якорей/тегов; XML — только элементы и атрибуты |
+| `kern.crypto` / `kern.uuid` | sha1/sha256/sha512/md5, hmac_sha256, base64, random_hex, hash_password/verify_password; `uuid.new()` | — |
 | `kern.time` | `duration` (parse/from_*/total_*/арифметика/сравнения/печать), `datetime` (of/now/поля/weekday/format/add_months/±/сравнения), `stopwatch` (запускается сразу), `time.sleep/measure/unix_*` | нативные параметры по умолчанию не поддерживаются: `datetime.of` требует все 6 аргументов |
 
 ## Отсутствует (M7 и stage-2)

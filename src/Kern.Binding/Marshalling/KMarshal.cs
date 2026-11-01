@@ -197,6 +197,17 @@ public static class KMarshal
 			return KValue.Obj(box);
 		if (value is KList<object> typedList)
 			return typedList.Value;
+		// Типизированные обёртки `KList<T>`/`KArray<T>`/`KDict<K,V>` хранят готовое
+		// VM-значение в свойстве Value; перечислять их как IEnumerable нельзя (элементы
+		// потеряют тип и вложенный dict станет KNativeBox).
+		Type wrapper = value.GetType();
+		if (wrapper.IsGenericType)
+		{
+			Type definition = wrapper.GetGenericTypeDefinition();
+			if (definition == typeof(KList<>) || definition == typeof(KArray<>) || definition == typeof(KDict<,>))
+				return (KValue)wrapper.GetProperty("Value")!.GetValue(value)!;
+		}
+
 		if (value is IEnumerable enumerable && value is not string)
 		{
 			var items = new List<KValue>();

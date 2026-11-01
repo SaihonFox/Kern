@@ -176,8 +176,25 @@ public sealed partial class Binder
 
 			if (loopBody.Value is null || IsVoid(loopBody.Value.Type))
 			{
-				Report("KRN2102", "Тело loop-выражения должно возвращать значение", loop.Span);
-				return new BoundErrorExpression(loop.Span);
+				// Тело без значения (spec §3: «результат — list значений тела либо void»):
+				// цикл остаётся оператором, а выражение имеет тип void. Это нужно ветвям
+				// `match`/`if` в позиции оператора (`Ok(rows) => loop … println(…)`).
+				var voidBody = new List<BoundStatement>(iterationPrefix.Count + loopBody.Statements.Count + 2);
+				voidBody.AddRange(iterationPrefix);
+				voidBody.Add(new BoundAssignment(variable.Name, variable.Slot, loopType, element, bindingSpan));
+				voidBody.AddRange(loopBody.Statements);
+				voidBody.Add(increment);
+				statements.Add(new BoundLoopStatement(
+					condition,
+					new BoundBlock(voidBody, null, loopBody.FallsThrough, loopBody.Span),
+					IsDoWhile: false,
+					IsInfinite: false,
+					loop.Span)
+				{
+					Label = loop.Label?.Name
+				});
+				_flow = breaks.Count > 0 ? FlowState.Join(breaks) : afterLoop;
+				return new BoundBlockExpression(statements, null, FallsThrough: true, PrimitiveType.Void, loop.Span);
 			}
 
 			var valueType = loopBody.Value.Type;

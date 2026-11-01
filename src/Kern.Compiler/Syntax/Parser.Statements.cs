@@ -66,8 +66,15 @@ public sealed partial class Parser
 			var loop = ParseLoopExpression();
 			if (!loop.IsAsync && loop.Kind is LoopExpressionKind.Iteration or LoopExpressionKind.Infinite)
 			{
-				var loopBody = loop.Body as BlockStatement ?? new BlockStatement(
-					[new ExpressionStatement((ExpressionNode)loop.Body, loop.Body.Span)], loop.Body.Span);
+				// Тело без скобок — узел оператора или выражения: присваивание и `ret`
+				// нельзя приводить к ExpressionNode.
+				StatementNode body = loop.Body switch
+				{
+					StatementNode statement => statement,
+					ExpressionNode expression => new ExpressionStatement(expression, expression.Span),
+					_ => new BlockStatement([], loop.Body.Span),
+				};
+				var loopBody = loop.Body as BlockStatement ?? new BlockStatement([body], loop.Body.Span);
 				return new LoopStatement(loopBody, loop.Span, loop, loop.Label);
 			}
 			return new ExpressionStatement(loop, loop.Span);
