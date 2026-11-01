@@ -357,6 +357,22 @@ public sealed partial class Binder
 				out prefix);
 		}
 
+		// `collection<T>`/`observable<T>` итерируются своим снимком `to_list()`;
+		// дальнейший путь — обычный список (len + индекс).
+		if (iterable.Type is BuiltinGenericType
+			{ BuiltinKind: BuiltinGenericKind.Collection or BuiltinGenericKind.Observable } generic &&
+			generic.Arguments.Count == 1)
+		{
+			foreach (var native in NativeMembers(iterable.Type, "to_list"))
+			{
+				if (native.Parameters.Count != 0)
+					continue;
+				var listType = new BuiltinGenericType(BuiltinGenericKind.List, [generic.Arguments[0]]);
+				iterable = new BoundCallExpression(native, [], listType, source.Span, iterable);
+				break;
+			}
+		}
+
 		if (iterable.Type is not BuiltinGenericType
 			{ BuiltinKind: BuiltinGenericKind.List or BuiltinGenericKind.Array } collection ||
 			collection.Arguments.Count != 1)

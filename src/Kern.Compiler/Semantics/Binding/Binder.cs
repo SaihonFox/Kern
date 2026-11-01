@@ -257,8 +257,10 @@ public sealed partial class Binder
 				}
 				else
 				{
+					// FallsThrough остаётся true: codegen должен выполнить dispose `use`-переменных
+					// на выходе из блока, а `Ret` функции он печатает сам по наличию Value.
 					var value = Convert(bound.Value, _returnType, bound.Value.Span);
-					bound = bound with { Value = value, FallsThrough = false };
+					bound = bound with { Value = value };
 				}
 			}
 

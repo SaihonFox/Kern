@@ -35,6 +35,10 @@ internal static class BuiltinMemberSignatures
 				ResolveQueue(receiver.Arguments[0], member, out error),
 			BuiltinGenericKind.Stack when receiver.Arguments.Count == 1 =>
 				ResolveStack(receiver.Arguments[0], member, out error),
+			BuiltinGenericKind.Collection when receiver.Arguments.Count == 1 =>
+				ResolveCollection(receiver.Arguments[0], member, out error),
+			BuiltinGenericKind.Observable when receiver.Arguments.Count == 1 =>
+				ResolveObservable(receiver.Arguments[0], member, out error),
 			_ => null
 		};
 	}
@@ -42,7 +46,8 @@ internal static class BuiltinMemberSignatures
 	/// <summary>
 	/// Тип параметра нативного члена, который мост описывает как <c>object</c>, но по смыслу
 	/// это элемент контейнера: <c>set&lt;T&gt;.add/remove/contains(T)</c>,
-	/// <c>queue&lt;T&gt;.enqueue(T)</c>, <c>stack&lt;T&gt;.push(T)</c>.
+	/// <c>queue&lt;T&gt;.enqueue(T)</c>, <c>stack&lt;T&gt;.push(T)</c>,
+	/// <c>collection&lt;T&gt;.contains(T)</c>, <c>observable&lt;T&gt;.add/remove/contains(T)</c>.
 	/// </summary>
 	public static KernType? ElementParameterType(BuiltinGenericType receiver, string member)
 	{
@@ -54,8 +59,34 @@ internal static class BuiltinMemberSignatures
 			BuiltinGenericKind.Set => member is "add" or "remove" or "contains" ? receiver.Arguments[0] : null,
 			BuiltinGenericKind.Queue => member is "enqueue" ? receiver.Arguments[0] : null,
 			BuiltinGenericKind.Stack => member is "push" ? receiver.Arguments[0] : null,
+			BuiltinGenericKind.Collection => member is "contains" ? receiver.Arguments[0] : null,
+			BuiltinGenericKind.Observable => member is "add" or "remove" or "contains" ? receiver.Arguments[0] : null,
 			_ => null,
 		};
+	}
+
+	/// <summary>
+	/// <c>collection&lt;T&gt;</c>: <c>to_list() -&gt; list&lt;T&gt;</c>; <c>len</c>/<c>is_empty</c>
+	/// и <c>contains</c> описываются мостом.
+	/// </summary>
+	private static KernType? ResolveCollection(KernType element, string member, out string? error)
+	{
+		error = null;
+		return member == "to_list"
+			? new BuiltinGenericType(BuiltinGenericKind.List, [element])
+			: null;
+	}
+
+	/// <summary>
+	/// <c>observable&lt;T&gt;</c>: <c>to_list() -&gt; list&lt;T&gt;</c>; <c>on_change</c>
+	/// и <c>add/remove/contains</c> описываются мостом (void/bool).
+	/// </summary>
+	private static KernType? ResolveObservable(KernType element, string member, out string? error)
+	{
+		error = null;
+		return member == "to_list"
+			? new BuiltinGenericType(BuiltinGenericKind.List, [element])
+			: null;
 	}
 
 	private static KernType? ResolveSequence(

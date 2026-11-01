@@ -134,6 +134,23 @@ public static class NativeSymbolBuilder
 				Kind = SymbolKind.Native
 			};
 		}
+
+		// Второй проход: родители из C#-иерархии (`streamwriter -> stream`) после того,
+		// как все символы типов уже зарегистрированы.
+		foreach (NativeTypeDescriptor descriptor in catalog.Types)
+		{
+			if (descriptor.Parents.Count == 0 ||
+				!types.TryGetValue(descriptor.Name, out TypeSymbol? child) ||
+				child.Kind != SymbolKind.Native)
+				continue;
+
+			List<KernType> bases = [];
+			foreach (string parent in descriptor.Parents)
+				if (types.TryGetValue(parent, out TypeSymbol? parentSymbol) && parentSymbol.Kind == SymbolKind.Native)
+					bases.Add(new ClassType(parentSymbol, []));
+			if (bases.Count > 0)
+				child.SetBases(bases);
+		}
 	}
 
 	private static IReadOnlyList<string> DefaultGenericNames(int arity) =>
@@ -227,11 +244,24 @@ public static class NativeSymbolBuilder
 					_ => FunctionKind.Function,
 				};
 
+			KernType returnType = Parse(descriptor.ReturnType);
+			// Фабрика generic-контейнера (`set<T>()`, `observable<T>()`) возвращает сам
+			// контейнер: CLR-мост отдаёт `object`, а binder подставляет аргументы типа.
+			if (kind == FunctionKind.Constructor && descriptor.SelfType is null && !descriptor.OwnerIsModule &&
+				genericParameters.Count > 0)
+			{
+				if (TypeCatalog.TryGetBuiltin(descriptor.Owner, out BuiltinGenericKind builtin))
+					returnType = new BuiltinGenericType(builtin, [.. genericParameters]);
+				else if (types.TryGetValue(descriptor.Owner, out TypeSymbol? ownerType) &&
+					ownerType.Kind == SymbolKind.Native && ownerType.GenericParameters.Count > 0)
+					returnType = new ClassType(ownerType, [.. genericParameters]);
+			}
+
 			symbol = new FunctionSymbol(descriptor.Name, kind)
 			{
 				GenericParameters = genericParameters,
 				Parameters = parameters,
-				ReturnType = Parse(descriptor.ReturnType),
+				ReturnType = returnType,
 				ReceiverType = self,
 				NativeSelfType = self,
 				NativeOwnerType = owner,

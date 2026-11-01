@@ -11,7 +11,9 @@
 | `kern.io` | `streamwriter`/`streamreader` (`write`, `write_line`, `read_line`, `read_all`, `read_text`, `close`, `dispose`, `is_open`, `at_end`), `ConsoleModule` | файловые `file.*` ещё не добавлены |
 | `kern.test` | `assert`, `assert_eq`, `assert_ne`, `assert_near`, `assert_nil`, `assert_not_nil`, `fail` | `fail` типизирован `void`, а не `never` |
 | `kern.math` | базовые функции | — |
-| `kern.collections` | нативные `list`/`array`/`dict` (включая `first/last/get/set/map/filter/keys/values/get_or`), члены `str`/`char`; generic-контейнеры `set<T>` (add/remove/contains/clear/len/is_empty/to_list), `queue<T>` (enqueue/dequeue/peek/clear/len/is_empty/to_list), `stack<T>` (push/pop/peek/clear/len/is_empty/to_list) | нет `observable`, нет `collection<T>`-протокола/адаптеров |
+| `kern.collections` | нативные `list`/`array`/`dict` (включая `first/last/get/set/map/filter/keys/values/get_or`), члены `str`/`char`; generic-контейнеры `set<T>`, `queue<T>`, `stack<T>`, `observable<T>` (add/remove/clear/on_change); общий протокол `collection<T>` (len/is_empty/contains/to_list) с адаптерами и итерацией | — |
+| `kern.text` | `len/upper/lower/trim*/contains/starts_with/ends_with/replace/repeat/split/lines/join/chars/from_chars/parse_i32/i64/f64/pad_left/right` | — |
+| `kern.numerics` | `decimal` и `bigint`: фабрики из str/i64/f64, арифметика, сравнения, `to_str/to_f64/to_i64`, `abs/round/truncate/pow/compare` | `-0`/переполнение decimal — как в .NET |
 | `str`/`char` (встроенные) | `len`, `upper`, `lower`, `trim*`, `contains`, `starts_with`, `ends_with`, `index_of`, `substring`, `replace`, `split`, `chars`, `lines`, `join`, `pad_left/right`, `repeat`, `to_str`, `to_i32/to_i64/to_f64/to_bool` | `str` пока не все члены из старых примеров |
 | `kern.regex` | `regex(pattern[, flags])` → `regex` (panic по-русски), `try_new`, члены `is_match/find/find_all/find_match/replace/split`, свойства `pattern/options`; `x"…"`/`fx"…"` lowering | `find_match` (а не `match` — ключевое слово), Q32; `regex.try_new(…)` пока только `try_new(…)` |
 | `kern.json` | `to_str`, `to_str_pretty`, `parse` → `dict<str, object>`/`list<object>`, `from_str<T>` (reified `[KernTypeArgs]`) | `Err` только при ошибке разбора |
@@ -23,10 +25,10 @@
 
 ## Отсутствует (M7 и stage-2)
 
-`kern.json`, `kern.env`, `kern.path`, `kern.process`, `kern.cli`, `kern.config`, `kern.log`, `kern.ansi`,
-`kern.csv`, `kern.yaml`, `kern.toml`, `kern.ini`, `kern.xml`, `kern.uuid`, `kern.crypto`, `kern.compress`,
+`kern.process`, `kern.cli`, `kern.config`, `kern.log`, `kern.ansi`,
+`kern.toml`, `kern.ini`, `kern.compress`,
 `kern.net`, `kern.http`, `kern.server`, `kern.web`, `kern.db.*`, `kern.threading`, `kern.tasks`, `kern.pipes`,
-`kern.events`, `kern.reflection`, `kern.macro`, `kern.di`, `kern.build`, `kern.ffi`, `kern.transpile`, `kern.ui`,
+`kern.events`, `kern.reflection`, `kern.macro`, `kern.di`, `kern.ffi`, `kern.transpile`, `kern.ui`,
 `kern.backend`, `kern.mod`, `kern.stub`.
 
 ## Блокеры примеров (23 из 31 не проходят `kernc check`)

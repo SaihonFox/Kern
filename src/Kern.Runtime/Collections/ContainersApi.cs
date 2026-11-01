@@ -10,7 +10,7 @@ namespace Kern.Runtime.Collections;
 /// в VM внутри <see cref="KNativeBox"/>; члены — в <see cref="SetApi"/>.
 /// </summary>
 [KernType("set", GenericArity = 1)]
-public sealed class KernSet
+public sealed class KernSet : IKernCollection
 {
 	private readonly List<KValue> _items = [];
 
@@ -38,6 +38,8 @@ public sealed class KernSet
 
 	/// <summary>Копия элементов как <c>list&lt;T&gt;</c>.</summary>
 	public KList ToList() => new(null, _items);
+
+	IEnumerable<KValue> IKernCollection.Items => _items;
 
 	public override string ToString() => $"set({_items.Count})";
 }
@@ -99,7 +101,7 @@ public static class SetApi
 /// члены — в <see cref="QueueApi"/>.
 /// </summary>
 [KernType("queue", GenericArity = 1)]
-public sealed class KernQueue
+public sealed class KernQueue : IKernCollection
 {
 	private readonly List<KValue> _items = [];
 	private int _head;
@@ -144,6 +146,10 @@ public sealed class KernQueue
 
 	/// <summary>Копия элементов от начала к концу как <c>list&lt;T&gt;</c>.</summary>
 	public KList ToList() => new(null, _items.Skip(_head));
+
+	IEnumerable<KValue> IKernCollection.Items => _items.Skip(_head);
+
+	bool IKernCollection.Contains(KValue item) => _items.Skip(_head).Contains(item);
 
 	public override string ToString() => $"queue({Count})";
 }
@@ -205,7 +211,7 @@ public static class QueueApi
 /// в <see cref="StackApi"/>.
 /// </summary>
 [KernType("stack", GenericArity = 1)]
-public sealed class KernStack
+public sealed class KernStack : IKernCollection
 {
 	private readonly List<KValue> _items = [];
 
@@ -240,6 +246,10 @@ public sealed class KernStack
 
 	/// <summary>Копия элементов от дна к вершине как <c>list&lt;T&gt;</c>.</summary>
 	public KList ToList() => new(null, _items);
+
+	IEnumerable<KValue> IKernCollection.Items => _items;
+
+	bool IKernCollection.Contains(KValue item) => _items.Contains(item);
 
 	public override string ToString() => $"stack({_items.Count})";
 }

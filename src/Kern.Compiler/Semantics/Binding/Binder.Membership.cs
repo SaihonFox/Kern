@@ -29,6 +29,10 @@ public sealed partial class Binder
 			BuiltinGenericType { BuiltinKind: BuiltinGenericKind.Set } set
 				when set.Arguments.Count == 1 =>
 				CallContains(right, "contains", left, set.Arguments[0], span),
+			BuiltinGenericType
+			{ BuiltinKind: BuiltinGenericKind.Collection or BuiltinGenericKind.Observable } container
+				when container.Arguments.Count == 1 =>
+				CallContains(right, "contains", left, container.Arguments[0], span),
 			PrimitiveType { Primitive: PrimitiveKind.Str } =>
 				BindStringMembership(right, left, span),
 			_ => null,

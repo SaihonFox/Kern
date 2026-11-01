@@ -239,6 +239,54 @@ public static class DictApi
 /// <summary>Приведение KValue к коллекциям и общие проверки индексов.</summary>
 internal static class CollectionOps
 {
+	/// <summary>Число элементов любого контейнера, включая <c>str</c> и нативные наборы.</summary>
+	public static int Count(KValue value) => value.Kind switch
+	{
+		ValueKind.Str => value.AsStr.Length,
+		ValueKind.Ref => value.Ref switch
+		{
+			Kern.Vm.Values.KList list => list.Count,
+			Kern.Vm.Values.KArray array => array.Length,
+			Kern.Vm.Values.KDict dict => dict.Count,
+			KNativeBox { Value: IKernCollection collection } => collection.Count,
+			_ => throw new KernPanic($"ожидался контейнер, получено {value.TypeName}"),
+		},
+		_ => throw new KernPanic($"ожидался контейнер, получено {value.TypeName}"),
+	};
+
+	/// <summary>Элементы любого контейнера; у <c>dict</c> — ключи.</summary>
+	public static IEnumerable<KValue> Items(KValue value) => value.Kind switch
+	{
+		ValueKind.Str => value.AsStr.Select(KValue.Char),
+		ValueKind.Ref => value.Ref switch
+		{
+			Kern.Vm.Values.KList list => list.Items,
+			Kern.Vm.Values.KArray array => array.Items.ToArray(),
+			Kern.Vm.Values.KDict dict => dict.Items.Select(pair => pair.Key),
+			KNativeBox { Value: IKernCollection collection } => collection.Items,
+			_ => throw new KernPanic($"ожидался контейнер, получено {value.TypeName}"),
+		},
+		_ => throw new KernPanic($"ожидался контейнер, получено {value.TypeName}"),
+	};
+
+	/// <summary>Проверка «элемент входит в контейнер».</summary>
+	public static bool Contains(KValue value, KValue item) => value.Kind switch
+	{
+		ValueKind.Str => item.Kind == ValueKind.Char && value.AsStr.Contains(item.AsChar),
+		ValueKind.Ref => value.Ref switch
+		{
+			Kern.Vm.Values.KList list => list.Items.Contains(item),
+			Kern.Vm.Values.KArray array => array.Items.Contains(item),
+			Kern.Vm.Values.KDict dict => dict.TryGet(item, out _),
+			KNativeBox { Value: IKernCollection collection } => collection.Contains(item),
+			_ => throw new KernPanic($"ожидался контейнер, получено {value.TypeName}"),
+		},
+		_ => throw new KernPanic($"ожидался контейнер, получено {value.TypeName}"),
+	};
+
+	/// <summary>Снимок элементов в новом <c>list</c>.</summary>
+	public static KValue ListOf(KValue value) => KValue.Obj(new Kern.Vm.Values.KList(null, Items(value)));
+
 	public static KList ToList(KValue value) => value.Ref as KList
 		?? throw new KernPanic($"ожидался list, получено {value.TypeName}");
 

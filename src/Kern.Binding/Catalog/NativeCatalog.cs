@@ -77,6 +77,12 @@ public sealed class NativeTypeDescriptor
 	/// <summary>Имена generic-параметров типа (<c>T</c> у <c>queue&lt;T&gt;</c>, <c>K</c>/<c>V</c> у <c>dict&lt;K,V&gt;</c>).</summary>
 	public IReadOnlyList<string> GenericParameterNames { get; init; } = [];
 
+	/// <summary>
+	/// Kern-имена прямых родителей из C#-иерархии (у базового класса есть <c>[KernType]</c>):
+	/// <c>streamwriter -&gt; stream</c>. Используются для upcast и <c>is</c>.
+	/// </summary>
+	public IReadOnlyList<string> Parents { get; init; } = [];
+
 	public IReadOnlyList<NativeFunctionDescriptor> Members { get; init; } = [];
 
 	public override string ToString() => $"native type {Name}";
@@ -173,6 +179,7 @@ public sealed class NativeCatalog
 						IsBuiltin = typeAttribute.IsBuiltin,
 						GenericArity = NativeArity(typeAttribute),
 						GenericParameterNames = NativeTypeParameters(typeAttribute),
+						Parents = NativeParents(type),
 						Members = members,
 					});
 				}
@@ -490,7 +497,7 @@ public sealed class NativeCatalog
 
 	private static int BuiltinArity(KernTypeAttribute attribute) => attribute.Name switch
 	{
-		"list" or "array" or "set" => 1,
+		"list" or "array" or "set" or "queue" or "stack" or "observable" or "collection" => 1,
 		"dict" => 2,
 		_ => 0,
 	};
@@ -502,9 +509,27 @@ public sealed class NativeCatalog
 	private static int NativeArity(KernTypeAttribute attribute) =>
 		Math.Max(attribute.GenericArity, BuiltinArity(attribute));
 
+	/// <summary>
+	/// Прямые Kern-родители из C#-иерархии: <c>StreamWriterHandle : StreamHandle</c> даёт
+	/// <c>streamwriter -&gt; stream</c>. Учитываются только базовые классы с <c>[KernType]</c>;
+	/// generic-родители пока не разворачиваются (нужны аргументы типа).
+	/// </summary>
+	private static List<string> NativeParents(Type type)
+	{
+		var parents = new List<string>();
+		for (Type? baseType = type.BaseType; baseType is not null; baseType = baseType.BaseType)
+		{
+			KernTypeAttribute? attribute = TypeMapping.NativeAttribute(baseType);
+			if (attribute is not null)
+				parents.Add(attribute.Name);
+		}
+
+		return parents;
+	}
+
 	private static List<string> BuiltinTypeParameters(KernTypeAttribute attribute) => attribute.Name switch
 	{
-		"list" or "array" or "set" => ["T"],
+		"list" or "array" or "set" or "queue" or "stack" or "observable" or "collection" => ["T"],
 		"dict" => ["K", "V"],
 		_ => [],
 	};

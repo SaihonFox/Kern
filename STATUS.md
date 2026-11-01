@@ -1,6 +1,16 @@
 # STATUS
 
 ## Now
+- **M6 full (2026-11-01, owner request):** native binding surface completed. `collection<T>` is a real
+  native protocol over `list/array/dict/str/set/queue/stack/observable` (`len`, `is_empty`, `contains`,
+  `to_list`; iteration lowers to `to_list`; upcasts from every container; `in` works); `observable<T>`
+  (`add/remove/clear/on_change`, callbacks run synchronously); native inheritance derived from the C#
+  hierarchy (`streamwriter/streamreader -> stream`, `is` and upcast preserve the runtime handle type);
+  `[KernTypeArgs]` factories return their container (`set<T>()`, `observable<T>()`) without a hint;
+  `kern.text` (`len/upper/lower/trim*/contains/starts_with/ends_with/replace/repeat/split/lines/join/
+  chars/from_chars/parse_i32/i64/f64/pad_left/right`); `kern.numerics` (`decimal`, `bigint` with
+  arithmetic/comparison/parse); `kern.io readln`, `kern.math` and `kern.core` prelude are complete.
+  Example 23 runs end-to-end. Suite **272/272**; examples clean **14/31** (01–06, 08–12, 18, 21, 23).
 - **M4/M7/M8/M11/M12 wave (2026-11-01, owner request "finish M1–M9, M11, M12"):** `.kbc` now carries
   `PropertyDef` (owner type, accessor/backing indices, attributes; round-trip + disassembler), `TypeSigMap`
   keeps union/function/parameter signatures, `TypeFactory` resolves every builtin generic name

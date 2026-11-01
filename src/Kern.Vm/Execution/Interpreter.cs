@@ -319,7 +319,31 @@ public sealed partial class Interpreter
 		KType[] typeArguments = function.NativeTypeArgs >= 0
 			? [.. _module.TypeSigListPool[function.NativeTypeArgs].Select(index => _types.FromSig(_module.TypeSigPool[index]))]
 			: [];
-		return binding.Invoke(this, arguments, typeArguments);
+		return TagNativeResult(binding.Invoke(this, arguments, typeArguments), function.ReturnType);
+	}
+
+	/// <summary>
+	/// Нативный handle-тип (<c>streamwriter</c>, <c>xml_node</c>) получает reified-тип из
+	/// объявленной подписи функции: без этого <c>is</c> видел бы только <c>object</c>.
+	/// Мост <c>object</c> и примитивы не трогаем.
+	/// </summary>
+	private KValue TagNativeResult(KValue value, TypeSig signature)
+	{
+		if (value.Kind != ValueKind.Ref || value.Ref is not KNativeBox box || box.NativeType is not null)
+			return value;
+		TypeSig named = signature is TypeSig.NullableSig nullable ? nullable.Inner : signature;
+		if (named is not TypeSig.NamedSig)
+			return value;
+
+		try
+		{
+			KType type = _types.FromSig(named);
+			return KValue.Obj(new KNativeBox(box.Value) { NativeType = type });
+		}
+		catch (InvalidOperationException)
+		{
+			return value;
+		}
 	}
 
 	private static KValue[] AllocateLocals(FunctionDef function) =>
@@ -432,6 +456,7 @@ public sealed partial class Interpreter
 			KClosure closure => FunctionType(closure.Function),
 			FunctionDef function => FunctionType(function),
 			KType type => type,
+			KNativeBox { NativeType: { } nativeType } => nativeType,
 			_ => _types.Prim(PrimKind.Object),
 		},
 		_ => _types.Prim(PrimKind.Object),

@@ -299,7 +299,9 @@ public static class Conversions
 			return element.Equals(PrimitiveType.Char);
 
 		if (source is not BuiltinGenericType builtin ||
-			builtin.BuiltinKind is not (BuiltinGenericKind.List or BuiltinGenericKind.Array or BuiltinGenericKind.Set) ||
+			builtin.BuiltinKind is not (
+				BuiltinGenericKind.List or BuiltinGenericKind.Array or BuiltinGenericKind.Set or
+				BuiltinGenericKind.Queue or BuiltinGenericKind.Stack or BuiltinGenericKind.Observable) ||
 			builtin.Arguments.Count != 1)
 			return false;
 
