@@ -1037,7 +1037,7 @@ fun main {
 ### Раунд 8: базы данных (SQLite, PostgreSQL, MySQL)
 -   Три драйвера с одним интерфейсом: `kern.db.sqlite` (`sqlite db(путь)`, Microsoft.Data.Sqlite 10.0.13), `kern.db.postgres` (`postgres db(url_или_строка)`, Npgsql 10.0.3), `kern.db.mysql` (`mysql db(url_или_строка)`, MySqlConnector 2.6.2). Для сетевых БД есть `postgres.connect(url)` / `mysql.connect(url)` → `result<…, str>` (без паники при недоступном сервере) и конструктор `(host, port, database, user, password)`. URL: `postgres://user:pass@host:5432/db`, `mysql://user:pass@host:3306/db`.
 -   Методы: `exec/query/scalar(sql[, args])`, `begin/commit/rollback`, `close`, свойство `last_id`; async: `exec_async`, `query_async` (для сетевых БД не блокируют цикл событий). Параметры — `?` по порядку (для PostgreSQL заменяются на именованные `@p1, @p2…`, которые Npgsql переводит в позиционные). Ошибки SQL — `Err`.
--   `orm.table<T>(db)` работает со всеми тремя: диалект (кавычки, типы колонок, автонумерация `AUTOINCREMENT`/`BIGSERIAL`/`AUTO_INCREMENT`) подбирается автоматически. `insert` возвращает id (явный `id` — как есть, иначе `last_id`).
+-   `orm.table<T>(db)` работает со всеми тремя: диалект (кавычки, типы колонок, автонумерация `AUTOINCREMENT`/`BIGSERIAL`/`AUTO_INCREMENT`) подбирается автоматически. `insert` возвращает id (явный `id` — как есть, иначе `last_id`). `migrate()` создаёт таблицу и добавляет недостающие колонки без удаления данных; не-примитивные поля хранятся/читаются как JSON. Связи — `orm.belongs_to<TParent,TChild>(parent, child, "fk")` (`relation…find(parent) -> TChild?`) и `orm.has_many<TParent,TChild>(parent, child, "fk")` (`relation…all(parent) -> list<TChild>`); версий миграций, каскадов и eager-loading нет.
 
 ### Раунд 9: моки (`kern.test`)
 -   `mock.create<T>()` создаёт заглушку абстрактного `@type` без ручного класса. Настройка: `mock.returns(m, "метод", значение)` (на любые аргументы), `mock.returns_for(m, "метод", [аргументы], значение)` (приоритетнее; позднее правило перекрывает раннее), `mock.fail(m, "метод", "сообщение")` (метод паникует), `mock.handle(m, "метод", fun (list<object> args) -> i32 тело)` (свой обработчик; тип результата пишется после `->`).
@@ -1158,7 +1158,7 @@ fun main {
 Библиотека `kern.transpile` (внешняя, `libs/Kern.Lib.Transpile`, собирается через `dotnet build libs/Kern.Libs.slnx`). Работает над типизированным деревом компилятора.
 
 ```kern
-use kern.transpile
+use kern.transpile.*
 
 var t = transpiler("csharp")           // или "kotlin"
 t.map_script("mappings.kern")          // свои подстановки (необязательно)
@@ -1166,8 +1166,11 @@ match t.file("sample/shapes.kern") {   // result<str, str>: код всех мо
 	Ok(code) => println(code)
 	Err(e) => println(e)
 }
-t.project("sample", "out/cs")          // записать файлы + KernRuntime.cs / KernRuntime.kt
-t.text("fun main { println(1) }")      // исходник из строки
+match t.project("sample", "out/cs") {  // result<list<str>, str>: записать файлы + KernRuntime.cs / KernRuntime.kt
+	Ok(files) => println(f"файлов: ${files.len}")
+	Err(e) => println(e)
+}
+t.text("fun main { println(1) }")      // исходник из строки (result<str, str>)
 ```
 
 Скрипт подстановок — обычный Kern-файл; функции необязательны, `nil` = «правила нет»:
@@ -1180,7 +1183,7 @@ fun map_member(str target, str owner, str name, str receiver) -> str?           
 
 Что переносится (этап 1 — ядро языка): функции и extension-функции, `type` (поля, свойства с аксессорами, конструкторы, наследование одного родителя, abstract/open/override), `unit`/`unit!` (`record struct` / `data class`), enum без данных, `match` (значения, диапазоны, типы, кортежи, коллекции с `..rest`, объекты, `Ok/Err`, guard), `loop`/`while`/`stop`/`next`, лямбды, `result` (`KResult` в KernRuntime), `use` → try/finally, generics, async (`async Task` / `suspend`). Имена: C# — PascalCase членов/camelCase локальных, Kotlin — camelCase.
 
-Известные ограничения: см. docs/LIBRARIES.md. Нативные библиотеки (db, ui, ffi) не переносятся.
+Известные ограничения: см. docs/LIBRARIES.md. Нативные библиотеки (db, ui, ffi) не переносятся. Реализация 2026-11-02: `examples/25_transpile` проходит `kernc check`/`run`, генерирует C# и Kotlin, `project` пишет `KernRuntime.cs`/`KernRuntime.kt`; сгенерированный C# проверяется сборкой в `TranspileTests`, Kotlin — только по тексту (без `kotlinc`).
 
 ## Раунд 20 — внедрение зависимостей (kern.di)
 
@@ -1210,13 +1213,13 @@ s.dispose()                                                             // dispo
 Внешняя библиотека `libs/Kern.Lib.Backend` (зависит от `Kern.Lib.Di`). Импорт: `use kern.backend[app, ctx, res, chain, middleware, jwt, session, claims, sse, socket, work]`, цикл сервера — `use kern.backend.server.*` (`await a.serve()`).
 
 - **Два стиля, один конвейер.** Функции: `a.get("/x/{id}", fun (ctx c) -> res …)`, `post/put/patch/delete/route`, `a.group("/api")` (префикс + свои middleware), `static_files(url, dir)`. Атрибуты: `#[controller("/users")] type …`, методы `#[get("/{id}")]`, `#[post]`, `#[put]`, `#[patch]`, `#[delete]`, плюс `#[auth]` (401 без пользователя) и `#[roles("admin")]` (403). Регистрация: `a.controller<T>()` или `a.scan_controllers()`.
-- **Связывание параметров контроллера:** `ctx`/`session` — из запроса; примитивы — из параметров маршрута, затем query (`str?` — nil, если нет); остальные типы — JSON-тело. Результат: `res` как есть; `str` → text; nil → 404 при `T?`, иначе 204; `result` Ok → значение, Err → 400; прочее → JSON.
+- **Связывание параметров контроллера:** `ctx`/`session` — из запроса; примитивы — из параметров маршрута, затем query (`str?` — nil, если нет); остальные типы — JSON-тело. Результат: `res` как есть; `str` → text; nil → 404 при `T?`, иначе 204; `result` Ok → значение, Err → 400; прочее → JSON. Потоковый ответ: `res.stream(content_type, fun (res_writer w) { w.write("…") })`; у `res_writer` есть `write/write_line/flush/close/cancelled`, `ctx.cancelled` — обрыв клиента.
 - **Контроллеры и DI:** `a.services(container)` — на каждый запрос открывается scope, контроллер создаётся с зависимостями и освобождается после ответа (`dispose`). Без контейнера нужен конструктор без аргументов.
 - **Middleware:** `a.use(fun(ctx c, chain n) -> res { n.next() })` или готовые `middleware.logger/recover/cors/bearer/basic/jwt_auth/jwt_optional/require_role/sessions/rate_limit`. `sessions("file.json")` сохраняет сессии между перезапусками, `sessions()` — только память. Порядок: от корня к группе, затем слои маршрута. Если маршрут не найден, всё равно проходят middleware приложения (CORS preflight, логи), ответ 404/405.
 - **Auth:** `jwt.sign(user, [roles], secret, ttl)` / `jwt.verify(token, secret)` (HS256); `ctx.user`, `ctx.roles`, `ctx.has_role`; сессии по cookie `kern_sid` (`ctx.session.get/set`).
 - **Realtime:** `a.ws("/p", fun (socket s, str text) { … })` (или с open/message/close), `a.sse("/p", fun (sse s) { … })`, `a.ws_broadcast(route, text)`, `a.sse_broadcast(route, event, data)`, `a.stop()`. SSE-события получают `id`; подключение с `Last-Event-ID` проигрывает пропущенные события (окно 256, в памяти).
 - **Потоки.** Kern-код выполняется только в потоке VM: фоновые потоки принимают соединения/сообщения в очередь (`accept`), `handle(work)` исполняет их. Поэтому обработчики не требуют синхронизации.
-- **Ограничения:** SSE-ответ не получает заголовки middleware (CORS) — заголовки отправляются при открытии; ws принимает только текстовые сообщения; rate limit и replay-буфер SSE живут в памяти; статические файлы поддерживают ETag/Last-Modified/304 и один Range, без сжатия.
+- **Ограничения:** SSE-ответ не получает заголовки middleware (CORS) — заголовки отправляются при открытии; ws принимает только текстовые сообщения; rate limit и replay-буфер SSE живут в памяти; статические файлы поддерживают ETag/Last-Modified/304 и один Range, без сжатия; отмена потокового ответа кооперативная (`ctx.cancelled`/`res_writer.cancelled`).
 - Пример: `examples/27_backend`; библиотека реализована, пример собран и запущен локально.
 
 ## Раунд 22 — макросы (генерация кода при компиляции, `kern.macro`)

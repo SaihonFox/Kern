@@ -23,14 +23,15 @@
 | `kern.crypto` / `kern.uuid` | sha1/sha256/sha512/md5, hmac_sha256, base64, random_hex, hash_password/verify_password; `uuid.new()` | — |
 | `kern.time` | `duration` (parse/from_*/total_*/арифметика/сравнения/печать), `datetime` (of/now/поля/weekday/format/add_months/±/сравнения), `stopwatch` (запускается сразу), `time.sleep/measure/unix_*` | нативные параметры по умолчанию не поддерживаются: `datetime.of` требует все 6 аргументов |
 | `kern.reflection` / `kern.macro` | `type` (`name/full_name/args/parents/fields/properties/methods/constructors/attributes`, `is_*`, `enum_names`, `get_*/get/set/create/is_instance/is_assignable_from`), `field_info/property_info/method_info/param_info/attribute_info`, `reflect.*`, `define_type`; `macro_ctx` + `#[macro]`/`#[macro("expr")]`/`#[derive]`/`name!(...)` | `define_type` без generics/родителей/методов; `instantiate()` атрибута нет; макросы не раскрываются в одиночном `CompileCore` |
-| `kern.db.*` / `kern.db` | внешняя `libs/Kern.Lib.Db`: `sqlite`, `postgres`, `mysql` (`exec/query/scalar/begin/commit/rollback`, async, `last_id`, `close`), `orm.table<T>` (`create/drop/insert/update/delete/all/where/find/count`, `name`) | SQLite/PostgreSQL/MySQL проверены живыми CRUD/boolean/транзакциями (`DbLiveTests`); ORM хранит не-примитивные поля текстом (`to_str`), без JSON-round-trip |
+| `kern.db.*` / `kern.db` | внешняя `libs/Kern.Lib.Db`: `sqlite`, `postgres`, `mysql` (`exec/query/scalar/begin/commit/rollback`, async, `last_id`, `close`), `orm.table<T>` (`create/drop/migrate/insert/update/delete/all/where/find/count`, `name`), JSON-поля, `belongs_to`/`has_many` | SQLite/PostgreSQL/MySQL проверены живыми CRUD/boolean/транзакциями (`DbLiveTests`); миграции без версий/истории; связи без каскадов/eager-loading |
 | `kern.ffi` | внешняя `libs/Kern.Lib.Ffi`: `native_lib`/`native_fn`, загрузка `.dll/.so/.dylib`, `fn(symbol, "i32(i32, str)")`, `call([...])`, `has`, `close`; cdecl, типы void/bool/i8…u64/f32/f64/ptr/str | только cdecl; без callbacks/struct/массивов; возвращённые строки/указатели освобождает C-код |
 | `kern.di` | внешняя `libs/Kern.Lib.Di`: `container` (`singleton/transient/scoped`, `*_as`, `instance`, `scan`, `get/try_get/has/create/inject/scope/dispose`, `count`) | фабрики требуют явного типа результата лямбды (`fun -> T`); атрибуты библиотеки теперь известны компилятору (без `KRN2307`) |
-| `kern.backend` / `kern.backend.server` | внешняя `libs/Kern.Lib.Backend`: `app`/`route_group`/`ctx`/`res`/`chain`/`middleware`/`jwt`/`session`/`claims`/`socket`/`sse`/`work`; маршруты, middleware, контроллеры (`#[controller]`, `#[get]`, `#[auth]`, `#[roles]`), DI-scope на запрос, JWT HS256, сессии (в памяти/файле), WebSocket, SSE с replay, static files с ETag/Range, `await a.serve()` | `kern.backend.server.*` — импорт модуля; `serve` объявлен членом `app`; rate limit/SSE-буфер в памяти; сервер на `HttpListener` |
+| `kern.backend` / `kern.backend.server` | внешняя `libs/Kern.Lib.Backend`: `app`/`route_group`/`ctx`/`res`/`res_writer`/`chain`/`middleware`/`jwt`/`session`/`claims`/`socket`/`sse`/`work`; маршруты, middleware, контроллеры (`#[controller]`, `#[get]`, `#[auth]`, `#[roles]`), DI-scope на запрос, JWT HS256, сессии (в памяти/файле), WebSocket, SSE с replay, static files с ETag/Range, `res.stream`, `await a.serve()` | `kern.backend.server.*` — импорт модуля; `serve` объявлен членом `app`; rate limit/SSE-буфер в памяти; сервер на `HttpListener`; отмена потокового ответа кооперативная |
+| `kern.transpile` | внешняя `libs/Kern.Lib.Transpile`: `transpiler("csharp"\|"kotlin")`, `map_script`, `text/file/project` → `result`; цели C#/Kotlin, `KResult`-runtime, подстановки `map_type/map_call/map_member` | сгенерированный C# проверяется сборкой (`TranspileTests`); Kotlin — только текстом (нет `kotlinc`); сложные конструкции упрощаются с предупреждением |
 
 ## Отсутствует (stage-2 и другие этапы)
 
-`kern.ui`, `kern.transpile`, `kern.mod`,
+`kern.ui`, `kern.mod`,
 `kern.stub`, `kern.web`/`kern.server` (stage-2).
 
 M7 закрыт 2026-11-01: `kern.events`, `kern.compress`, `kern.http` (оба варианта), `kern.threading`,
@@ -47,7 +48,7 @@ M12 почти закрыт: эталоны 09/18/23 и 04_flow, форматт�
 по всем примерам, `.compile-only` примеры 16/17/31-mathx проверяются отдельным тестом.
 Остался только реальный прогон CI после push владельца.
 
-## Блокеры примеров (3 из 31 не проходят `kernc check`; 28 чистых — на 2026-11-02)
+## Блокеры примеров (1 из 31 не проходит `kernc check`; 30 чистых — на 2026-11-02)
 
 | Пример | Первый блокер | Что нужно |
 |---|---|---|
@@ -67,13 +68,13 @@ M12 почти закрыт: эталоны 09/18/23 и 04_flow, форматт�
 | 22_events_patterns | ✅ clean+run 2026-11-01 | — |
 | 23_native_inheritance | ✅ clean+run 2026-11-01 (M6) | — |
 | 24_reflection | ✅ clean+run 2026-11-01 (динамический builder минимален) | — |
-| 25_transpile | старый `use path` | refresh примеров + `kern.transpile` |
+| 25_transpile | ✅ clean+run 2026-11-02 (`kern.transpile`: C#/Kotlin, map_script, project) | — |
 | 26_di | ✅ clean+run 2026-11-02 (`kern.di`) | — |
 | 27_backend | ✅ clean+run 2026-11-02 (`kern.backend` + `kern.di`: контроллеры, JWT, middleware, SSE, WebSocket, `/stop`) | — |
 | 28_macros | ✅ clean+run 2026-11-01 (M9 macros) | — |
 | 29_async | ✅ clean+run 2026-11-01 | — |
 | 30_threads | ✅ clean+run 2026-11-01 | — |
-| 31_kbc | `kernc check` без KRN-кодов; `kernc dll mathx` + `kernc run app` работает (M10) | — |
+| 31_kbc | ✅ clean+run 2026-11-02 (`kernc check` контейнера + `prebuild.txt`; `kernc dll mathx` → `kernc run app`) | — |
 
 ## Рекомендуемый порядок
 

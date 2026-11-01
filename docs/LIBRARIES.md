@@ -1,6 +1,6 @@
 # Внешние библиотеки Kern — частично реализованы
 
-> `Kern.Lib.Db`, `Kern.Lib.Di`, `Kern.Lib.Backend` и `Kern.Lib.Ffi` реализованы и собираются в этом репозитории; `Ui` и `Transpile` пока остаются замыслом (`reference/libs`). Поиск библиотек — без `kern.toml` (см. `docs/BUILDER.md` §6).
+> `Kern.Lib.Db`, `Kern.Lib.Di`, `Kern.Lib.Backend`, `Kern.Lib.Ffi` и `Kern.Lib.Transpile` реализованы и собираются в этом репозитории; `Ui` пока остаётся замыслом (`reference/libs`). Поиск библиотек — без `kern.toml` (см. `docs/BUILDER.md` §6).
 
 Ядро (`src/`) содержит только язык, компилятор, VM и базовую стандартную библиотеку. Всё остальное — внешние библиотеки в `libs/`.
 
@@ -12,7 +12,7 @@
       Kern.Lib.Db/            — kern.db, kern.db.sqlite, kern.db.postgres, kern.db.mysql (реализовано)
       Kern.Lib.Ui/            — kern.ui (Avalonia; замысел)
       Kern.Lib.Ffi/           — kern.ffi (вызов C/C++ DLL; реализовано)
-      Kern.Lib.Transpile/     — kern.transpile (Kern → C# / Kotlin; замысел)
+      Kern.Lib.Transpile/     — kern.transpile (Kern → C# / Kotlin; реализовано)
       Kern.Lib.Di/            — kern.di (контейнер внедрения зависимостей; реализовано)
       Kern.Lib.Backend/       — kern.backend, kern.backend.server (HTTP, middleware, JWT, WS/SSE; реализовано)
 
@@ -47,7 +47,7 @@
 
 ## Kern.Lib.Transpile (kern.transpile)
 
-Транспилятор работает над типизированным деревом компилятора (`BoundProgram`), поэтому получает уже разрешённые перегрузки, типы и привязки паттернов. Цели — `csharp` и `kotlin`. Первый этап — **ядро языка**: функции, `type`/`unit`, `match` с паттернами и guard, `loop`/`while`, generics, `result`, лямбды, `use`-освобождение (try/finally), свойства. Нативные библиотеки (`kern.db`, `kern.ui`…) не переносятся — попадают в заголовок файла как «нет правила подстановки».
+Транспилятор работает над типизированным деревом компилятора (`BoundModule`), поэтому получает уже разрешённые перегрузки, типы и привязки паттернов. Цели — `csharp` и `kotlin`. Первый этап — **ядро языка**: функции, `type`/`unit`, `match` с паттернами и guard, `loop`/`while`, generics, `result`, лямбды, `use`-освобождение (try/finally), свойства. Нативные библиотеки (`kern.db`, `kern.ui`…) не переносятся — попадают в заголовок файла как «нет правила подстановки».
 
     Kern.Lib.Transpile/
       Api/KernTranspiler.cs      — Kern-тип `transpiler` (text / file / project / map_script)
@@ -55,7 +55,7 @@
       Mapping/                   — IMappings, BuiltinMappings (print/str/list/dict), ScriptMappings (Kern-скрипт)
       Targets/CSharp, Targets/Kotlin — синтаксис языков + объявления + runtime-хелперы (KResult, диапазоны, in, срезы)
 
-Подстановки пользователя — Kern-файл с функциями `map_type(target, kern_type, args) -> str?`, `map_call(target, owner, name, receiver, args) -> str?`, `map_member(target, owner, name, receiver) -> str?` (`nil` — «правила нет»). Порядок: скрипт → встроенная таблица → имя по соглашению (C# PascalCase, Kotlin camelCase). Пример: `examples/25_transpile`.
+Подстановки пользователя — Kern-файл с функциями `map_type(target, kern_type, args) -> str?`, `map_call(target, owner, name, receiver, args) -> str?`, `map_member(target, owner, name, receiver) -> str?` (`nil` — «правила нет»). Порядок: скрипт → встроенная таблица → имя по соглашению (C# PascalCase, Kotlin camelCase). Пример: `examples/25_transpile` (`use kern.transpile.*`; сгенерированный C# проверяется компиляцией в тестах, Kotlin — только текстом, без `kotlinc`).
 
 Известные ограничения: множественное наследование (берётся первый родитель), данные в enum, union (→ `object`/`Any`), кортежи длиннее 3 в Kotlin, сложные guard в `match`, порядок побочных эффектов внутри выражений if/match в позиции значения (они выносятся во временные переменные), std-функции, написанные на Kern (не переносятся).
 
@@ -65,7 +65,7 @@
 
 - **Базы:** `sqlite db(path)` (`:memory:`), `postgres db(url)` / `postgres db(host, port, database, user, password)`, `mysql db(...)`; также `postgres.connect(url)` / `mysql.connect(url)` → `result<..., str>`. URL: `postgres://user:pass@host:5432/db`, `mysql://user:pass@host:3306/db`.
 - **SQL:** `exec(sql[, args])`, `query(sql[, args])`, `scalar(sql[, args])`, `begin/commit/rollback`, `last_id`, `close`; async — `exec_async`, `query_async`. Плейсхолдеры — `?` (для PostgreSQL внутренне заменяются на именованные `@p1, @p2…` — Npgsql переводит их в позиционные), ошибки SQL возвращаются как `Err(str)`. `query` возвращает `list<dict<str, object>>`; `bool` передаётся как boolean, а в ORM для PostgreSQL/MySQL создаётся колонка `BOOLEAN`.
-- **ORM:** `orm.table<T>(db)` → `table<T>` (`create/drop/insert/update/delete/all/where/find/count`, `name`). Имя таблицы — snake_case + `s`; поле `id` целого типа — автоинкрементный ключ. Поддерживаются примитивные поля и `str`/`char`/`bool`/числа; остальные значения хранятся текстом (`to_str`), без JSON-разбора обратно.
+- **ORM:** `orm.table<T>(db)` → `table<T>` (`create/drop/migrate/insert/update/delete/all/where/find/count`, `name`). Имя таблицы — snake_case + `s`; поле `id` целого типа — автоинкрементный ключ. `migrate()` создаёт отсутствующую таблицу и добавляет недостающие колонки, не удаляя данные. Не-примитивные поля (`unit`/`type`, `list`, `dict`) хранятся как JSON и разбираются обратно. Связи: `orm.belongs_to<TParent,TChild>(parent, child, "field")` → `relation<TParent,TChild>.find(parent_item) -> TChild?` (внешний ключ в parent), `orm.has_many<TParent,TChild>(parent, child, "field")` → `.all(parent_item) -> list<TChild>` (внешний ключ в child); `field`/`many` — свойства связи. Миграции без версий/истории; каскадов и eager-loading нет.
 - **Проверка:** `examples/15_databases` проходит `check` и `run` на SQLite, а с `KERN_PG_URL`/`KERN_MYSQL_URL` — на PostgreSQL/MySQL (exec/query/ORM/async/транзакции). `DbLiveTests` проверяет живые CRUD/boolean/rollback/`last_id` при заданных URL и молча пропускается без них. `e_sqlite3` ищется загрузчиком CLI в `runtimes/<rid>/native` рядом с DLL библиотеки.
 
 ## Kern.Lib.Ffi (kern.ffi)
@@ -96,12 +96,12 @@
 - **Маршруты:** `app a(port[, host])`, `a.get/post/put/patch/delete/route(pattern, fun(ctx)->res)`, `a.group(prefix)` → `route_group`, `a.static_files(url, dir)`. Шаблоны: литералы, `{name}`, хвост `{*path}`; specificity выбирает самый точный маршрут; 404/405.
 - **Middleware:** `a.use(fun(ctx c, chain n) -> res { n.next() })` и готовые `middleware.logger/recover/cors/bearer/basic/jwt_auth/jwt_optional/require_role/sessions/rate_limit`. `sessions("file.json")` сохраняет сессии между перезапусками, `sessions()` держит их в памяти. Middleware группы применяется к её маршрутам; OPTIONS обрабатывает CORS.
 - **Контекст:** `ctx` — `method/path/body/ip/user/roles/session/claims`, `param/query/header/cookie/has_role`, `json<T>()` → `result<T, str>`, `set/get`.
-- **Ответ:** `res` — `text/html/json/json_status/send/redirect/no_content/not_found/error/bad_request/unauthorized/forbidden/file`, свойства `status/content_type/body`, `header(name, value)`, `cookie(name, value[, max_age])`.
+- **Ответ:** `res` — `text/html/json/json_status/send/redirect/no_content/not_found/error/bad_request/unauthorized/forbidden/file`, свойства `status/content_type/body`, `header(name, value)`, `cookie(name, value[, max_age])`. Потоковая отдача: `res.stream("text/plain", fun (res_writer w) { w.write("…") })`, у `res_writer` — `write/write_line/flush/close/cancelled`; `ctx.cancelled` взводится при обрыве клиента.
 - **Контроллеры:** `#[controller("/api")] type ... { #[get("/{id}")] fun show(i64 id) -> ... }`, `#[auth]`, `#[roles("admin")]`; регистрация `a.controller<T>()` или `a.scan_controllers()`. Параметры-примитивы — из `{name}`/query, остальные — JSON-тело; `ctx`/`session`/`claims` внедряются; инстанс создаётся через `a.services(container)` (scope на запрос, `dispose` в конце).
 - **Auth/realtime:** `jwt.sign/verify` (HS256), сессии на cookie `kern_sid`, `a.ws(pattern, fun(socket s, str text) {...})`, `a.sse(pattern, fun(sse s) {...})`, `a.ws_broadcast/sse_broadcast`, `a.stop()`. SSE-события получают `id`; при подключении с `Last-Event-ID` сервер проигрывает пропущенные события из окна 256.
 - **Запуск:** `await a.serve()` (модуль `kern.backend.server.*`; `serve` — член `app`). Цикл блокирующий: HTTP-поток складывает запросы в очередь, VM обрабатывает их в своём потоке; `accept()`/`handle()` доступны для ручного цикла. Фоновый pump перезапускает `HttpListener` после транзиентной ошибки HTTP.sys; сервер завершается только по `a.stop()`/`stop()`.
 - **Проверка:** `examples/13_db_web` (SQLite + ORM + HTTP) и `examples/27_backend` (DI, контроллеры, JWT, middleware, SSE, WebSocket, `/stop`) проходят `check` и `run`. В `src/Kern.Tests/Features/Backend` — 26 тестов: unit (маршруты, JWT, сессии/файл, ответы/файлы/cookie) и loopback-интеграция (маршруты/CORS/адаптация ответов, контроллеры+DI+роли+query/session/claims, basic/bearer/rate-limit, static files с ETag/Range, WebSocket echo+broadcast, SSE hello+broadcast+replay, ручной `accept`/`handle`, свободный `serve(a)`).
-- **Ограничения:** сервер на `HttpListener` (Windows без admin для `localhost` проверен; на других ОС нужен префикс/права), rate limit — в памяти процесса, SSE-буфер живёт в памяти (не переживает перезапуск), контроллеры не поддерживают потоковую отдачу (`res`/SSE для этого), async-методы дожидаются `task`.
+- **Ограничения:** сервер на `HttpListener` (Windows без admin для `localhost` проверен; на других ОС нужен префикс/права), rate limit — в памяти процесса, SSE-буфер живёт в памяти (не переживает перезапуск); потоковая отдача есть через `res.stream`/`res_writer`, отмена — через `ctx.cancelled` и `res_writer.cancelled` (HTTP.sys не даёт отдельный cancellation-token).
 
 ## Версии NuGet (проверено 2026-10-15)
 

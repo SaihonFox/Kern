@@ -3,4 +3,5 @@
 	<Project Path="Kern.Lib.Di/Kern.Lib.Di.csproj" />
 	<Project Path="Kern.Lib.Backend/Kern.Lib.Backend.csproj" />
 	<Project Path="Kern.Lib.Ffi/Kern.Lib.Ffi.csproj" />
+	<Project Path="Kern.Lib.Transpile/Kern.Lib.Transpile.csproj" />
 </Solution>

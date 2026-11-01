@@ -1,5 +1,6 @@
 using System.Text;
 using Kern.Binding.Attributes;
+using Kern.Binding.Values;
 using Kern.Runtime.Json;
 using Kern.Vm.Execution;
 using Kern.Vm.Values;
@@ -16,6 +17,9 @@ public sealed class KernRes
 
 	/// <summary>Ответ-перехват (WebSocket/SSE): тело не отправляется обычным путём.</summary>
 	internal Action<Interpreter>? Takeover { get; set; }
+
+	/// <summary>Потоковая запись тела через <see cref="KernResWriter"/>.</summary>
+	internal Action<KernResWriter>? Streaming { get; set; }
 
 	public int Status { get; set; } = 200;
 	public string ContentType { get; set; } = "text/plain; charset=utf-8";
@@ -91,6 +95,19 @@ public static class ResApi
 
 	[KernStatic]
 	public static KernRes Html(string body) => KernRes.Make(200, body, "text/html; charset=utf-8");
+
+	/// <summary>Потоковый ответ: <c>res.stream("text/plain", fun (res_writer w) { w.write("…") })</c>.</summary>
+	[KernStatic]
+	public static KernRes Stream(Interpreter interpreter, string contentType, KAction<KernResWriter> body) =>
+		new()
+		{
+			ContentType = contentType,
+			Streaming = writer => body.Invoke(interpreter, writer),
+		};
+
+	[KernStatic]
+	public static KernRes Stream(Interpreter interpreter, KAction<KernResWriter> body) =>
+		Stream(interpreter, "text/plain; charset=utf-8", body);
 
 	[KernStatic]
 	public static KernRes Json(KValue value, Interpreter interpreter) =>

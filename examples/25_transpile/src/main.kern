@@ -1,5 +1,5 @@
 // Раунд 19: транспилятор Kern → C# / Kotlin (библиотека kern.transpile, собирается отдельно: libs/Kern.Libs.slnx)
-use kern.transpile
+use kern.transpile.*
 
 fun show(str title, result<str, str> r) {
 	match r {

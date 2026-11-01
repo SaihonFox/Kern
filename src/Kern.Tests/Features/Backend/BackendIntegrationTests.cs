@@ -31,6 +31,10 @@ public sealed class BackendIntegrationTests
 				a.get("/json", fun (ctx c) -> res res.json(point(1, 2)))
 				a.get("/param/{id}", fun (ctx c) -> res res.text(c.param("id") ?: "?"))
 				a.post("/echo", fun (ctx c) -> res res.text(c.body))
+				a.get("/stream", fun (ctx c) -> res res.stream("text/plain", fun (res_writer w) {
+					w.write("a")
+					w.write_line("b")
+				}))
 				a.get("/stop", fun (ctx c) -> res { a.stop(); res.text("bye") })
 				_ = a.serve()
 			}
@@ -53,6 +57,9 @@ public sealed class BackendIntegrationTests
 
 		using HttpResponseMessage parameter = await client.GetAsync("/param/42");
 		Assert.Equal("42", await parameter.Content.ReadAsStringAsync());
+
+		using HttpResponseMessage stream = await client.GetAsync("/stream");
+		Assert.Equal("ab\n", await stream.Content.ReadAsStringAsync());
 
 		using var echo = new HttpRequestMessage(HttpMethod.Post, "/echo")
 		{

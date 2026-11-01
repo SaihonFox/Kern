@@ -53,6 +53,9 @@ internal static class RunCommand
 		string projectRoot;
 		try
 		{
+			int prebuild = PrebuildRunner.Run(Path.GetFullPath(path), stderr);
+			if (prebuild != 0)
+				return prebuild;
 			BuildSession session = BuildSession.Open(path);
 			session.OptimizeOverride = options.Optimize;
 			session.ProfileName = options.Profile;

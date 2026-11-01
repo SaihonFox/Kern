@@ -68,6 +68,92 @@ public sealed class OrmTable
 	public KResult<long, string> Drop() =>
 		_db.Exec($"DROP TABLE IF EXISTS {Quote(Name)}", KValue.Nil);
 
+	/// <summary>
+	/// Синхронизация схемы без версий: создаёт отсутствующую таблицу и добавляет
+	/// недостающие колонки. Существующие колонки/данные не удаляются.
+	/// </summary>
+	public KResult<long, string> Migrate()
+	{
+		KResult<long, string> created = Create();
+		if (!created.IsOk)
+			return created;
+		KResult<HashSet<string>, string> existing = ExistingColumns();
+		if (!existing.IsOk)
+			return KResult<long, string>.Failure(existing.Err);
+		long added = 0;
+		foreach (Column column in _columns.Where(column => !existing.Ok.Contains(column.Name)))
+		{
+			KResult<long, string> altered = _db.Exec(
+				$"ALTER TABLE {Quote(Name)} ADD COLUMN {Quote(column.Name)} {SqlType(column.Type)}",
+				KValue.Nil);
+			if (!altered.IsOk)
+				return altered;
+			added++;
+		}
+
+		return KResult<long, string>.Success(added);
+	}
+
+	private KResult<HashSet<string>, string> ExistingColumns()
+	{
+		KResult<KValue, string> rows = Dialect.Name switch
+		{
+			"sqlite" => _db.Query($"PRAGMA table_info({Quote(Name)})", KValue.Nil),
+			"postgres" => _db.Query(
+				"select column_name as name from information_schema.columns " +
+				"where table_name = ? and table_schema = current_schema()",
+				KValue.Obj(new KList(null, [KValue.Str(Name)]))),
+			_ => _db.Query(
+				"select column_name as name from information_schema.columns " +
+				"where table_name = ? and table_schema = database()",
+				KValue.Obj(new KList(null, [KValue.Str(Name)]))),
+		};
+		if (!rows.IsOk)
+			return KResult<HashSet<string>, string>.Failure(rows.Err);
+		if (rows.Ok.Ref is not KList list)
+			return KResult<HashSet<string>, string>.Failure("orm.migrate: ожидался список колонок");
+		var result = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+		foreach (KValue row in list.Items)
+		{
+			if (row.Ref is KDict dict && dict.TryGet(KValue.Str("name"), out KValue name) && name.Kind == ValueKind.Str)
+				result.Add(name.AsStr);
+		}
+
+		return KResult<HashSet<string>, string>.Success(result);
+	}
+
+	internal KValue Field(KValue item, string name)
+	{
+		if (item.Ref is not KObject instance)
+			throw new KernPanic("orm.relation: ожидался unit/type");
+		Column? column = _columns.FirstOrDefault(column =>
+			string.Equals(column.Name, name, StringComparison.Ordinal));
+		if (column is null)
+			throw new KernPanic($"orm.relation: у '{_type.Definition.Name}' нет поля '{name}'");
+		return instance.GetField(column.Slot);
+	}
+
+	internal KValue FindBy(string column, KValue value)
+	{
+		KResult<KValue, string> result = Select(
+			$" WHERE {Quote(column)} = ? LIMIT 1",
+			KValue.Obj(new KList(null, [value])));
+		if (!result.IsOk)
+			throw new KernPanic("orm.relation: " + result.Err);
+		var list = result.Ok.Ref as KList;
+		return list is { Count: > 0 } ? list.Items[0] : KValue.Nil;
+	}
+
+	internal KValue ManyBy(string column, KValue value)
+	{
+		KResult<KValue, string> result = Select(
+			$" WHERE {Quote(column)} = ?",
+			KValue.Obj(new KList(null, [value])));
+		if (!result.IsOk)
+			throw new KernPanic("orm.relation: " + result.Err);
+		return result.Ok;
+	}
+
 	public KResult<long, string> Insert(KValue item)
 	{
 		if (item.Ref is not KObject instance)
@@ -238,6 +324,70 @@ public sealed class OrmTable
 	private static string Plural(string text) => text.EndsWith('s') ? text : text + "s";
 }
 
+/// <summary>
+/// Связь двух таблиц: <c>belongs_to</c> (родитель хранит внешний ключ) или
+/// <c>has_many</c> (дочерняя таблица хранит внешний ключ).
+/// </summary>
+[KernType("relation")]
+public sealed class OrmRelation
+{
+	private readonly OrmTable _source;
+	private readonly OrmTable _target;
+	private readonly string _field;
+	private readonly bool _many;
+
+	internal OrmRelation(OrmTable source, OrmTable target, string field, bool many)
+	{
+		_source = source;
+		_target = target;
+		_field = field;
+		_many = many;
+	}
+
+	public string Field => _field;
+	public bool Many => _many;
+
+	public KValue Find(KValue item)
+	{
+		if (_many)
+			throw new KernPanic("orm.relation: has_many использует all(), а не find()");
+		KValue key = _source.Field(item, _field);
+		return key.IsNilOrNone ? KValue.Nil : _target.FindBy("id", key);
+	}
+
+	public KValue All(KValue item)
+	{
+		if (!_many)
+			throw new KernPanic("orm.relation: belongs_to использует find(), а не all()");
+		KValue key = _source.Field(item, "id");
+		return key.IsNilOrNone ? KValue.Obj(new KList(null, [])) : _target.ManyBy(_field, key);
+	}
+
+	internal static OrmRelation Require(KNativeBox self) => self.Value switch
+	{
+		OrmRelation relation => relation,
+		_ => throw new KernPanic($"relation: ожидалась связь, получено {self.Value.GetType().Name}"),
+	};
+}
+
+[KernType("relation")]
+public static class RelationApi
+{
+	[KernProperty]
+	public static string Field(KNativeBox self) => OrmRelation.Require(self).Field;
+
+	[KernProperty]
+	public static bool Many(KNativeBox self) => OrmRelation.Require(self).Many;
+
+	[KernMember]
+	[KernReturn("T?")]
+	public static KValue Find<T>(KNativeBox self, KValue item) => OrmRelation.Require(self).Find(item);
+
+	[KernMember]
+	[KernReturn("list<T>")]
+	public static KValue All<T>(KNativeBox self, KValue item) => OrmRelation.Require(self).All(item);
+}
+
 [KernType("table", GenericArity = 1)]
 public static class TableApi
 {
@@ -247,6 +397,10 @@ public static class TableApi
 	[KernMember]
 	[KernReturn("result<i64, str>")]
 	public static KResult<long, string> Create(KNativeBox self) => Require(self).Create();
+
+	[KernMember]
+	[KernReturn("result<i64, str>")]
+	public static KResult<long, string> Migrate(KNativeBox self) => Require(self).Migrate();
 
 	[KernMember]
 	[KernReturn("result<i64, str>")]
@@ -304,4 +458,23 @@ public static class OrmApi
 			throw new KernPanic($"orm.table: '{type}' не является unit/type");
 		return KValue.Obj(new KNativeBox(new OrmTable(db, interpreter, classType)));
 	}
+
+	[KernStatic]
+	[KernMember]
+	[KernName("belongs_to")]
+	[KernReturn("relation")]
+	public static OrmRelation BelongsTo<T1, T2>(KValue source, KValue target, string field) =>
+		new(AsTable(source, "source"), AsTable(target, "target"), field, many: false);
+
+	[KernStatic]
+	[KernMember]
+	[KernName("has_many")]
+	[KernReturn("relation")]
+	public static OrmRelation HasMany<T1, T2>(KValue source, KValue target, string field) =>
+		new(AsTable(source, "source"), AsTable(target, "target"), field, many: true);
+
+	private static OrmTable AsTable(KValue value, string what) =>
+		value.Ref is KNativeBox box && box.Value is OrmTable table
+			? table
+			: throw new KernPanic($"orm.relation: {what} должен быть orm.table<T>");
 }

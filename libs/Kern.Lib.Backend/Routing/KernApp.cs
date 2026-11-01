@@ -245,6 +245,28 @@ public sealed partial class KernApp : KernGroup
 			}
 		}
 
+		if (res.Streaming is { } streaming)
+		{
+			var writer = new KernResWriter(ctx.Raw.Response, res, ctx);
+			try
+			{
+				streaming(writer);
+			}
+			catch (Exception exception)
+			{
+				// Заголовки уже отправлены: остаётся закрыть поток, клиент увидит обрыв.
+				ctx.Cancelled = true;
+				if (!Quiet)
+					Console.Error.WriteLine("ошибка потокового ответа: " + exception.Message);
+			}
+			finally
+			{
+				writer.Dispose();
+			}
+
+			return;
+		}
+
 		Send(ctx.Raw.Response, res);
 	}
 

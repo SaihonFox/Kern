@@ -1,6 +1,17 @@
 # STATUS
 
 ## Now
+- **Streaming/cancellation, ORM migrations/relations, 25_transpile (2026-11-02, owner request):**
+  backend `res.stream(content_type, fun (res_writer w) { … })` with `write/write_line/flush/close`,
+  `ctx.cancelled`/`res_writer.cancelled` (cooperative cancellation on client disconnect); ORM
+  `table.migrate()` (create table + add missing columns, no history) and
+  `orm.belongs_to`/`orm.has_many` relations (`find`/`all`, no cascades/eager loading). External
+  `libs/Kern.Lib.Transpile` (`kern.transpile`) is implemented: `transpiler("csharp"|"kotlin")`,
+  `map_script`, `text/file/project` (`result`), C#/Kotlin targets, generated `KernRuntime.cs/.kt`,
+  user mappings; example 25 checks/runs and writes C#/Kotlin. Generated C# is compiled in
+  `TranspileTests`; example 31 is check/run clean from an empty `out/` after recursive
+  `kernc check <container>` + `prebuild.txt`. Suite **420/420**; style clean; examples clean
+  **30/31** (only `19_gui`, stage-2).
 - **CLI/backend runtime fixes (2026-11-02, owner report):** `kernc run` now sets the current
   directory to the project root (or the source file's directory) for the program and restores it
   afterwards; `<target>:run` uses the target root. Relative paths such as `sqlite db("app.db")`,

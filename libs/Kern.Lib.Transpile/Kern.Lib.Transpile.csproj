@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<RootNamespace>Kern.Lib.Transpile</RootNamespace>
+		<AssemblyName>Kern.Lib.Transpile</AssemblyName>
+	</PropertyGroup>
+	<ItemGroup>
+		<!-- ядро и компилятор нужны только для компиляции: во время работы их даёт хост (kernc) -->
+		<ProjectReference Include="../../src/Kern.Runtime/Kern.Runtime.csproj">
+			<Private>false</Private>
+		</ProjectReference>
+		<ProjectReference Include="../../src/Kern.Compiler/Kern.Compiler.csproj">
+			<Private>false</Private>
+		</ProjectReference>
+		<ProjectReference Include="../../src/Kern.Vm/Kern.Vm.csproj">
+			<Private>false</Private>
+		</ProjectReference>
+	</ItemGroup>
+</Project>

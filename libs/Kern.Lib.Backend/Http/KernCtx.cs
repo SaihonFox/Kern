@@ -31,6 +31,7 @@ public sealed class KernCtx(HttpListenerContext context, string body)
 	public string? User { get; set; }
 	public KernSession? Session { get; set; }
 	public KernClaims? Claims { get; set; }
+	public bool Cancelled { get; internal set; }
 
 	public string? Param(string name) => RouteParams.GetValueOrDefault(name);
 
@@ -79,6 +80,9 @@ public static class CtxApi
 
 	[KernProperty]
 	public static KernClaims? Claims(KNativeBox self) => KernCtx.Require(self).Claims;
+
+	[KernProperty]
+	public static bool Cancelled(KNativeBox self) => KernCtx.Require(self).Cancelled;
 
 	[KernMember]
 	public static string? Param(KNativeBox self, string name) => KernCtx.Require(self).Param(name);
