@@ -26,6 +26,15 @@ public static class AttributeCatalog
 		"put",
 		"patch",
 		"delete",
+		// Внешние библиотеки (kern.di / kern.backend): известны компилятору,
+		// чтобы не выдавать KRN2307; смысл проверяет сама библиотека.
+		"controller",
+		"auth",
+		"roles",
+		"singleton",
+		"transient",
+		"scoped",
+		"inject",
 		// Макросы (spec round 22): маркер функции-макроса; раскрывается до binder'а.
 		"macro"
 	];

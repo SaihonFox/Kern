@@ -8,7 +8,7 @@
   (the latter run when `KERN_PG_URL`/`KERN_MYSQL_URL` are set). New external `libs/Kern.Lib.Ffi`
   (`kern.ffi`): `native_lib`/`native_fn`, `.dll/.so/.dylib` loading, `fn("strlen", "i64(str)")`,
   `call([...])`, `has`, `close`, cdecl `calli`, void/bool/ints/floats/`ptr`/UTF-8 `str`; example 20
-  checks and runs, `FfiTests` cover strlen/abs/atof and error paths. Full suite **411/411**;
+  checks and runs, `FfiTests` cover strlen/abs/atof and error paths. Full suite **414/414**;
   examples clean **28/31**.
 - **Backend library implemented (2026-11-02, owner request):** external `libs/Kern.Lib.Backend`
   (`kern.backend`, `kern.backend.server.*`) with `app`/`route_group` router, middleware, `ctx`/`res`,
@@ -18,9 +18,13 @@
   (SQLite + ORM + HTTP); example 27 (DI, controllers, JWT, middleware, SSE, WebSocket, `/stop`)
   checks/runs too. Verified over `localhost` (users, login, todos CRUD, roles, WS echo, SSE hello).
   `LibraryResolver` now resolves sibling library dependencies (`Kern.Lib.Backend` → `Kern.Lib.Di`).
-  Backend tests: **25** unit/loopback tests in `src/Kern.Tests/Features/Backend` (routes, JWT,
-  sessions, responses, controllers/DI, middleware, static files, WS/SSE, broadcasts, accept/handle).
-  Full suite **411/411**; examples clean **28/31**.
+  Backend hardening: SSE replay via `Last-Event-ID` (window 256), ETag/Last-Modified/304 and
+  `Range` for static files, optional file-backed sessions (`sessions("file.json")`), and the
+  library attributes (`controller/auth/roles/singleton/transient/scoped/inject`) are now in the
+  compiler catalog (no `KRN2307`). Backend tests: **26** unit/loopback tests in
+  `src/Kern.Tests/Features/Backend` (routes, JWT, sessions/file, responses, controllers/DI,
+  middleware, static files+range, WS/SSE+broadcast/replay, accept/handle).
+  Full suite **414/414**; examples clean **28/31**.
 - **DB and DI libraries implemented (2026-11-02, owner request):** external `libs/Kern.Lib.Db`
   (SQLite/PostgreSQL/MySQL + `orm.table<T>`) and `libs/Kern.Lib.Di` (`container`) now build via
   `dotnet build libs/Kern.Libs.slnx` into `libs/_out`. SQLite/PostgreSQL/MySQL CRUD/query/scalar/

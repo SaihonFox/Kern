@@ -73,9 +73,82 @@ public class KernGroup
 				return KernRes.Error(403, "доступ запрещён");
 			if (Directory.Exists(full))
 				full = Path.Combine(full, "index.html");
-			return KernRes.File(full);
+			return ServeFile(ctx, full);
 		});
 	}
+
+	private static KernRes ServeFile(KernCtx ctx, string full)
+	{
+		if (!File.Exists(full))
+			return KernRes.Error(404, "не найдено");
+
+		var info = new FileInfo(full);
+		string etag = $"\"{info.Length:x}-{info.LastWriteTimeUtc.Ticks:x}\"";
+		string lastModified = info.LastWriteTimeUtc.ToString("R", System.Globalization.CultureInfo.InvariantCulture);
+		KernRes res = KernRes.File(full);
+		res.WithHeader("ETag", etag)
+			.WithHeader("Last-Modified", lastModified)
+			.WithHeader("Accept-Ranges", "bytes");
+
+		if (string.Equals(ctx.Header("If-None-Match"), etag, StringComparison.Ordinal))
+			return NotModified(res);
+		if (DateTime.TryParse(
+				ctx.Header("If-Modified-Since"),
+				System.Globalization.CultureInfo.InvariantCulture,
+				System.Globalization.DateTimeStyles.AssumeUniversal | System.Globalization.DateTimeStyles.AdjustToUniversal,
+				out DateTime since) &&
+			info.LastWriteTimeUtc <= since.AddSeconds(1))
+		{
+			return NotModified(res);
+		}
+
+		string? range = ctx.Header("Range");
+		if (range is null || !range.StartsWith("bytes=", StringComparison.OrdinalIgnoreCase))
+			return res;
+
+		string spec = range[6..].Trim();
+		string[] parts = spec.Split('-', 2);
+		if (parts.Length != 2)
+			return RangeNotSatisfiable(info.Length);
+		bool hasStart = long.TryParse(
+			parts[0], System.Globalization.NumberStyles.Integer,
+			System.Globalization.CultureInfo.InvariantCulture, out long start);
+		bool hasEnd = long.TryParse(
+			parts[1], System.Globalization.NumberStyles.Integer,
+			System.Globalization.CultureInfo.InvariantCulture, out long end);
+		if (parts[0].Length == 0)
+		{
+			if (!hasEnd)
+				return RangeNotSatisfiable(info.Length);
+			start = System.Math.Max(0, info.Length - end);
+			end = info.Length - 1;
+		}
+		else
+		{
+			if (!hasStart)
+				return RangeNotSatisfiable(info.Length);
+			end = parts[1].Length == 0 ? info.Length - 1 : System.Math.Min(end, info.Length - 1);
+		}
+
+		if (start < 0 || start > end || start >= info.Length)
+			return RangeNotSatisfiable(info.Length);
+
+		byte[] bytes = File.ReadAllBytes(full)[(int)start..(int)(end + 1)];
+		res.Status = 206;
+		res.Bytes = bytes;
+		res.WithHeader("Content-Range", $"bytes {start}-{end}/{info.Length}");
+		return res;
+	}
+
+	private static KernRes NotModified(KernRes source) =>
+		KernRes.Make(304, "", "text/plain")
+			.WithHeader("ETag", source.Headers["ETag"])
+			.WithHeader("Last-Modified", source.Headers["Last-Modified"])
+			.WithHeader("Accept-Ranges", "bytes");
+
+	private static KernRes RangeNotSatisfiable(long length) =>
+		KernRes.Error(416, "недопустимый диапазон")
+			.WithHeader("Content-Range", $"bytes */{length}");
 
 	internal RouteEntry AddWs(
 		string pattern,

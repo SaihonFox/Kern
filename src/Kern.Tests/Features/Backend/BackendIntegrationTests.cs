@@ -382,6 +382,27 @@ public sealed class BackendIntegrationTests
 		Assert.Contains("event: note", lines);
 		Assert.Contains("data: broadcast", lines);
 
+		using var replayRequest = new HttpRequestMessage(HttpMethod.Get, "/events");
+		replayRequest.Headers.TryAddWithoutValidation("Last-Event-ID", "1");
+		using HttpResponseMessage replay = await sseClient.SendAsync(
+			replayRequest,
+			HttpCompletionOption.ResponseHeadersRead);
+		await using Stream replayStream = await replay.Content.ReadAsStreamAsync();
+		using var replayReader = new StreamReader(replayStream);
+		var replayLines = new List<string>();
+		while (replayLines.Count < 16)
+		{
+			string? line = await replayReader.ReadLineAsync().WaitAsync(TimeSpan.FromSeconds(5));
+			if (line is null)
+				break;
+			replayLines.Add(line);
+			if (line == "data: broadcast")
+				break;
+		}
+
+		Assert.Contains("event: note", replayLines);
+		Assert.Contains("data: broadcast", replayLines);
+
 		using var socket = new ClientWebSocket();
 		await socket.ConnectAsync(new Uri($"ws://localhost:{server.Port}/echo"), CancellationToken.None)
 			.WaitAsync(TimeSpan.FromSeconds(5));
@@ -435,6 +456,26 @@ public sealed class BackendIntegrationTests
 			using HttpResponseMessage script = await client.GetAsync("/assets/app.js");
 			Assert.Equal("js", await script.Content.ReadAsStringAsync());
 			Assert.Equal("text/javascript", script.Content.Headers.ContentType?.MediaType);
+			string etag = script.Headers.GetValues("ETag").Single();
+			Assert.True(script.Content.Headers.Contains("Last-Modified"));
+
+			using var cachedRequest = new HttpRequestMessage(HttpMethod.Get, "/assets/app.js");
+			cachedRequest.Headers.TryAddWithoutValidation("If-None-Match", etag);
+			using HttpResponseMessage cached = await client.SendAsync(cachedRequest);
+			Assert.Equal(HttpStatusCode.NotModified, cached.StatusCode);
+			Assert.Empty(await cached.Content.ReadAsByteArrayAsync());
+
+			using var rangeRequest = new HttpRequestMessage(HttpMethod.Get, "/assets/app.js");
+			rangeRequest.Headers.TryAddWithoutValidation("Range", "bytes=0-1");
+			using HttpResponseMessage range = await client.SendAsync(rangeRequest);
+			Assert.Equal(HttpStatusCode.PartialContent, range.StatusCode);
+			Assert.Equal("js", await range.Content.ReadAsStringAsync());
+			Assert.Equal("bytes 0-1/2", range.Content.Headers.GetValues("Content-Range").Single());
+
+			using var suffixRequest = new HttpRequestMessage(HttpMethod.Get, "/assets/app.js");
+			suffixRequest.Headers.TryAddWithoutValidation("Range", "bytes=-1");
+			using HttpResponseMessage suffix = await client.SendAsync(suffixRequest);
+			Assert.Equal("s", await suffix.Content.ReadAsStringAsync());
 
 			using HttpResponseMessage missing = await client.GetAsync("/assets/missing.txt");
 			Assert.Equal(HttpStatusCode.NotFound, missing.StatusCode);

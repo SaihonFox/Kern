@@ -11,16 +11,20 @@ namespace Kern.Lib.Backend.Realtime;
 public sealed class KernSse
 {
 	private readonly HttpListenerResponse _response;
+	private readonly SseHub _hub;
 
 	internal string Route { get; }
 	internal bool Closed { get; private set; }
 	public string Id { get; }
 	public bool Open => !Closed;
+	public long LastEventId { get; }
 
-	internal KernSse(HttpListenerResponse response, string route)
+	internal KernSse(HttpListenerResponse response, string route, SseHub hub, long lastEventId)
 	{
 		_response = response;
+		_hub = hub;
 		Route = route;
+		LastEventId = lastEventId;
 		Id = Guid.NewGuid().ToString("N");
 		response.StatusCode = 200;
 		response.ContentType = "text/event-stream; charset=utf-8";
@@ -30,7 +34,16 @@ public sealed class KernSse
 
 	public bool Send(string eventName, string data)
 	{
+		long id = _hub.Next(eventName, data);
+		return WriteEvent(id, eventName, data);
+	}
+
+	public bool SendData(string data) => Send("", data);
+
+	internal bool WriteEvent(long id, string eventName, string data)
+	{
 		var builder = new StringBuilder();
+		builder.Append("id: ").Append(id).Append('\n');
 		if (eventName.Length > 0)
 			builder.Append("event: ").Append(eventName).Append('\n');
 		foreach (string line in data.Replace("\r\n", "\n").Split('\n'))
@@ -38,8 +51,6 @@ public sealed class KernSse
 		builder.Append('\n');
 		return Write(builder.ToString());
 	}
-
-	public bool SendData(string data) => Send("", data);
 
 	internal bool Ping() => Write(": connected\n\n");
 
@@ -92,6 +103,10 @@ public static class SseApi
 
 	[KernProperty]
 	public static bool Open(KNativeBox self) => KernSse.Require(self).Open;
+
+	[KernProperty]
+	[KernName("last_event_id")]
+	public static long LastEventId(KNativeBox self) => KernSse.Require(self).LastEventId;
 
 	[KernMember]
 	public static bool Send(KNativeBox self, string eventName, string data) =>

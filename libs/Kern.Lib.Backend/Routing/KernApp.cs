@@ -25,6 +25,7 @@ public sealed partial class KernApp : KernGroup
 	private readonly Channel<KernWork> _queue = Channel.CreateUnbounded<KernWork>();
 	private readonly Dictionary<KernSocket, RouteEntry> _sockets = [];
 	private readonly List<KernSse> _sse = [];
+	private readonly Dictionary<string, SseHub> _sseHubs = [];
 	private bool _started;
 	private bool _stopping;
 
@@ -306,16 +307,36 @@ public sealed partial class KernApp : KernGroup
 
 	internal void OpenSse(KernCtx ctx, string template, KAction<KernSse> onOpen, Interpreter interpreter)
 	{
-		var sse = new KernSse(ctx.Raw.Response, template);
+		SseHub hub = Hub(template);
+		string? lastHeader = ctx.Header("Last-Event-ID") ?? ctx.Query("last_event_id");
+		long parsedLast = 0;
+		bool hasLast = !string.IsNullOrWhiteSpace(lastHeader) && long.TryParse(lastHeader, out parsedLast);
+		long lastEventId = hasLast ? parsedLast : hub.LastId;
+		var sse = new KernSse(ctx.Raw.Response, template, hub, lastEventId);
 		sse.Ping();
+		if (hasLast)
+		{
+			foreach (SseEvent missed in hub.After(lastEventId))
+				sse.WriteEvent(missed.Id, missed.Event, missed.Data);
+		}
+
 		_sse.Add(sse);
 		Guard(() => onOpen.Invoke(interpreter, sse));
 	}
 
+	private SseHub Hub(string route)
+	{
+		if (!_sseHubs.TryGetValue(route, out SseHub? hub))
+			_sseHubs[route] = hub = new SseHub();
+		return hub;
+	}
+
 	internal int BroadcastSse(string route, string eventName, string data)
 	{
+		SseHub hub = Hub(route);
+		long id = hub.Next(eventName, data);
 		_sse.RemoveAll(sse => sse.Closed);
-		return _sse.Where(sse => sse.Route == route).Count(sse => sse.Send(eventName, data));
+		return _sse.Where(sse => sse.Route == route).Count(sse => sse.WriteEvent(id, eventName, data));
 	}
 
 	internal int BroadcastWs(string route, string text)

@@ -183,6 +183,28 @@ public sealed class AttributeSymbolTests
 	}
 
 	[Fact]
+	public void Library_attributes_do_not_warn_KRN2307()
+	{
+		var (_, diagnostics) = Collect("""
+			#[controller("/api")]
+			type api_controller {
+				#[get("/")]
+				#[auth]
+				#[roles("admin")]
+				fun index() -> i32 1
+			}
+
+			#[singleton]
+			type service {
+				#[inject]
+				i32 value
+			}
+			""");
+
+		Assert.DoesNotContain(diagnostics, diagnostic => diagnostic.Code == "KRN2307");
+	}
+
+	[Fact]
 	public void Unknown_attribute_still_warns_KRN2307_once()
 	{
 		var (_, diagnostics) = Collect("""

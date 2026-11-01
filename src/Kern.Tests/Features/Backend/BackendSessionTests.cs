@@ -52,4 +52,28 @@ public sealed class BackendSessionTests
 		SessionApi.Clear(box);
 		Assert.False(SessionApi.Has(box, "a"));
 	}
+
+	[Fact]
+	public void Sessions_can_be_persisted_to_a_file()
+	{
+		string path = Path.Combine(Path.GetTempPath(), $"kern-sessions-{Guid.NewGuid():N}.json");
+		try
+		{
+			var store = new SessionStore(TimeSpan.FromMinutes(5), path);
+			KernSession session = store.GetOrCreate(null, out _);
+			session.Set("user", "anya");
+			store.Save();
+
+			var restored = new SessionStore(TimeSpan.FromMinutes(5), path);
+			KernSession loaded = restored.GetOrCreate(session.Id, out bool created);
+
+			Assert.False(created);
+			Assert.Equal("anya", loaded.Get("user"));
+		}
+		finally
+		{
+			if (File.Exists(path))
+				File.Delete(path);
+		}
+	}
 }

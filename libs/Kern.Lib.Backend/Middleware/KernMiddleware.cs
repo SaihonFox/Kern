@@ -135,9 +135,13 @@ public static class MiddlewareApi
 
 	/// <summary>Сессии в памяти: cookie <c>kern_sid</c>, TTL 30 минут.</summary>
 	[KernStatic]
-	public static KernMiddleware Sessions()
+	public static KernMiddleware Sessions() => Sessions(null);
+
+	/// <summary>Сессии с сохранением в JSON-файл (<paramref name="path"/>); nil — только память.</summary>
+	[KernStatic]
+	public static KernMiddleware Sessions(string? path)
 	{
-		var store = new SessionStore(TimeSpan.FromMinutes(30));
+		var store = new SessionStore(TimeSpan.FromMinutes(30), path);
 		return new KernMiddleware((ctx, next) =>
 		{
 			KernSession session = store.GetOrCreate(ctx.Cookie("kern_sid"), out bool created);
@@ -145,6 +149,7 @@ public static class MiddlewareApi
 			KernRes res = next.Next();
 			if (created)
 				res.Cookie("kern_sid", session.Id);
+			store.Save();
 			return res;
 		});
 	}

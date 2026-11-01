@@ -4,6 +4,7 @@ using Kern.Binding.Values;
 using Kern.Bytecode;
 using Kern.Lib.Db.Common;
 using Kern.Runtime.Core;
+using Kern.Runtime.Json;
 using Kern.Vm.Execution;
 using Kern.Vm.Types;
 using Kern.Vm.Values;
@@ -166,19 +167,40 @@ public sealed class OrmTable
 	{
 		if (value.IsNilOrNone)
 			return KValue.Nil;
-		return SqlType(type) == Dialect.TextType &&
-			type is not KPrimType { Prim: PrimKind.Str or PrimKind.Char } &&
-			type is not KNullableType { Inner: KPrimType { Prim: PrimKind.Str or PrimKind.Char } }
-			? KValue.Str(KernFormat.Value(value))
-			: value;
+		if (IsDatabasePrimitive(type))
+			return value;
+		return KValue.Str(JsonApi.ToStr(value));
 	}
 
-	private static KValue FromDbValue(KValue value, KType type)
+	private static bool IsDatabasePrimitive(KType type) => type switch
+	{
+		KNullableType nullable => IsDatabasePrimitive(nullable.Inner),
+		KPrimType { Prim: PrimKind.Object or PrimKind.Nil or PrimKind.None or PrimKind.Void } => false,
+		KPrimType => true,
+		_ => false,
+	};
+
+	private KValue FromDbValue(KValue value, KType type)
 	{
 		if (type is KNullableType nullable)
 			return value.IsNilOrNone ? KValue.Nil : FromDbValue(value, nullable.Inner);
-		if (value.IsNilOrNone || type is not KPrimType primitive)
-			return value;
+		if (value.IsNilOrNone)
+			return KValue.Nil;
+		if (type is not KPrimType primitive)
+		{
+			if (value.Kind != ValueKind.Str)
+				return value;
+			try
+			{
+				return JsonApi.ParseInto(value.AsStr, type, _interpreter);
+			}
+			catch (Exception exception) when (
+				exception is KernPanic or System.Text.Json.JsonException or InvalidOperationException)
+			{
+				return KValue.Nil;
+			}
+		}
+
 		return primitive.Prim switch
 		{
 			PrimKind.Bool => KValue.Bool(value.IsInteger ? value.AsI64 != 0 : value.AsBool),

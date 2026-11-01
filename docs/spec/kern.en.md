@@ -426,7 +426,7 @@ greet(age: 25, name: "Bob")
 -   Синтаксис: `#[Name]` или `#[Name(arg1, arg2)]` перед объявлением.
 -   **Группировка:** Несколько атрибутов можно указывать через запятую внутри одних скобок: `#[Inline, Deprecated("msg")]`.
 -   **Дублирование:** Атрибуты одного типа можно дублировать, если сам тип атрибута не помечен специальным системным атрибутом, запрещающим дублирование.
--   **Каталог (B7):** известные имена — `deprecated`, `must_use`, `inline`, `no_inline`, `cfg`, `test`, `derive`.
+-   **Каталог (B7):** известные имена — `deprecated`, `must_use`, `inline`, `no_inline`, `cfg`, `test`, `derive`, `get`, `post`, `put`, `patch`, `delete`, `macro`; библиотечные `controller`, `auth`, `roles`, `singleton`, `transient`, `scoped`, `inject` тоже известны (их смысл проверяет `kern.backend`/`kern.di`), поэтому `KRN2307` для них не выдаётся.
     -   `#[deprecated]` / `#[deprecated("msg")]` — вызов функции или конструктора типа даёт **предупреждение** `KRN2306`; текст из `msg` добавляется к сообщению.
     -   `#[must_use]` — отброшенное значение вызова функции или значения типа даёт **предупреждение** `KRN2305` (как у `result`/`task`); `_ = expr` — явный отказ от значения.
     -   `#[inline]` / `#[no_inline]` — принимаются; влияние на кодогенерацию появится позже (пока no-op).
@@ -1212,12 +1212,12 @@ s.dispose()                                                             // dispo
 - **Два стиля, один конвейер.** Функции: `a.get("/x/{id}", fun (ctx c) -> res …)`, `post/put/patch/delete/route`, `a.group("/api")` (префикс + свои middleware), `static_files(url, dir)`. Атрибуты: `#[controller("/users")] type …`, методы `#[get("/{id}")]`, `#[post]`, `#[put]`, `#[patch]`, `#[delete]`, плюс `#[auth]` (401 без пользователя) и `#[roles("admin")]` (403). Регистрация: `a.controller<T>()` или `a.scan_controllers()`.
 - **Связывание параметров контроллера:** `ctx`/`session` — из запроса; примитивы — из параметров маршрута, затем query (`str?` — nil, если нет); остальные типы — JSON-тело. Результат: `res` как есть; `str` → text; nil → 404 при `T?`, иначе 204; `result` Ok → значение, Err → 400; прочее → JSON.
 - **Контроллеры и DI:** `a.services(container)` — на каждый запрос открывается scope, контроллер создаётся с зависимостями и освобождается после ответа (`dispose`). Без контейнера нужен конструктор без аргументов.
-- **Middleware:** `a.use(fun(ctx c, chain n) -> res { n.next() })` или готовые `middleware.logger/recover/cors/bearer/basic/jwt_auth/jwt_optional/require_role/sessions/rate_limit`. Порядок: от корня к группе, затем слои маршрута. Если маршрут не найден, всё равно проходят middleware приложения (CORS preflight, логи), ответ 404/405.
+- **Middleware:** `a.use(fun(ctx c, chain n) -> res { n.next() })` или готовые `middleware.logger/recover/cors/bearer/basic/jwt_auth/jwt_optional/require_role/sessions/rate_limit`. `sessions("file.json")` сохраняет сессии между перезапусками, `sessions()` — только память. Порядок: от корня к группе, затем слои маршрута. Если маршрут не найден, всё равно проходят middleware приложения (CORS preflight, логи), ответ 404/405.
 - **Auth:** `jwt.sign(user, [roles], secret, ttl)` / `jwt.verify(token, secret)` (HS256); `ctx.user`, `ctx.roles`, `ctx.has_role`; сессии по cookie `kern_sid` (`ctx.session.get/set`).
-- **Realtime:** `a.ws("/p", fun (socket s, str text) { … })` (или с open/message/close), `a.sse("/p", fun (sse s) { … })`, `a.ws_broadcast(route, text)`, `a.sse_broadcast(route, event, data)`, `a.stop()`.
+- **Realtime:** `a.ws("/p", fun (socket s, str text) { … })` (или с open/message/close), `a.sse("/p", fun (sse s) { … })`, `a.ws_broadcast(route, text)`, `a.sse_broadcast(route, event, data)`, `a.stop()`. SSE-события получают `id`; подключение с `Last-Event-ID` проигрывает пропущенные события (окно 256, в памяти).
 - **Потоки.** Kern-код выполняется только в потоке VM: фоновые потоки принимают соединения/сообщения в очередь (`accept`), `handle(work)` исполняет их. Поэтому обработчики не требуют синхронизации.
-- **Ограничения:** SSE-ответ не получает заголовки middleware (CORS) — заголовки отправляются при открытии; ws принимает только текстовые сообщения; rate limit и сессии в памяти процесса.
-- Пример: `examples/27_backend`. Всё написано без компиляции — ожидаются правки по ошибкам сборки.
+- **Ограничения:** SSE-ответ не получает заголовки middleware (CORS) — заголовки отправляются при открытии; ws принимает только текстовые сообщения; rate limit и replay-буфер SSE живут в памяти; статические файлы поддерживают ETag/Last-Modified/304 и один Range, без сжатия.
+- Пример: `examples/27_backend`; библиотека реализована, пример собран и запущен локально.
 
 ## Раунд 22 — макросы (генерация кода при компиляции, `kern.macro`)
 
