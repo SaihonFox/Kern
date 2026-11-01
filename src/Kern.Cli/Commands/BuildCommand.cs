@@ -59,7 +59,7 @@ internal static class BuildCommand
 
 		foreach (BuildTargetResult result in results)
 			SourceCompiler.Report(result.Compile, stderr);
-		if (results.Any(result => !result.Compile.Success))
+		if (results.Any(result => !result.Compile.Success && !result.UpToDate))
 			return 1;
 
 		foreach (BuildTargetResult result in results)

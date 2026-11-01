@@ -10,7 +10,7 @@
   `[KernTypeArgs]` + a new `[KernReturn]` override), `kern.env`, `file.*`, `kern.path`, `kern.csv`,
   `kern.yaml`, `kern.xml`, `kern.crypto`, `kern.uuid`, `regex_match`/`find_match`. `kernc run|check` honour
   `build.kern`; `kernc tasks|do`, `kernc fmt` (tabs/CRLF/trailing whitespace, token-verified),
-  `kernc repl` (declarations + state replay). Examples clean: **12/31** (01–06, 08, 09, 10, 11, 12, 18, 21),
+  `kernc repl` (declarations + state replay). Examples clean: **13/31** (01–06, 08, 09, 10, 11, 12, 18, 21),
   all of them run end-to-end; goldens for 01,02,03,05,06,08,10,11,12,21 (04 parked on Q25).
   Compiler fixes found on the way: generic parent ctor resolution (`[Base<T>]`), `result<T,E>` native types
   are the `Ok/Err` union (pattern matching works), `error`/`ok` are binding names in value patterns,

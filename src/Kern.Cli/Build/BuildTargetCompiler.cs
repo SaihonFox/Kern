@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using Kern.Binding.Catalog;
 using Kern.Bytecode;
 using Kern.Cli.Infrastructure;
@@ -6,7 +8,11 @@ using Kern.Runtime.Core;
 namespace Kern.Cli.Build;
 
 /// <summary>Результат сборки одной цели: диагностики, готовый модуль и записанный путь (если есть).</summary>
-internal sealed record BuildTargetResult(TargetModel Target, CompileResult Compile, string? OutputPath);
+internal sealed record BuildTargetResult(TargetModel Target, CompileResult Compile, string? OutputPath)
+{
+	/// <summary>Сборка пропущена: хэш исходников и настроек не изменился (BUILDER.md §4).</summary>
+	public bool UpToDate { get; init; }
+}
 
 /// <summary>
 /// Сборка цели <c>build.kern</c> (docs/BUILDER.md §3, задача <c>compile</c>): исходники цели
@@ -35,7 +41,7 @@ internal static class BuildTargetCompiler
 		{
 			BuildTargetResult result = Compile(session, target, output);
 			results.Add(result);
-			if (!result.Compile.Success)
+			if (!result.Compile.Success && !result.UpToDate)
 				break;
 		}
 
@@ -74,6 +80,11 @@ internal static class BuildTargetCompiler
 			return CompileConvention(session, target, output, write);
 
 		IReadOnlyList<BuildSourceFile> files = BuildTargetSources.Collect(session, target);
+		string path = output ?? Path.Combine(session.Root, "out", target.Name + ".kbc");
+		string hash = Hash(files.Select(file => (file.ModulePath, file.Text)), session.OptionsFor(target), target);
+		if (write && output is null && IsUpToDate(path, hash))
+			return new BuildTargetResult(target, new CompileResult(), path) { UpToDate = true };
+
 		CompileResult compiled = SourceCompiler.CompileFiles(
 			[.. files.Select(file => (file.ModulePath, file.Text))],
 			target.Name,
@@ -92,8 +103,8 @@ internal static class BuildTargetCompiler
 		if (!write)
 			return new BuildTargetResult(target, compiled, null);
 
-		string path = output ?? Path.Combine(session.Root, "out", target.Name + ".kbc");
 		Write(compiled.Program!.Module, path);
+		SaveHash(path, hash);
 		return new BuildTargetResult(target, compiled, path);
 	}
 
@@ -106,15 +117,71 @@ internal static class BuildTargetCompiler
 		if (!ProjectSources.TryLoad(session.Root, out ProjectSources? project, out string? error))
 			return new BuildTargetResult(target, new CompileResult { FailureMessage = error }, null);
 
-		CompileResult compiled = SourceCompiler.Compile(project!, session.OptionsFor(target));
+		CompileOptions options = session.OptionsFor(target);
+		string hash = Hash(
+			project!.Files.Select(file => (file.Path, file.Text)),
+			options,
+			target);
+		string path = project.OutputKbcPath(output);
+		if (write && output is null && IsUpToDate(path, hash))
+			return new BuildTargetResult(target, new CompileResult(), path) { UpToDate = true };
+
+		CompileResult compiled = SourceCompiler.Compile(project, options);
 		if (!compiled.Success)
 			return new BuildTargetResult(target, compiled, null);
 		if (!write)
 			return new BuildTargetResult(target, compiled, null);
 
-		string path = project!.OutputKbcPath(output);
 		Write(compiled.Program!.Module, path);
+		SaveHash(path, hash);
 		return new BuildTargetResult(target, compiled, path);
+	}
+
+	/// <summary>Хэш исходников, зависимостей (они уже в списке), настроек, цели и версии kernc.</summary>
+	private static string Hash(
+		IEnumerable<(string Path, string Text)> files,
+		CompileOptions options,
+		TargetModel target)
+	{
+		var builder = new StringBuilder();
+		builder.Append(KernCli.Version).Append('|')
+			.Append(target.Name).Append('|')
+			.Append(target.Kind).Append('|')
+			.Append(target.Entry ?? "").Append('|')
+			.Append(options.Optimize).Append('|')
+			.Append(options.WarningsAsErrors).Append('|')
+			.Append(options.Macros).Append('|')
+			.Append(options.DebugInfo).Append('|');
+		foreach (var (path, text) in files)
+			builder.Append(path).Append('\0').Append(text).Append('\0');
+		return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(builder.ToString())));
+	}
+
+	private static bool IsUpToDate(string path, string hash)
+	{
+		string hashPath = path + ".hash";
+		if (!File.Exists(path) || !File.Exists(hashPath))
+			return false;
+		try
+		{
+			return string.Equals(File.ReadAllText(hashPath).Trim(), hash, StringComparison.Ordinal);
+		}
+		catch (IOException)
+		{
+			return false;
+		}
+	}
+
+	private static void SaveHash(string path, string hash)
+	{
+		try
+		{
+			File.WriteAllText(path + ".hash", hash);
+		}
+		catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+		{
+			throw new BuildException($"не удалось записать хэш {path}.hash: {exception.Message}");
+		}
 	}
 
 	/// <summary>Проверка app-цели: модуль входа существует и содержит <c>fun main</c> (§2, §3).</summary>
