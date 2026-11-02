@@ -1,5 +1,25 @@
 # DECISIONS_NEEDED
 
+## Open — `kernc wasm` for WASI (2026-11-02)
+
+`kernc new`, `kernc doc` (with doctest) и `kernc run --watch` реализованы. `kernc wasm` нельзя
+сделать тем же путём, что остальные команды: проект компилируется в `.kbc` для стековой VM, а
+для WASI нужен отдельный хост. Установленный SDK имеет workload `wasm-tools` только с
+`browser-wasm`; runtime-pack `wasi-wasm` отсутствует. Требуется решение:
+
+1. **WASI через .NET (`wasi-experimental`)** — поставить workload, добавить `Kern.WasiHost`
+   (KbcReader + VM + reflection-резолвер нативов без `Expression.Compile`), встраивать
+   `program.kbc` как ресурс и вызывать `dotnet publish -r wasi-wasm`. Работает только
+   синхронное подмножество (без потоков/сетевого backend), размер большой. Оценка: L.
+2. **Собственный WASM-бэкенд** — генерировать `.wasm`/WAT напрямую из bound tree. Полный
+   контроль и малый размер, но нужно реализовать кодогенерацию, GC/строки/коллекции и
+   runtime; фактически второй codegen. Оценка: XL.
+3. **Browser-wasm вместо WASI** — использовать установленный `browser-wasm`: получится
+   браузерный модуль с JS-обвязкой, а не WASI-команда; придётся изменить спецификацию.
+4. **Отложить `kernc wasm`** — оставить команду задокументированной как нереализованную,
+   продолжать остальные инструменты. Рекомендация на сейчас: сначала закрыть M14-структуры,
+   затем вернуться к варианту 1 по отдельному решению.
+
 ## Decided - owner answers (2026-11-01, "доделай всё")
 
 Owner instruction: finish every item from the third section (open questions) and implement `is` patterns. Choices below follow the recorded recommendations; all are language-visible and reflected in `docs/spec/kern.en.md` + `CHANGELOG_LANG.md`.

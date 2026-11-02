@@ -21,6 +21,8 @@ internal static class RunCommand
 
 	public static int Run(string[] args, TextWriter stdout, TextWriter stderr)
 	{
+		if (args.Contains("--watch"))
+			return WatchCommand.Run(args, stdout, stderr);
 		if (!SourceArguments.TryParse(
 			args, "run", allowOutput: false, allowProgramArguments: true, stderr,
 			out string path, out SourceKind kind, out _, out IReadOnlyList<string> programArguments,

@@ -37,7 +37,7 @@
 - `kern.ui` (Avalonia, `libs/Kern.Lib.Ui` отсутствует; `examples/19_gui` не запускается).
 - `kern.net`, `kern.ansi`, `kern.toml`, `kern.ini`, часовые пояса `kern.time`.
 - Структуры данных M14: `span<T>`, `frozen_list/frozen_dict/frozen_set`, `deque`, `priority_queue`, `sorted_dict`, `sorted_set`, `bitset`, `ring_buffer`, `lazy<T>`.
-- Инструменты: `kernc wasm`, `kernc new`, `kernc doc`, `kernc run --watch`; package fetching (M13); архитектурные примеры; отладчик.
+- Инструменты: `kernc wasm` (нужен WASI-хост/бэкенд, `DECISIONS_NEEDED.md`); package fetching (M13); архитектурные примеры; отладчик. `kernc new`, `kernc doc` (doctest) и `kernc run --watch` реализованы 2026-11-02.
 - Языковые ограничения: `use dotnet.X[...]`, `in/ref/out`, identity для `unit`, запись через пользовательский `op []`, шаг срезов, `op in`, async-генераторы.
 
 M7 закрыт 2026-11-01: `kern.events`, `kern.compress`, `kern.http` (оба варианта), `kern.threading`,

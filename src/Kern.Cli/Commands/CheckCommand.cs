@@ -85,13 +85,15 @@ internal static class CheckCommand
 
 	private static int CheckProject(string path, CliOptions options, TextWriter stderr)
 	{
-		BuildTargetResult built;
+		IReadOnlyList<BuildTargetResult> results;
 		try
 		{
 			BuildSession session = BuildSession.Open(path);
 			session.OptimizeOverride = options.Optimize;
 			session.ProfileName = options.Profile;
-			built = BuildTargetCompiler.CompileApp(session);
+			// Проверяем все цели, включая библиотечные: `kernc check` не должен требовать
+			// app-цель у проекта-библиотеки (`kernc new lib`).
+			results = BuildTargetCompiler.BuildAllCheck(session);
 		}
 		catch (BuildException exception)
 		{
@@ -99,7 +101,13 @@ internal static class CheckCommand
 			return 1;
 		}
 
-		SourceCompiler.Report(built.Compile, stderr);
-		return built.Compile.Success ? 0 : 1;
+		var success = true;
+		foreach (BuildTargetResult result in results)
+		{
+			SourceCompiler.Report(result.Compile, stderr);
+			success &= result.Compile.Success;
+		}
+
+		return success ? 0 : 1;
 	}
 }

@@ -49,6 +49,8 @@ public static class KernCli
 			"tasks" => TasksCommand.Run(args[1..], stdout, stderr),
 			"do" => DoCommand.Run(args[1..], stdout, stderr),
 			"clean" => CleanCommand.Run(args[1..], stdout, stderr),
+			"new" => NewCommand.Run(args[1..], stdout, stderr),
+			"doc" => DocCommand.Run(args[1..], stdout, stderr),
 			"fmt" => FmtCommand.Run(args[1..], stdout, stderr),
 			"repl" => ReplCommand.Run(args[1..], stdout, stderr),
 			"dis" => DisCommand.Run(args[1..], stdout, stderr),
@@ -94,6 +96,6 @@ public static class KernCli
 
 	private static bool KnownCommand(string command) => command is
 		"help" or "version" or "run" or "check" or "test" or "build" or "dll" or "exe" or
-		"tasks" or "do" or "clean" or "fmt" or "repl" or "dis" or
+		"tasks" or "do" or "clean" or "new" or "doc" or "fmt" or "repl" or "dis" or
 		"-h" or "--help" or "-v" or "--version";
 }

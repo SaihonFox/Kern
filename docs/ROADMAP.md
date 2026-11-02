@@ -126,7 +126,7 @@ Cross-cutting milestone for the owner's round-27 items (spec «Раунд 27», 
 2. **Binder/types:** generic union alias substitution; `is` pattern bindings and smart casts; generator typing (`seq<T>`); `result` label equivalence; nesting limit 256 (configurable).
 3. **Codegen/VM:** ~~direct tail-call optimization~~ (done 2026-11-02); `with` copies for `unit`/`type`; labeled jumps; ~~generators and lazy `seq<T>`~~ (done 2026-11-02); VM frame limit 10,000 (configurable; code currently 65_536 and not configurable); `span<T>`, `frozen_*`, `deque`, `priority_queue`, `sorted_dict`, `sorted_set`, `bitset`, `ring_buffer`, `lazy<T>` (not implemented).
 4. **Std libraries:** implemented 2026-11-02 — `kern.process`, `kern.path`, `kern.log`, `kern.cli`, `kern.config`, `kern.random`, `kern.auth`; still not implemented — `kern.net`, `kern.ansi`, time zones, `kern.toml`, `kern.ini`.
-5. **Docs/CLI:** `///` capture, doctest (compile + run, `// expect:` check), `kernc doc`, `kernc wasm` (WASI), `kernc new app|lib|service`, `kernc run --watch`.
+5. **Docs/CLI:** ~~`///` capture, doctest (compile + run, `// expect:` check), `kernc doc`~~ (done 2026-11-02); ~~`kernc new app|lib|service`~~, ~~`kernc run --watch`~~ (done 2026-11-02); `kernc wasm` (WASI) **not implemented** — needs a WASI host or a WASM backend, see `DECISIONS_NEEDED.md`.
 
 Accept: new syntax has parser/binder/codegen tests; tail recursion runs a deep loop without stack growth; generators are lazy; data structures/libraries have std tests and examples; doctest/tooling covered by CLI tests; full baseline green. Already done: first-line shebang and numeric separators (`LexerTests`, `CodeGeneratorTests`).
 

@@ -8,7 +8,7 @@
 - UI: `kern.ui` / `libs/Kern.Lib.Ui` отсутствует, `examples/19_gui` не запускается.
 - Библиотеки: `kern.net`, `kern.ansi`, `kern.toml`, `kern.ini`, часовые пояса `kern.time`.
 - M14-структуры: `span<T>`, `frozen_list/frozen_dict/frozen_set`, `deque`, `priority_queue`, `sorted_dict`, `sorted_set`, `bitset`, `ring_buffer`, `lazy<T>`.
-- Инструменты: `kernc wasm`, `kernc new`, `kernc doc`, `kernc run --watch`, package fetching (M13), отладчик, архитектурные примеры.
+- Инструменты: `kernc wasm` (WASI; нужен отдельный хост/бэкенд — `DECISIONS_NEEDED.md`), package fetching (M13), отладчик, архитектурные примеры. `kernc new`, `kernc doc` (doctest) и `kernc run --watch` реализованы 2026-11-02.
 - Язык: `use dotnet.X[...]`, `in/ref/out`, identity для `unit`, запись через пользовательский `op []`, шаг срезов, пользовательский `op in`, async-генераторы, `seq.len`/повторный обход.
 - Известные ограничения: `fail` из `kern.test` — `void`, не `never`; предел кадров VM 65 536 (спека: 10 000, настраиваемый); `regex.try_new` только без квалификации; `define_type` без generics/родителей/методов; `instantiate()` атрибута нет; макросы не раскрываются в одиночном `CompileCore`; LSP видит только каталог `Kern.Runtime`.
 
