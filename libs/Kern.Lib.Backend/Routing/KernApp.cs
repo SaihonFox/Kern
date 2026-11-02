@@ -276,11 +276,17 @@ public sealed partial class KernApp : KernGroup
 		RouteEntry? best = null;
 		Dictionary<string, string> bestParams = [];
 		var pathMatched = false;
+		var hasPlainRoute = false;
+		var hasWebSocketRoute = false;
 		foreach (RouteEntry route in Routes)
 		{
 			if (!route.Pattern.Match(ctx.Path, out Dictionary<string, string> values))
 				continue;
 			pathMatched = true;
+			if (route.Kind == RouteKind.WebSocket)
+				hasWebSocketRoute = true;
+			else
+				hasPlainRoute = true;
 			bool matches = route.Kind switch
 			{
 				RouteKind.Http => route.Method == ctx.Method ||
@@ -297,9 +303,25 @@ public sealed partial class KernApp : KernGroup
 		ctx.RouteParams = bestParams;
 		if (best is null)
 		{
-			KernRes miss = pathMatched && ctx.Method != "OPTIONS"
-				? KernRes.Error(405, "метод не поддерживается")
-				: KernRes.Error(404, "не найдено");
+			KernRes miss;
+			if (pathMatched && !isWebSocket && hasWebSocketRoute && !hasPlainRoute &&
+				ctx.Method != "OPTIONS")
+			{
+				// Путь есть, но только как WebSocket: обычный HTTP — это ошибка протокола,
+				// а не «метод не поддерживается» (RFC 6455/9110, 426 Upgrade Required).
+				miss = KernRes.Error(426, "для этого адреса нужен WebSocket-запрос")
+					.WithHeader("Upgrade", "websocket")
+					.WithHeader("Connection", "Upgrade");
+			}
+			else if (pathMatched && ctx.Method != "OPTIONS")
+			{
+				miss = KernRes.Error(405, "метод не поддерживается");
+			}
+			else
+			{
+				miss = KernRes.Error(404, "не найдено");
+			}
+
 			return new KernChain(CollectLayers(), _ => miss, ctx).Next();
 		}
 
@@ -334,7 +356,11 @@ public sealed partial class KernApp : KernGroup
 	{
 		if (!ctx.Raw.Request.IsWebSocketRequest)
 		{
-			Send(ctx.Raw.Response, KernRes.Error(400, "ожидался WebSocket"));
+			Send(
+				ctx.Raw.Response,
+				KernRes.Error(426, "для этого адреса нужен WebSocket-запрос")
+					.WithHeader("Upgrade", "websocket")
+					.WithHeader("Connection", "Upgrade"));
 			return;
 		}
 

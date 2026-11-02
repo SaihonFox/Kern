@@ -93,7 +93,7 @@
 
 Реализована (2026-11-02). Внешняя библиотека `libs/Kern.Lib.Backend` (зависит от `Kern.Lib.Di`) собирается в `libs/_out/Kern.Lib.Backend`. CLI разрешает зависимость `Kern.Lib.Di` из соседнего каталога `libs/_out/Kern.Lib.Di`.
 
-- **Маршруты:** `app a(port[, host])`, `a.get/post/put/patch/delete/route(pattern, fun(ctx)->res)`, `a.group(prefix)` → `route_group`, `a.static_files(url, dir)`. Шаблоны: литералы, `{name}`, хвост `{*path}`; specificity выбирает самый точный маршрут; 404/405.
+- **Маршруты:** `app a(port[, host])`, `a.get/post/put/patch/delete/route(pattern, fun(ctx)->res)`, `a.group(prefix)` → `route_group`, `a.static_files(url, dir)`. Шаблоны: литералы, `{name}`, хвост `{*path}`; specificity выбирает самый точный маршрут; 404/405; обычный HTTP на WebSocket-путь получает `426` с заголовком `Upgrade: websocket`.
 - **Middleware:** `a.use(fun(ctx c, chain n) -> res { n.next() })` и готовые `middleware.logger/recover/cors/bearer/basic/jwt_auth/jwt_optional/require_role/sessions/rate_limit`. `sessions("file.json")` сохраняет сессии между перезапусками, `sessions()` держит их в памяти. Middleware группы применяется к её маршрутам; OPTIONS обрабатывает CORS.
 - **Контекст:** `ctx` — `method/path/body/ip/user/roles/session/claims`, `param/query/header/cookie/has_role`, `json<T>()` → `result<T, str>`, `set/get`.
 - **Ответ:** `res` — `text/html/json/json_status/send/redirect/no_content/not_found/error/bad_request/unauthorized/forbidden/file`, свойства `status/content_type/body`, `header(name, value)`, `cookie(name, value[, max_age])`. Потоковая отдача: `res.stream("text/plain", fun (res_writer w) { w.write("…") })`, у `res_writer` — `write/write_line/flush/close/cancelled`; `ctx.cancelled` взводится при обрыве клиента.

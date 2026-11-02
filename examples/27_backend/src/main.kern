@@ -6,6 +6,8 @@
 //   curl -X POST localhost:8080/api/todos -H "Authorization: Bearer <token>" -d '{"title":"купить хлеб"}'
 //   curl -X DELETE localhost:8080/api/todos/1 -H "Authorization: Bearer <token>"      (нужна роль admin)
 //   curl -N localhost:8080/events                                                       (SSE; события шлёт POST /notify)
+//   websocat ws://localhost:8080/echo                                                    (WebSocket; отвечает «эхо: <текст>»)
+//   curl localhost:8080/echo                                                             (обычный HTTP → 426: нужен WebSocket)
 //   curl localhost:8080/stop                                                            (останавливает сервер)
 use kern.backend[app, ctx, res, chain, middleware, jwt, sse, socket]
 use kern.backend.server.*

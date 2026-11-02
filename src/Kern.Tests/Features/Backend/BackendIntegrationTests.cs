@@ -357,6 +357,14 @@ public sealed class BackendIntegrationTests
 			""");
 
 		using HttpClient sseClient = server.CreateClient();
+		using HttpResponseMessage plainEcho = await sseClient.GetAsync("/echo");
+		Assert.Equal(HttpStatusCode.UpgradeRequired, plainEcho.StatusCode);
+		Assert.Equal("websocket", plainEcho.Headers.GetValues("Upgrade").Single());
+		Assert.Contains(
+			"WebSocket",
+			await plainEcho.Content.ReadAsStringAsync(),
+			StringComparison.Ordinal);
+
 		using HttpResponseMessage sse = await sseClient.GetAsync("/events", HttpCompletionOption.ResponseHeadersRead);
 		await using Stream stream = await sse.Content.ReadAsStreamAsync();
 		using var reader = new StreamReader(stream);

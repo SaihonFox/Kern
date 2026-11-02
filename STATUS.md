@@ -1,6 +1,11 @@
 # STATUS
 
 ## Now
+- **Backend WebSocket diagnosis (2026-11-02, owner bug report):** a plain HTTP request to a
+  WebSocket-only path now returns `426 Upgrade Required` with `Upgrade: websocket` instead of the
+  misleading `405 метод не поддерживается`; a real WebSocket handshake still works. Example 27
+  documents `websocat ws://localhost:8080/echo`; regression asserted in
+  `BackendIntegrationTests`. Suite **420/420**; style clean.
 - **Streaming/cancellation, ORM migrations/relations, 25_transpile (2026-11-02, owner request):**
   backend `res.stream(content_type, fun (res_writer w) { … })` with `write/write_line/flush/close`,
   `ctx.cancelled`/`res_writer.cancelled` (cooperative cancellation on client disconnect); ORM
