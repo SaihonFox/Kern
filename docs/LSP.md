@@ -29,7 +29,10 @@ npm install
 # откройте editors/vscode в VS Code и нажмите F5 (Run Extension)
 ```
 
-По умолчанию оно запускает `kernc lsp`. Если `kernc` не в `PATH`, укажите путь в настройках:
+По умолчанию расширение само ищет собранный `kernc` в `src/Kern.Cli/bin/Release|Debug/net10.0`,
+затем пробует `kernc` из `PATH`. Если его нет — ошибка `spawn kernc ENOENT`: соберите
+`dotnet build src/Kern.Cli/Kern.Cli.csproj -c Release` или укажите полный путь в
+`kern.lsp.command` (см. пример ниже).
 
 ```json
 {
