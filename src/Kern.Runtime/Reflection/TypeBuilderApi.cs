@@ -22,6 +22,8 @@ public sealed class KernTypeBuilder(string name)
 
 	private readonly List<BuilderField> _fields = [];
 	private readonly List<AttributeUse> _attributes = [];
+	private readonly List<string> _generics = [];
+	private readonly List<TypeSig> _parents = [];
 	private bool _unit;
 	private TypeDef? _definition;
 	private KClassType? _type;
@@ -31,6 +33,26 @@ public sealed class KernTypeBuilder(string name)
 	public KernTypeBuilder AsUnit()
 	{
 		_unit = true;
+		return this;
+	}
+
+	/// <summary>Добавить generic-параметр динамического типа.</summary>
+	public KernTypeBuilder AddGeneric(string name)
+	{
+		if (_definition is not null)
+			throw new KernPanic("type_builder: generic нельзя добавить после build()");
+		if (name.Length == 0 || _generics.Contains(name))
+			throw new KernPanic($"type_builder: недопустимый generic-параметр '{name}'");
+		_generics.Add(name);
+		return this;
+	}
+
+	/// <summary>Добавить родителя динамического типа.</summary>
+	public KernTypeBuilder AddParent(KType type)
+	{
+		if (_definition is not null)
+			throw new KernPanic("type_builder: родителя нельзя добавить после build()");
+		_parents.Add(ToSignature(type));
 		return this;
 	}
 
@@ -69,6 +91,8 @@ public sealed class KernTypeBuilder(string name)
 			FullName = TypeName,
 			Kind = _unit ? TypeDefKind.Unit : TypeDefKind.Class,
 			Attributes = [.. _attributes],
+			GenericParams = [.. _generics],
+			Parents = [.. _parents],
 		};
 		for (var index = 0; index < _fields.Count; index++)
 		{
@@ -104,6 +128,18 @@ public static class TypeBuilderApi
 	[KernMember]
 	[KernReturn("type_builder")]
 	public static KValue AsUnit(KNativeBox self) => KValue.Obj(new KNativeBox(Require(self).AsUnit()));
+
+	/// <summary><c>generic(name)</c>: добавить generic-параметр.</summary>
+	[KernMember]
+	[KernReturn("type_builder")]
+	public static KValue Generic(KNativeBox self, string name) =>
+		KValue.Obj(new KNativeBox(Require(self).AddGeneric(name)));
+
+	/// <summary><c>parent(type)</c>: добавить родителя.</summary>
+	[KernMember]
+	[KernReturn("type_builder")]
+	public static KValue Parent(KNativeBox self, KValue type) =>
+		KValue.Obj(new KNativeBox(Require(self).AddParent(RequireType(type))));
 
 	/// <summary><c>field(name, type)</c>: добавить поле; возвращает builder.</summary>
 	[KernMember]

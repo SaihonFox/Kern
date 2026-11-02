@@ -114,6 +114,17 @@
 - `bytes`/`hex` ограничены 1 МиБ; пустой список для `choice`, `n < 0`/`n > len` для `sample`, `min >= max` — panic по-русски.
 - **Проверка:** `src/Kern.Tests/Features/RandomTests.cs`.
 
+## kern.ansi / kern.ini / kern.toml / kern.net и часовые пояса
+
+Нативные внутренние модули (2026-11-02):
+
+- **`kern.ansi`** — `red/green/yellow/blue/magenta/cyan/white/gray/bold/dim/italic/underline`, `reset`, `strip`, `color256`, `rgb`, свойство `supports` (учитывает перенаправление вывода и `NO_COLOR`).
+- **`kern.ini`** — `ini.parse(text) -> result<dict<str, dict<str, str>>, str>` (секции, глобальные ключи в `""`, комментарии), `ini.to_str(data)`.
+- **`kern.toml`** — `toml.parse(text) -> result<dict<str, object>, str>` и `toml.to_str(value)`; таблицы, массивы, скаляры; без дат/inline-таблиц/массивов таблиц.
+- **`kern.net`** — `hostname`, `resolve`, `ip_of`, `local_addresses`, `is_reachable(host, port, timeout_ms)`; без сокет-клиента (HTTP — `kern.http`).
+- **`kern.time` time zones** — `time.zone(name)`, `time.zones()`, `time_zone.name/offset_minutes`, `datetime.now_in(tz)`, `dt.in_zone(tz)`, `dt.zone_name`; `datetime` хранит UTC и отображается в поясе.
+- Проверка: `StdModulesExtraTests`.
+
 ## kern.auth (нативный модуль)
 
 `src/Kern.Runtime/Auth/AuthApi.cs`, `[KernModule("kern.auth")]`. Одноразовые коды и токены:

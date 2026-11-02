@@ -36,14 +36,47 @@ public sealed class KernDuration(long milliseconds)
 	}
 }
 
-/// <summary>Дата/время в UTC (<c>datetime</c>, spec §18c).</summary>
+/// <summary>Дата/время: хранится в UTC, отображается в часовом поясе (spec §18c).</summary>
 [KernType("datetime")]
-public sealed class KernDateTime(DateTime value)
+public sealed class KernDateTime(DateTime value, TimeZoneInfo? zone = null)
 {
-	public DateTime Value { get; } = value;
+	public DateTime Value { get; } = value.Kind == DateTimeKind.Utc ? value : value.ToUniversalTime();
+
+	/// <summary>Часовой пояс отображения; null — UTC.</summary>
+	public TimeZoneInfo? Zone { get; } = zone;
+
+	/// <summary>Локальное время выбранного пояса (или UTC).</summary>
+	public DateTime Local => Zone is null ? Value : TimeZoneInfo.ConvertTimeFromUtc(Value, Zone);
 
 	public override string ToString() =>
-		Value.ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", CultureInfo.InvariantCulture);
+		Local.ToString("yyyy-MM-dd'T'HH:mm:ss.fff", CultureInfo.InvariantCulture) +
+		(Zone is null ? "Z" : " " + Zone.Id);
+}
+
+/// <summary>Часовой пояс <c>time_zone</c>.</summary>
+[KernType("time_zone")]
+public sealed class KernTimeZone(TimeZoneInfo zone)
+{
+	public TimeZoneInfo Zone { get; } = zone;
+}
+
+/// <summary>Члены <c>time_zone</c>.</summary>
+[KernType("time_zone")]
+public static class TimeZoneApi
+{
+	[KernProperty]
+	public static string Name(KNativeBox self) => Require(self).Id;
+
+	/// <summary><c>tz.offset_minutes</c>: смещение от UTC сейчас.</summary>
+	[KernName("offset_minutes")]
+	[KernProperty]
+	public static int OffsetMinutes(KNativeBox self) => (int)Require(self).GetUtcOffset(System.DateTime.UtcNow).TotalMinutes;
+
+	private static TimeZoneInfo Require(KNativeBox self) => self.Value switch
+	{
+		KernTimeZone zone => zone.Zone,
+		_ => throw new KernPanic("time_zone: ожидался часовой пояс"),
+	};
 }
 
 /// <summary>Секундомер (<c>stopwatch</c>, spec §18c).</summary>
@@ -205,38 +238,53 @@ public static class DateTimeApi
 	[KernStatic]
 	public static KernDateTime Now() => new(System.DateTime.UtcNow);
 
+	/// <summary><c>datetime.now_in(tz)</c>: текущий момент в часовом поясе.</summary>
+	[KernName("now_in")]
+	[KernStatic]
+	public static KernDateTime NowIn(KernTimeZone zone) => new(System.DateTime.UtcNow, zone.Zone);
+
+	/// <summary><c>dt.in_zone(tz)</c>: тот же момент в другом часовом поясе.</summary>
+	[KernName("in_zone")]
+	[KernMember]
+	public static KernDateTime InZone(KNativeBox self, KernTimeZone zone) => new(Box(self).Value, zone.Zone);
+
+	/// <summary><c>dt.zone_name</c>: имя пояса; пустая строка для UTC.</summary>
+	[KernName("zone_name")]
 	[KernProperty]
-	public static long Year(KNativeBox self) => Box(self).Value.Year;
+	public static string ZoneName(KNativeBox self) => Box(self).Zone?.Id ?? "";
 
 	[KernProperty]
-	public static long Month(KNativeBox self) => Box(self).Value.Month;
+	public static long Year(KNativeBox self) => Box(self).Local.Year;
 
 	[KernProperty]
-	public static long Day(KNativeBox self) => Box(self).Value.Day;
+	public static long Month(KNativeBox self) => Box(self).Local.Month;
 
 	[KernProperty]
-	public static long Hour(KNativeBox self) => Box(self).Value.Hour;
+	public static long Day(KNativeBox self) => Box(self).Local.Day;
 
 	[KernProperty]
-	public static long Minute(KNativeBox self) => Box(self).Value.Minute;
+	public static long Hour(KNativeBox self) => Box(self).Local.Hour;
 
 	[KernProperty]
-	public static long Second(KNativeBox self) => Box(self).Value.Second;
+	public static long Minute(KNativeBox self) => Box(self).Local.Minute;
 
 	[KernProperty]
-	public static long Weekday(KNativeBox self) => ((int)Box(self).Value.DayOfWeek + 6) % 7 + 1;
+	public static long Second(KNativeBox self) => Box(self).Local.Second;
+
+	[KernProperty]
+	public static long Weekday(KNativeBox self) => ((int)Box(self).Local.DayOfWeek + 6) % 7 + 1;
 
 	[KernMember]
 	public static string Format(KNativeBox self, string pattern) =>
-		Box(self).Value.ToString(pattern, CultureInfo.InvariantCulture);
+		Box(self).Local.ToString(pattern, CultureInfo.InvariantCulture);
 
 	[KernName("add_months")]
 	[KernMember]
-	public static KernDateTime AddMonths(KNativeBox self, long months) => new(Box(self).Value.AddMonths((int)months));
+	public static KernDateTime AddMonths(KNativeBox self, long months) => new(Box(self).Value.AddMonths((int)months), Box(self).Zone);
 
 	[KernMember(Operator = "+")]
 	public static KernDateTime Add(KNativeBox self, KernDuration other) =>
-		new(Box(self).Value.AddMilliseconds(other.Milliseconds));
+		new(Box(self).Value.AddMilliseconds(other.Milliseconds), Box(self).Zone);
 
 	[KernMember(Operator = "-")]
 	public static KernDuration Subtract(KNativeBox self, KernDateTime other) =>
@@ -313,4 +361,26 @@ public static class TimeModule
 	[KernName("unix_s")]
 	[KernMember]
 	public static long UnixSeconds() => DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+
+	/// <summary><c>time.zone(name)</c>: часовой пояс по IANA/Windows-имени или <c>nil</c>.</summary>
+	[KernMember]
+	[KernReturn("time_zone?")]
+	public static KernTimeZone? Zone(string name)
+	{
+		try
+		{
+			return TimeZoneInfo.FindSystemTimeZoneById(name) is { } zone ? new KernTimeZone(zone) : null;
+		}
+		catch (Exception error) when (error is TimeZoneNotFoundException or InvalidTimeZoneException)
+		{
+			return null;
+		}
+	}
+
+	/// <summary><c>time.zones()</c>: известные имена часовых поясов.</summary>
+	[KernMember]
+	[KernReturn("list<str>")]
+	public static KValue Zones() =>
+		KValue.Obj(new KList(null,
+			[.. TimeZoneInfo.GetSystemTimeZones().Select(zone => KValue.Str(zone.Id))]));
 }

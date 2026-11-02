@@ -22,7 +22,7 @@
 | `kern.csv` / `kern.yaml` / `kern.xml` | CSV RFC 4180 (`parse`, `parse_dicts`, `to_str`); YAML-подмножество (`parse`, `to_str`); XML (`parse`, `new`, `xml_node.name/text/children/attr/child/find_all/add`) | YAML без якорей/тегов; XML — только элементы и атрибуты |
 | `kern.crypto` / `kern.uuid` | sha1/sha256/sha512/md5, hmac_sha256, base64, random_hex, hash_password/verify_password; `uuid.new()` | — |
 | `kern.time` | `duration` (parse/from_*/total_*/арифметика/сравнения/печать), `datetime` (of/now/поля/weekday/format/add_months/±/сравнения), `stopwatch` (запускается сразу), `time.sleep/measure/unix_*` | нативные параметры по умолчанию не поддерживаются: `datetime.of` требует все 6 аргументов |
-| `kern.reflection` / `kern.macro` | `type` (`name/full_name/args/parents/fields/properties/methods/constructors/attributes`, `is_*`, `enum_names`, `get_*/get/set/create/is_instance/is_assignable_from`), `field_info/property_info/method_info/param_info/attribute_info`, `reflect.*`, `define_type`; `macro_ctx` + `#[macro]`/`#[macro("expr")]`/`#[derive]`/`name!(...)` | `define_type` без generics/родителей/методов; `instantiate()` атрибута нет; макросы не раскрываются в одиночном `CompileCore` |
+| `kern.reflection` / `kern.macro` | `type` (`name/full_name/args/parents/fields/properties/methods/constructors/attributes`, `is_*`, `enum_names`, `get_*/get/set/create/is_instance/is_assignable_from`), `field_info/property_info/method_info/param_info/attribute_info`, `reflect.*`, `define_type`; `macro_ctx` + `#[macro]`/`#[macro("expr")]`/`#[derive]`/`name!(...)` | `define_type` с generics/родителями, но без методов/свойств; `attribute_info.instantiate()` есть; макросы не раскрываются в одиночном `CompileCore` |
 | `kern.db.*` / `kern.db` | внешняя `libs/Kern.Lib.Db`: `sqlite`, `postgres`, `mysql` (`exec/query/scalar/begin/commit/rollback`, async, `last_id`, `close`), `orm.table<T>` (`create/drop/migrate/insert/update/delete/all/where/find/count`, `name`), JSON-поля, `belongs_to`/`has_many`, версионные `migration`/`migrator` | SQLite/PostgreSQL/MySQL проверены живыми CRUD/boolean/транзакциями (`DbLiveTests`); связи без каскадов/eager-loading |
 | `kern.ffi` | внешняя `libs/Kern.Lib.Ffi`: `native_lib`/`native_fn`, загрузка `.dll/.so/.dylib`, `fn(symbol, "i32(i32, str)")`, `call([...])`, `has`, `close`; cdecl, типы void/bool/i8…u64/f32/f64/ptr/str | только cdecl; без callbacks/struct/массивов; возвращённые строки/указатели освобождает C-код |
 | `kern.di` | внешняя `libs/Kern.Lib.Di`: `container` (`singleton/transient/scoped`, `*_as`, `instance`, `scan`, `get/try_get/has/create/inject/scope/dispose`, `count`) | фабрики требуют явного типа результата лямбды (`fun -> T`); атрибуты библиотеки теперь известны компилятору (без `KRN2307`) |
@@ -30,13 +30,16 @@
 | `kern.transpile` | внешняя `libs/Kern.Lib.Transpile`: `transpiler("csharp"\|"kotlin")`, `map_script`, `text/file/project` → `result`; цели C#/Kotlin, `KResult`-runtime, подстановки `map_type/map_call/map_member` | сгенерированный C# проверяется сборкой (`TranspileTests`); Kotlin — только текстом (нет `kotlinc`); сложные конструкции упрощаются с предупреждением |
 | `kern.log` / `kern.cli` / `kern.config` / `kern.process` | внутренние std-модули (2026-11-02): уровни/файл логов; парсер аргументов; JSON/YAML/`.env`/`key=value`; `run/run_in/shell/spawn/which` | — (`log.level = …` и `to_file -> result<bool, str>` поддержаны) |
 | `kern.auth` / `kern.random` | внутренние std-модули (2026-11-02): TOTP/HOTP/токены; криптостойкие числа/байты и детерминированный `rng(seed)` | TOTP — HMAC-SHA1; `rng` — xorshift64 и хранит состояние (продолжает последовательность) |
+| `kern.net` / `kern.ansi` | `net.hostname/resolve/ip_of/local_addresses/is_reachable`; ANSI-цвета/стили, `strip`, `supports` | сеть — DNS/TCP-проверка без сокет-клиента; ANSI не включает цвета при перенаправлении вывода |
+| `kern.ini` / `kern.toml` | `ini.parse/to_str`; `toml.parse/to_str` (таблицы, массивы, скаляры) | TOML без дат/inline-таблиц/массивов таблиц |
+| `kern.time` time zones | `time.zone/zones`, `datetime.now_in/in_zone`, `zone_name`, `tz.offset_minutes` | `datetime` хранит UTC, отображается в поясе |
 | M14-структуры | `src/Kern.Runtime/Collections`: `deque`, `priority_queue`, `sorted_dict`, `sorted_set`, `bitset`, `ring_buffer`, `lazy`, `frozen_list/dict/set`, `span`; пример `32_data_structures` | сортировка поддерживает числа/bool/char/str/unit/`op compare`; `span` не проверяет stack-only |
 | LSP | `src/Kern.Lsp` (`kern-lsp`, JSON-RPC over stdio): диагностика, completion, hover, definition, symbols, formatting | только каталог `Kern.Runtime` (внешние `Kern.Lib.*` не подгружаются); hover/definition синтаксические |
 
 ## Отсутствует (M13/M14 и UI)
 
 - `kern.ui` (Avalonia, `libs/Kern.Lib.Ui` отсутствует; `examples/19_gui` не запускается).
-- `kern.net`, `kern.ansi`, `kern.toml`, `kern.ini`, часовые пояса `kern.time`.
+
 - Инструменты: `kernc wasm` (нужен WASI-хост/бэкенд, `DECISIONS_NEEDED.md`); package fetching (M13); архитектурные примеры; отладчик. `kernc new`, `kernc doc` (doctest) и `kernc run --watch` реализованы 2026-11-02.
 - Языковые ограничения: `use dotnet.X[...]`, `in/ref/out`, identity для `unit`, запись через пользовательский `op []`, шаг срезов, `op in`, async-генераторы.
 
