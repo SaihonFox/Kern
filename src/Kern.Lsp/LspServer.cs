@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Kern.Compiler.Compilation;
+using Kern.Core.Diagnostics;
 using Kern.Lsp.Analysis;
 using Kern.Lsp.Features;
 using Kern.Lsp.Protocol;
@@ -230,7 +231,7 @@ public sealed class LspServer
 		}
 	}
 
-	private static object ToLsp(Kern.Core.Diagnostics.Diagnostic diagnostic, TextMap map) => new
+	private static object ToLsp(Diagnostic diagnostic, TextMap map) => new
 	{
 		range = map.Range(diagnostic.Span.Start, diagnostic.Span.Length),
 		severity = diagnostic.IsError ? 1 : 2,
