@@ -5,6 +5,7 @@ dist/
 .vs/
 *.user
 node_modules/
+*.vsix
 logs/*.log
 # Локальные пробники/вывод запусков (отслеживаемые logs/* остаются в репозитории).
 logs/*.kern
