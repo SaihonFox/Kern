@@ -8,7 +8,7 @@ use kern.db[orm, table]
 unit User(i64 id, str name, i32 age)
 
 async fun main {
-	sqlite db(":memory:")
+	sqlite db("me.db")
 	table<User> users = orm.table<User>(db)
 	_ = users.create()
 	_ = users.insert(User(0, "Аня", 25))
@@ -24,7 +24,7 @@ async fun main {
 	a.get("/users/{id}", fun (ctx c) -> res {
 		i64 id = c.param("id")?.to_i64() ?: 0
 		match users.where("id = ?", <object>[id]) {
-			Ok(rows) => if rows.len == 0 { res.not_found() } else { res.json(rows[0]) }
+			Ok(rows) => if rows.len == 0 res.not_found() else res.json(rows[0])
 			Err(e) => res.send(500, e)
 		}
 	})

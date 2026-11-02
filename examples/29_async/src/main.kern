@@ -62,13 +62,12 @@ async fun main {
 
 	// pipe: асинхронный канал с обратным давлением
 	var p = pipe<i32>(2)
-	tasks.run(async fun {
-		loop i32 i in 0..5 { await p.send(i) }
+	_ = tasks.run(async fun {
+		loop i32 i in 0..5 await p.send(i)
 		p.close()
 	})
-	async loop var x in pipe_stream(p) {
+	async loop var x in pipe_stream(p)
 		println(f"pipe: ${x}")
-	}
 
 	// параллелизм на ядрах: рабочие потоки с общей памятью (раунд 24)
 	println(f"parallel.map: ${await parallel.map([1, 2, 3, 4, 5, 6], square)}")

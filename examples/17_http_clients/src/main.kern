@@ -19,7 +19,7 @@ async fun main {
 	}
 
 	// Вариант B: прокси по атрибутам
-	PostsApi posts = http_client.proxy<PostsApi>("https://jsonplaceholder.typicode.com")
+	var posts = http_client.proxy<PostsApi>("https://jsonplaceholder.typicode.com")
 	match await posts.one(2) {
 		Ok(p) => println(f"B: ${p.title}")
 		Err(e) => println(f"B: ошибка ${e}")
