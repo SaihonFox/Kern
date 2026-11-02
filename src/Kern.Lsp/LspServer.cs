@@ -194,7 +194,32 @@ public sealed class LspServer
 	{
 		string uri = RequireUri(parameters);
 		string text = RequireText(parameters);
-		return LspFeatures.Definition(uri, text, Offset(parameters, text));
+		return LspFeatures.Definition(
+			uri,
+			text,
+			Offset(parameters, text),
+			_analysis.Index,
+			_analysis.Last?.Bundle,
+			path => ResolvePath(path, uri));
+	}
+
+	/// <summary>URI для пути из <c>SourceBundle</c> (открытый документ или файл на диске).</summary>
+	private string ResolvePath(string path, string fallback)
+	{
+		string normalized = path.Replace('\\', '/');
+		if (_documents.UriForRelativePath(normalized) is { } open)
+			return open;
+		if (_documents.RootPath is { } root)
+		{
+			string full = Path.IsPathRooted(path)
+				? path
+				: Path.Combine(root, path.Replace('/', Path.DirectorySeparatorChar));
+			if (File.Exists(full))
+				return new Uri(full).AbsoluteUri;
+		}
+		return Uri.TryCreate(path, UriKind.Absolute, out Uri? absolute)
+			? absolute.AbsoluteUri
+			: fallback;
 	}
 
 	private object DocumentSymbols(JsonNode? parameters) =>

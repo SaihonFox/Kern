@@ -62,7 +62,7 @@ LSP даёт редактору то, чего не даёт обычный те
 | `textDocument/completion` | keywords, functions/types/globals with signatures, members after `.` (simple local type inference), module names after `use`, symbols inside `use mod[…]` |
 | `textDocument/signatureHelp` | overload signatures and parameter labels for the call under the cursor |
 | `textDocument/hover` | markdown signature for known functions/types, otherwise the source line |
-| `textDocument/definition` | declaration of `fun`/`type`/`unit` (and `fun Type.name`) by name, same file |
+| `textDocument/definition` | declaration of `fun`/`type`/`unit`, functions from imported files and members after `obj.` (cross-file, semantic index) |
 | `textDocument/documentSymbol` | top-level functions, types, units and globals with ranges |
 | `textDocument/formatting` | full-document edit from `SourceFormatter` (tabs/CRLF/trailing spaces) |
 | `shutdown` / `exit` | standard lifecycle |
@@ -87,8 +87,9 @@ LSP даёт редактору то, чего не даёт обычный те
   параметры и активный аргумент (по запятой).
 - `build.kern` анализируется с встроенным `build_prelude` (заглушка `__build_env`),
   поэтому `workspace`, `target`, `profile` и их члены видны в редакторе.
-- Hover/definition остаются синтаксическими для незнакомых имён; переход к определению
-  ищет только в текущем файле.
+- Hover/definition: для известных функций/типов используется семантический индекс (включая
+  импортированные файлы и члены после `.`); если имя не найдено в индексе, definition ищет
+  объявление в текущем файле по токенам.
 - Нет references, rename, semantic tokens или code actions.
 - Formatting is the conservative `kernc fmt` formatter, not a pretty-printer.
 

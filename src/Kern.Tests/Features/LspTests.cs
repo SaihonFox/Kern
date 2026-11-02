@@ -101,6 +101,74 @@ public sealed class LspTests
 	}
 
 	[Fact]
+	public void Definition_finds_a_member_in_the_same_type()
+	{
+		const string source = """
+			type Counter {
+				i32 value = 0
+				fun bump() -> i32 {
+					value += 1
+					value
+				}
+			}
+
+			fun main {
+				Counter c()
+				c.bump()
+			}
+			""";
+		var server = Create(out _);
+		Notify(server, "textDocument/didOpen", Document(source));
+		int offset = source.IndexOf("c.bump", StringComparison.Ordinal) + 2;
+		JsonNode? result = Call(server, 10, "textDocument/definition", new
+		{
+			textDocument = new { uri = Uri },
+			position = Position(new TextMap(source), offset),
+		});
+		Assert.NotNull(result);
+		int expectedLine = source[..source.IndexOf("fun bump", StringComparison.Ordinal)].Count(symbol => symbol == '\n');
+		Assert.Equal(expectedLine, (int)result!["range"]!["start"]!["line"]!);
+	}
+
+	[Fact]
+	public void Definition_finds_a_function_in_an_imported_file()
+	{
+		string directory = Path.Combine(Path.GetTempPath(), $"kern-lsp-def-{Guid.NewGuid():N}");
+		Directory.CreateDirectory(Path.Combine(directory, "src"));
+		string library = Path.Combine(directory, "src", "lib.kern");
+		string main = Path.Combine(directory, "src", "main.kern");
+		File.WriteAllText(library, "pub fun value() -> i32 7\n");
+		File.WriteAllText(main, "use lib[value]\nfun main { value() }\n");
+		string uri = new Uri(main).AbsoluteUri;
+		try
+		{
+			var server = Create(out _);
+			Call(server, 1, "initialize", new
+			{
+				rootUri = new Uri(directory).AbsoluteUri,
+				capabilities = new { },
+			});
+			Notify(server, "textDocument/didOpen", new
+			{
+				textDocument = new { uri, languageId = "kern", version = 1, text = File.ReadAllText(main) },
+			});
+			int offset = File.ReadAllText(main).IndexOf("value()", StringComparison.Ordinal);
+			JsonNode? result = Call(server, 11, "textDocument/definition", new
+			{
+				textDocument = new { uri },
+				position = Position(new TextMap(File.ReadAllText(main)), offset),
+			});
+			Assert.NotNull(result);
+			Assert.Equal(new Uri(library).AbsoluteUri, (string)result!["uri"]!);
+			Assert.Equal(0, (int)result["range"]!["start"]!["line"]!);
+		}
+		finally
+		{
+			Directory.Delete(directory, recursive: true);
+		}
+	}
+
+	[Fact]
 	public void Build_script_sees_workspace_and_target_types()
 	{
 		string directory = Path.Combine(Path.GetTempPath(), $"kern-lsp-build-{Guid.NewGuid():N}");

@@ -23,7 +23,8 @@
   ключу `dotnet:<тип>`). `file.read_bytes/write_bytes`, `text.to_utf8/from_utf8` — уже были.
 - Инструменты: `kernc lsp` (сервер на stdio) и минимальное расширение VS Code
   `editors/vscode` (`npm install`, F5) — диагностика, completion с сигнатурами и членами
-  после `.`, signature help, hover, definition, document symbols, formatting; LSP читает
+  после `.`, signature help, hover, definition (включая импортированные файлы и члены),
+  document symbols, formatting; LSP читает
   `src/**/*.kern` проекта и `libs/**/Kern.Lib.*.dll`; `build.kern` видит `workspace`/`target`
   через `build_prelude`; у примитивов подсказываются `to_str`/`to_debug`; см. `docs/LSP.md`.
   Лицензия — MIT.

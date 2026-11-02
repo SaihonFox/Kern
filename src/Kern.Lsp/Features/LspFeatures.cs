@@ -1,7 +1,10 @@
 using System.Text.RegularExpressions;
 using Kern.Compiler.Formatting;
 using Kern.Compiler.Lexing;
+using Kern.Compiler.Semantics.Types;
 using Kern.Compiler.Syntax;
+using Kern.Core.Diagnostics;
+using Kern.Core.Text;
 using Kern.Lsp.Analysis;
 using Kern.Lsp.Protocol;
 
@@ -217,28 +220,87 @@ public static class LspFeatures
 		};
 	}
 
-	public static object? Definition(string uri, string text, int offset)
+	public static object? Definition(
+		string uri,
+		string text,
+		int offset,
+		LspIndex? index = null,
+		SourceBundle? bundle = null,
+		Func<string, string>? resolveUri = null)
 	{
 		Token? token = TokenAt(text, offset);
 		if (token is not { } found)
 			return null;
-		IReadOnlyList<Token> tokens = Lexer.Lex(text).Tokens;
-		for (var index = 0; index < tokens.Count; index++)
+
+		// Семантический путь: функции/типы/члены из скомпилированного проекта (включая
+		// импортированные файлы), с диапазоном из общего SourceBundle.
+		if (index is not null && bundle is not null)
 		{
-			if (tokens[index].Kind != TokenKind.Identifier ||
-				!string.Equals(tokens[index].Text, found.Text, StringComparison.Ordinal))
+			SyntaxNode? declaration = MemberDeclaration(text, found, index)
+				?? index.FindType(found.Text)?.Declaration
+				?? index.FindCallables(found.Text).Select(function => function.Declaration).FirstOrDefault(item => item is not null);
+			if (declaration is not null)
+				return Location(bundle, declaration.Span, resolveUri);
+		}
+
+		IReadOnlyList<Token> tokens = Lexer.Lex(text).Tokens;
+		for (var index2 = 0; index2 < tokens.Count; index2++)
+		{
+			if (tokens[index2].Kind != TokenKind.Identifier ||
+				!string.Equals(tokens[index2].Text, found.Text, StringComparison.Ordinal))
 				continue;
-			if (!IsDeclarationName(tokens, index))
+			if (!IsDeclarationName(tokens, index2))
 				continue;
 			var map = new TextMap(text);
 			return new
 			{
 				uri,
-				range = map.Range(tokens[index].Span.Start, tokens[index].Span.Length),
+				range = map.Range(tokens[index2].Span.Start, tokens[index2].Span.Length),
 			};
 		}
 
 		return null;
+	}
+
+	/// <summary>Объявление члена после <c>receiver.</c> (если получатель выводится).</summary>
+	private static SyntaxNode? MemberDeclaration(string text, Token token, LspIndex index)
+	{
+		string prefix = text[..System.Math.Clamp(token.Span.Start, 0, text.Length)];
+		Match member = Regex.Match(prefix, @"(?m)(?<receiver>[A-Za-z_][A-Za-z0-9_]*)\s*\.\s*$");
+		if (!member.Success)
+			return null;
+		string receiver = member.Groups["receiver"].Value;
+		TypeSymbol? type = index.FindType(receiver);
+		if (type is null)
+		{
+			string? inferred = ReceiverType(text, receiver, index);
+			if (inferred is not null)
+				type = index.FindType(inferred);
+		}
+		if (type is null)
+			return null;
+
+		return type.Members.GetFunctions(token.Text).Select(function => function.Declaration)
+			.FirstOrDefault(declaration => declaration is not null)
+			?? type.Members.FindField(token.Text)?.Declaration
+			?? type.Members.FindProperty(token.Text)?.Declaration;
+	}
+
+	/// <summary>Диапазон объявления в LSP-координатах (0-based) и URI его файла.</summary>
+	private static object? Location(SourceBundle bundle, TextSpan span, Func<string, string>? resolveUri)
+	{
+		var (path, line, column) = bundle.GetLineColumn(span.Start);
+		var (_, endLine, endColumn) = bundle.GetLineColumn(span.End);
+		string target = resolveUri is null ? path : resolveUri(path);
+		return new
+		{
+			uri = target,
+			range = new
+			{
+				start = new { line = System.Math.Max(0, line - 1), character = System.Math.Max(0, column - 1) },
+				end = new { line = System.Math.Max(0, endLine - 1), character = System.Math.Max(0, endColumn - 1) },
+			},
+		};
 	}
 
 	public static IReadOnlyList<object> Symbols(string text)
@@ -346,7 +408,8 @@ public static class LspFeatures
 		{
 			if (token.Kind == TokenKind.EndOfFile)
 				break;
-			if (token.Span.Start <= offset && offset <= token.Span.End)
+			if (token.Span.Start <= offset &&
+				(offset < token.Span.End || (token.Span.Length == 0 && offset == token.Span.Start)))
 				return token;
 		}
 
