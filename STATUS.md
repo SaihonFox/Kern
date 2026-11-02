@@ -1,6 +1,11 @@
 # STATUS
 
 ## Now
+- **Four workstreams approved (2026-11-02, owner request), contract fixed:** (1) `kern.log`/`kern.cli`/
+  `kern.config`/`kern.process` tool modules, (2) LSP server, (3) backend package (OpenAPI + auth +
+  versioned migrations), (4) generators/`seq<T>` + TCO. The exact API of the four std modules is now
+  fixed in spec §16 "Библиотеки" and `docs/LIBRARIES.md`; implementation of slice (1) is in progress.
+  Other slices are not started. Suite baseline **420/420**.
 - **Backend WebSocket diagnosis (2026-11-02, owner bug report):** a plain HTTP request to a
   WebSocket-only path now returns `426 Upgrade Required` with `Upgrade: websocket` instead of the
   misleading `405 метод не поддерживается`; a real WebSocket handshake still works. Example 27

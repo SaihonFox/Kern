@@ -103,6 +103,16 @@
 - **Проверка:** `examples/13_db_web` (SQLite + ORM + HTTP) и `examples/27_backend` (DI, контроллеры, JWT, middleware, SSE, WebSocket, `/stop`) проходят `check` и `run`. В `src/Kern.Tests/Features/Backend` — 26 тестов: unit (маршруты, JWT, сессии/файл, ответы/файлы/cookie) и loopback-интеграция (маршруты/CORS/адаптация ответов, контроллеры+DI+роли+query/session/claims, basic/bearer/rate-limit, static files с ETag/Range, WebSocket echo+broadcast, SSE hello+broadcast+replay, ручной `accept`/`handle`, свободный `serve(a)`).
 - **Ограничения:** сервер на `HttpListener` (Windows без admin для `localhost` проверен; на других ОС нужен префикс/права), rate limit — в памяти процесса, SSE-буфер живёт в памяти (не переживает перезапуск); потоковая отдача есть через `res.stream`/`res_writer`, отмена — через `ctx.cancelled` и `res_writer.cancelled` (HTTP.sys не даёт отдельный cancellation-token).
 
+## Модули инструментов (`kern.log`, `kern.cli`, `kern.config`, `kern.process`)
+
+Нативные модули в `src/Kern.Runtime` (не внешние библиотеки), контракт — spec §16 «Библиотеки».
+
+- **`kern.log`** (`src/Kern.Runtime/Logging`): глобальный логгер процесса. `log.level` (свойство), `set_level`, `to_stderr`, `to_stdout`, `to_file(path) -> result<unit, str>`, `close`, `log(level, msg)`, `trace/debug/info/warn/error(msg)`. Формат: ISO-8601 UTC + уровень + текст; уровень по умолчанию `info`.
+- **`kern.cli`** (`src/Kern.Runtime/Cli`): `args()`, `parser(name, description)` → `cli_parser` с `flag/option/parse/usage`, результат — `cli_values` с `flag/option/positional/has/help_requested`. Поддержка `--name value`, `--name=value`, `-n value`, `-nvalue`, `--`.
+- **`kern.config`** (`src/Kern.Runtime/Config`): `load(path)`, `from_str(text, format)`, `empty()` → `config`; чтение `get/get_or/get_i64/get_f64/get_bool/get_list`, `has/keys/set/merge/to_str`. Форматы: JSON, YAML, `.env`, `key=value`; вложенные ключи через `.`.
+- **`kern.process`** (`src/Kern.Runtime/Processes`): `run/run_in/shell` → `result<process_output, str>`, `spawn` → `process_handle` (`pid/wait/kill/try_wait/stdout_read_line/stderr_read_line/write_stdin/close_stdin`), `which(name)`.
+- **Проверка:** `src/Kern.Tests/Features/StdToolModulesTests.cs`.
+
 ## Версии NuGet (проверено 2026-10-15)
 
 Версии пакетов — в `.csproj` (Db: Microsoft.Data.Sqlite 10.0.13, Npgsql 10.0.3, MySqlConnector 2.6.2; проверялись 2026-10-13..15). Avalonia — `Version="*"` (последняя при restore; по данным раунда 13 это 12.1.x, API 12.x компиляцией не проверялся); Kern.Tests: Microsoft.NET.Test.Sdk 18.*, xunit 2.*.
