@@ -1,6 +1,15 @@
 # STATUS
 
 ## Now
+- **Trimmed/single-file publish fixed + portable distribution (2026-11-02, owner report):** native
+  modules/types and the optimizer are found by reflection, so `PublishTrimmed` removed them
+  (`KRN2201 format/println`, `list<str> нет методов`, `__build_env`). `Kern.Cli.csproj` now roots
+  `Kern.Core/Bytecode/Vm/Binding/Runtime/Compiler` + `kernc`, and
+  `Properties/ILLink.Descriptors.xml` keeps debugger attributes used by runtime-loaded `Kern.Lib.*`
+  (otherwise `GetCustomAttributes` throws `TypeLoadException`). Verified trimmed single-file
+  `kernc` on examples 01/02 (run) and 13/27 (check) with `libs/`. Added
+  `tools/package-release.ps1` + `docs/DISTRIBUTION.md`: publishes `kernc`, copies `libs/_out/*`
+  into `libs/`, examples and `README.txt`, and produces `dist/kern-<rid>.zip` (~29 MB).
 - **LSP MVP implemented (2026-11-02, owner request):** new `src/Kern.Lsp` (`kern-lsp`, JSON-RPC
   over stdio) with diagnostics from `ProjectCompiler`, completion, hover, definition,
   document symbols and formatting; `docs/LSP.md` documents capabilities and limits (core

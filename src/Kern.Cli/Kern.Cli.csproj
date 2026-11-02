@@ -7,6 +7,21 @@
 	<ItemGroup>
 		<InternalsVisibleTo Include="Kern.Tests" />
 	</ItemGroup>
+	<!--
+		Нативные модули и типы находятся рефлексией по [KernModule]/[KernType]/[KernMember],
+		а оптимизатор — по имени типа. При PublishTrimmed эти типы обязаны выжить,
+		иначе Kern видит функции без байткода (KRN2201) и «нет методов» у list.
+	-->
+	<ItemGroup>
+		<TrimmerRootAssembly Include="Kern.Core" />
+		<TrimmerRootAssembly Include="Kern.Bytecode" />
+		<TrimmerRootAssembly Include="Kern.Vm" />
+		<TrimmerRootAssembly Include="Kern.Binding" />
+		<TrimmerRootAssembly Include="Kern.Runtime" />
+		<TrimmerRootAssembly Include="Kern.Compiler" />
+		<TrimmerRootAssembly Include="kernc" />
+		<TrimmerRootDescriptor Include="Properties/ILLink.Descriptors.xml" />
+	</ItemGroup>
 	<ItemGroup>
 		<ProjectReference Include="../Kern.Compiler/Kern.Compiler.csproj" />
 		<ProjectReference Include="../Kern.Runtime/Kern.Runtime.csproj" />

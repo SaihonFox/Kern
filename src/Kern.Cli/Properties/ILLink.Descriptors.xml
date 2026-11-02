@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+	Внешние Kern.Lib.* загружаются в рантайме, поэтому триммер их не видит.
+	Атрибуты отладки, которые они используют на своих типах, надо сохранить:
+	иначе GetCustomAttributes падает с TypeLoadException.
+-->
+<linker>
+	<assembly fullname="System.Private.CoreLib">
+		<type fullname="System.Diagnostics.DebuggerDisplayAttribute" preserve="all" />
+		<type fullname="System.Diagnostics.DebuggerHiddenAttribute" preserve="all" />
+		<type fullname="System.Diagnostics.DebuggerStepThroughAttribute" preserve="all" />
+		<type fullname="System.Diagnostics.DebuggerNonUserCodeAttribute" preserve="all" />
+		<type fullname="System.Diagnostics.DebuggerTypeProxyAttribute" preserve="all" />
+	</assembly>
+	<assembly fullname="System.Runtime">
+		<type fullname="System.Diagnostics.DebuggerDisplayAttribute" preserve="all" />
+		<type fullname="System.Diagnostics.DebuggerHiddenAttribute" preserve="all" />
+		<type fullname="System.Diagnostics.DebuggerStepThroughAttribute" preserve="all" />
+		<type fullname="System.Diagnostics.DebuggerNonUserCodeAttribute" preserve="all" />
+		<type fullname="System.Diagnostics.DebuggerTypeProxyAttribute" preserve="all" />
+	</assembly>
+</linker>
