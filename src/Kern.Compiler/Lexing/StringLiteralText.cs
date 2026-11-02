@@ -161,10 +161,10 @@ public static class StringLiteralText
 		{
 			switch (symbol)
 			{
-				case 'f': interpolated = true; break;
-				case 'r': raw = true; break;
-				case 'v': verbatim = true; break;
-				case 'x': regex = true; break;
+				case 'f' when !interpolated: interpolated = true; break;
+				case 'r' when !raw: raw = true; break;
+				case 'v' when !verbatim: verbatim = true; break;
+				case 'x' when !regex: regex = true; break;
 				default: return false;
 			}
 		}

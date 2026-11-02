@@ -37,7 +37,7 @@ self-contained single-file (не NativeAOT).
 Не реализовано:
 - UI: `kern.ui` / `libs/Kern.Lib.Ui` отсутствует, `examples/19_gui` не запускается.
 - Инструменты: `kernc wasm` (WASI; нужен отдельный хост/бэкенд — `DECISIONS_NEEDED.md`), package fetching (M13), отладчик, архитектурные примеры. `kernc new`, `kernc doc` (doctest) и `kernc run --watch` реализованы 2026-11-02.
-- Язык: `use dotnet.X[...]` (только статические члены BCL), `in/ref/out`, identity для `unit`, запись через пользовательский `op []`, async-генераторы, `seq.len`/повторный обход.
+- Язык: префиксы строк `r`/`f`/`x`/`v` в любом порядке (`rf`=`fr`, `xf`=`fx`, `xrf`=`frx`); `use dotnet.X[...]` (только статические члены BCL), `in/ref/out`, identity для `unit`, запись через пользовательский `op []`, async-генераторы, `seq.len`/повторный обход.
 - Известные ограничения: `fail` из `kern.test` — `void`, не `never`; `define_type` без методов/свойств (generics/родители и `instantiate()` атрибута есть); макросы не раскрываются в одиночном `CompileCore`; LSP видит только каталог `Kern.Runtime`.
 
 - **Remaining std modules implemented (2026-11-02, owner request):** `kern.ansi` (colors/styles/strip/256/RGB), `kern.ini` (sections ↔ dict), `kern.toml` (tables/arrays/scalars), `kern.net` (hostname/resolve/IP/reachability), time zones in `kern.time` (`time.zone(s)`, `datetime.now_in/in_zone`, `zone_name`); `StdModulesExtraTests` (5).

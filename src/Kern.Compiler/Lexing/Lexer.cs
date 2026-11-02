@@ -38,7 +38,29 @@ public sealed class Lexer
 		"+", "->", "-", "*", "/", "%", "<", ">", "!", "?", "=", "&", "|", "^", "~"
 	];
 
-	private static readonly HashSet<string> StringPrefixes = ["f", "r", "x", "v", "fr", "fx", "fv"];
+	/// <summary>
+	/// Префикс строкового литерала: `r`, `f`, `x`, `v` в любом порядке (без повторов и без
+	/// одновременных `r`+`v`, которые противоречат друг другу). Например `rf"…"`, `xf"…"`,
+	/// `xrf"…"` эквивалентны по смыслу перестановкам.
+	/// </summary>
+	private static bool IsStringPrefix(string text)
+	{
+		if (text.Length == 0)
+			return false;
+		bool interpolated = false, raw = false, verbatim = false, regex = false;
+		foreach (char symbol in text)
+		{
+			switch (symbol)
+			{
+				case 'f' when !interpolated: interpolated = true; break;
+				case 'r' when !raw: raw = true; break;
+				case 'v' when !verbatim: verbatim = true; break;
+				case 'x' when !regex: regex = true; break;
+				default: return false;
+			}
+		}
+		return !(raw && verbatim);
+	}
 
 	public static (IReadOnlyList<Token> Tokens, IReadOnlyList<Diagnostic> Diagnostics) Lex(string source)
 	{
@@ -100,7 +122,7 @@ public sealed class Lexer
 				position++;
 				while (position < source.Length && (char.IsLetterOrDigit(source[position]) || source[position] == '_')) position++;
 				var text = source[start..position];
-				if (position < source.Length && source[position] == '"' && StringPrefixes.Contains(text))
+				if (position < source.Length && source[position] == '"' && IsStringPrefix(text))
 				{
 					ReadString(source, start, ref position, tokens, diagnostics);
 					continue;
@@ -388,24 +410,16 @@ public sealed class Lexer
 		var quote = position;
 		if (source[quote] != '"')
 		{
-			var matchedPrefix = false;
-			foreach (var candidate in StringPrefixes)
-			{
-				if (!source.AsSpan(position).StartsWith(candidate, StringComparison.Ordinal) ||
-					position + candidate.Length >= source.Length || source[position + candidate.Length] != '"')
-					continue;
-				quote += candidate.Length;
-				matchedPrefix = true;
-				break;
-			}
-			if (!matchedPrefix) return false;
-		}
-		else
-		{
-			var prefixStart = position;
-			while (prefixStart > 0 && char.IsLetter(source[prefixStart - 1])) prefixStart--;
-			if (StringPrefixes.Contains(source[prefixStart..position]))
-				quote = position;
+			var prefixLength = 0;
+			while (position + prefixLength < source.Length &&
+				source[position + prefixLength] is 'f' or 'r' or 'x' or 'v')
+				prefixLength++;
+			if (prefixLength == 0 ||
+				position + prefixLength >= source.Length ||
+				source[position + prefixLength] != '"' ||
+				!IsStringPrefix(source.Substring(position, prefixLength)))
+				return false;
+			quote += prefixLength;
 		}
 		var prefix = quote == position ? string.Empty : source[position..quote];
 		var triple = source.AsSpan(quote).StartsWith("\"\"\"", StringComparison.Ordinal);
