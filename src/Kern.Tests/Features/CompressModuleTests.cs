@@ -60,7 +60,12 @@ public sealed class CompressModuleTests
 	{
 		string directory = Path.Combine(Path.GetTempPath(), "kern-compress-" + Guid.NewGuid().ToString("N"));
 		Directory.CreateDirectory(directory);
-		string input = Path.Combine(directory, "input.txt");
+		// Архив и распакованные файлы лежат ВНЕ упаковываемой папки: иначе
+		// ZipFile.CreateFromDirectory пытается включить сам архив (на Windows файл
+		// занят, на Linux получается лишняя запись — тест был платформозависимым).
+		string inputDirectory = Path.Combine(directory, "input");
+		Directory.CreateDirectory(inputDirectory);
+		string input = Path.Combine(inputDirectory, "input.txt");
 		string gzip = Path.Combine(directory, "input.txt.gz");
 		string restored = Path.Combine(directory, "restored.txt");
 		string archive = Path.Combine(directory, "pack.zip");
@@ -81,7 +86,7 @@ public sealed class CompressModuleTests
 						Ok(_) => { ok += 1 }
 						Err(_) => {}
 					}
-					match compress.zip_dir("{{Slash(directory)}}", "{{Slash(archive)}}") {
+					match compress.zip_dir("{{Slash(inputDirectory)}}", "{{Slash(archive)}}") {
 						Ok(_) => { ok += 1 }
 						Err(_) => {}
 					}
@@ -100,7 +105,7 @@ public sealed class CompressModuleTests
 				}
 				""";
 
-			Assert.Equal(KValue.I32(5), StdPipeline.Run(source, "run"));
+			Assert.Equal(KValue.I32(6), StdPipeline.Run(source, "run"));
 			Assert.Equal(File.ReadAllText(input), File.ReadAllText(restored));
 			Assert.True(File.Exists(Path.Combine(unpacked, "input.txt")));
 		}
