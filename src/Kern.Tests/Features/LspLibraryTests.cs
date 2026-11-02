@@ -26,8 +26,11 @@ public sealed class LspLibraryTests
 			use kern.db[orm, sqlite]
 			use kern.db.sqlite[sqlite]
 
+			unit Probe(i32 id)
+
 			fun probe() {
 				sqlite db(":memory:")
+				table<Probe> users = orm.table<Probe>(db)
 			}
 			""");
 		IReadOnlyList<Kern.Compiler.Compilation.ProjectDiagnostic> diagnostics = analysis.Analyze(documents);
