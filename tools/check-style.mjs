@@ -69,7 +69,7 @@ for (const file of walk(root)) {
 	if (e === ".cs") {
 		const m = /^\s*namespace\s+([\w.]+)\s*;/m.exec(text);
 		const proj = projectDirOf(file);
-		const astSubfolder = /(?:^|\\)Syntax\\(Core|Declarations|Expressions|Patterns|Statements|Types)\\[A-Z][A-Za-z0-9]*\.cs$/i.test(rel);
+		const astSubfolder = /(?:^|[\\/])Syntax[\\/](Core|Declarations|Expressions|Patterns|Statements|Types)[\\/][A-Z][A-Za-z0-9]*\.cs$/i.test(rel);
 		if (m && proj && !astSubfolder) {
 			const parts = relative(proj.dir, dirname(file)).split(sep).filter(Boolean);
 			const expected = [proj.name, ...parts].join(".");

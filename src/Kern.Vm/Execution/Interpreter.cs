@@ -383,6 +383,9 @@ public sealed partial class Interpreter
 			// в кадре вызывающего и должно быть снято вместе с раскруткой состояния.
 			CloseConstructionWindows(state.Frames, state.FrameCount);
 			state.Fail(error);
+			// Resume не идёт через Pump, поэтому задачу состояния нужно завершить явно:
+			// иначе внешний task<T> навсегда останется Pending (t.done == false).
+			CompleteTask(state);
 			return;
 		}
 
@@ -392,6 +395,7 @@ public sealed partial class Interpreter
 			canceled.AddFrame(state.Function.Name, state.Pc, state.Function.LineAt(state.Pc));
 			CloseConstructionWindows(state.Frames, state.FrameCount);
 			state.Fail(canceled);
+			CompleteTask(state);
 			return;
 		}
 

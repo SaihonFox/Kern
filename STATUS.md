@@ -1,6 +1,12 @@
 # STATUS
 
 ## Now
+- **CI fixes (2026-11-02, GitHub Actions report):** an awaited canceled/failed task could leave the
+  outer `task<T>` pending forever (`Resume` called `state.Fail` without `CompleteTask`), which made
+  example `29_async` flaky/hang in Release; fixed in `Interpreter.Resume`, regression
+  `TaskCancellationTests`. `tools/check-style.mjs` now recognises AST subfolders with `/`
+  separators (Linux CI reported false namespace mismatches), and `.gitattributes` forces CRLF on
+  checkout on every platform (`* text=auto eol=crlf`), so Linux CI no longer sees LF.
 - **Trimmed/single-file publish fixed + portable distribution (2026-11-02, owner report):** native
   modules/types and the optimizer are found by reflection, so `PublishTrimmed` removed them
   (`KRN2201 format/println`, `list<str> нет методов`, `__build_env`). `Kern.Cli.csproj` now roots

@@ -1,9 +1,16 @@
-* text=auto
-*.cs text eol=crlf
-*.kern text eol=crlf
-*.csproj text eol=crlf
-*.props text eol=crlf
-*.slnx text eol=crlf
-*.md text eol=crlf
-*.toml text eol=crlf
-*.py text eol=crlf
+# Проект использует CRLF во всех текстовых файлах (AGENTS.md, tools/check-style.mjs).
+# Git хранит LF в индексе, а на checkout отдаёт CRLF на всех платформах,
+# иначе Linux CI видит LF и падает на проверке стиля.
+* text=auto eol=crlf
+
+# Бинарные файлы не трогаем.
+*.7z binary
+*.zip binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.dll binary
+*.exe binary
+*.kbc binary
+*.db binary
