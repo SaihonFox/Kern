@@ -24,7 +24,9 @@
 - Инструменты: `kernc lsp` (сервер на stdio) и минимальное расширение VS Code
   `editors/vscode` (`npm install`, F5) — диагностика, completion с сигнатурами и членами
   после `.`, signature help, hover, definition, document symbols, formatting; LSP читает
-  `src/**/*.kern` проекта и `libs/**/Kern.Lib.*.dll`; см. `docs/LSP.md`. Лицензия — MIT.
+  `src/**/*.kern` проекта и `libs/**/Kern.Lib.*.dll`; `build.kern` видит `workspace`/`target`
+  через `build_prelude`; у примитивов подсказываются `to_str`/`to_debug`; см. `docs/LSP.md`.
+  Лицензия — MIT.
 - Отчёт по бутстраппингу — `docs/BOOTSTRAP.md`; `in/ref/out` без ключевых слов —
   `docs/IN_REF_OUT.md`. `docs/TOKEN_BUDGET.md` удалён.
 

@@ -1,7 +1,9 @@
 using System.Reflection;
+using System.Text.RegularExpressions;
 using Kern.Binding.Catalog;
 using Kern.Compiler.Compilation;
 using Kern.Lsp.Protocol;
+using Kern.Runtime.Build;
 
 namespace Kern.Lsp.Analysis;
 
@@ -39,6 +41,7 @@ public sealed class AnalysisService
 		ArgumentNullException.ThrowIfNull(documents);
 		var files = new List<ProjectSourceFile>(documents.ToProject());
 		AddProjectFiles(files, documents);
+		ConfigureBuildScripts(files);
 
 		if (files.Count == 0)
 		{
@@ -100,8 +103,34 @@ public sealed class AnalysisService
 		files.Sort((left, right) => string.CompareOrdinal(left.RelativePath, right.RelativePath));
 	}
 
-	private static IReadOnlyList<string> ModuleNames(
-		IReadOnlyList<ProjectSourceFile> files,
+	/// <summary>
+	/// <c>build.kern</c> компилируется CLI вместе с встроенным <c>build_prelude</c>; LSP
+	/// подставляет тот же prelude (с заглушкой <c>__build_env</c>), чтобы <c>workspace</c>,
+	/// <c>target</c>, <c>profile</c> и их члены были видны в редакторе.
+	/// </summary>
+	private static void ConfigureBuildScripts(List<ProjectSourceFile> files)
+	{
+		var builds = files
+			.Select((file, index) => (File: file, Index: index))
+			.Where(item => string.Equals(Path.GetFileName(item.File.RelativePath), "build.kern",
+				StringComparison.OrdinalIgnoreCase))
+			.ToList();
+		if (builds.Count == 0 ||
+			files.Any(file => string.Equals(file.RelativePath, BuildPrelude.Path, StringComparison.Ordinal)))
+			return;
+
+		foreach (var (file, index) in builds)
+		{
+			string text = Regex.Replace(
+				file.Text,
+				@"(?m)^\s*use\s+kern\.build[^\r\n]*(?:\r?\n)?",
+				string.Empty);
+			files[index] = new ProjectSourceFile(file.RelativePath, text + BuildPrelude.Import);
+		}
+		files.Add(new ProjectSourceFile(BuildPrelude.Path, BuildPrelude.AnalysisSource));
+	}
+
+	private static IReadOnlyList<string> ModuleNames(		IReadOnlyList<ProjectSourceFile> files,
 		NativeCatalog catalog)
 	{
 		var names = new HashSet<string>(catalog.Modules.Select(module => module.Name), StringComparer.Ordinal);

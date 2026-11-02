@@ -54,7 +54,9 @@ public static class LspFeatures
 		if (member.Success && index is not null)
 		{
 			string receiver = member.Groups["receiver"].Value;
-			string? typeName = ReceiverType(text, receiver, index);
+			string? typeName = index.FindType(receiver)?.Name
+				?? ReceiverType(text, receiver, index)
+				?? (index.MembersForName(receiver).Any() ? receiver : null);
 			if (typeName is not null)
 			{
 				foreach (MemberItem memberItem in index.MembersForName(typeName))
@@ -132,7 +134,7 @@ public static class LspFeatures
 		Token nameToken = tokens[open - 1];
 		if (nameToken.Kind != TokenKind.Identifier)
 			return null;
-		var candidates = index.FindFunctions(nameToken.Text).ToList();
+		var candidates = index.FindCallables(nameToken.Text).ToList();
 		if (candidates.Count == 0)
 			return null;
 
@@ -172,7 +174,7 @@ public static class LspFeatures
 		var map = new TextMap(text);
 		if (index is not null)
 		{
-			var functions = index.FindFunctions(found.Text).Take(3).ToList();
+			var functions = index.FindCallables(found.Text).Take(3).ToList();
 			if (functions.Count > 0)
 				return new
 				{

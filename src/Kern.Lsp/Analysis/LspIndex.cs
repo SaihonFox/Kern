@@ -32,6 +32,22 @@ public sealed class LspIndex
 	public IEnumerable<FunctionSymbol> FindFunctions(string name) =>
 		_module.GetFunctions(name);
 
+	/// <summary>Функции/методы/нативные члены с этим именем (для signature help).</summary>
+	public IEnumerable<FunctionSymbol> FindCallables(string name)
+	{
+		var seen = new HashSet<FunctionSymbol>(ReferenceEqualityComparer.Instance);
+		foreach (FunctionSymbol function in _module.GetFunctions(name))
+			if (seen.Add(function))
+				yield return function;
+		foreach (TypeSymbol type in _module.Types.Values)
+			foreach (FunctionSymbol function in type.Members.GetFunctions(name))
+				if (seen.Add(function))
+					yield return function;
+		foreach (FunctionSymbol function in _module.NativeFunctions)
+			if (string.Equals(function.Name, name, StringComparison.Ordinal) && seen.Add(function))
+				yield return function;
+	}
+
 	public TypeSymbol? FindType(string name) => _module.FindType(name);
 
 	/// <summary>Члены по имени типа; для встроенных (<c>str</c>, <c>list</c>) — нативные.</summary>
@@ -43,8 +59,26 @@ public sealed class LspIndex
 		return _module.NativeFunctions
 			.Where(function => function.NativeSelfType is not null &&
 				string.Equals(BaseName(function.NativeSelfType.ToString()), typeName, StringComparison.Ordinal))
-			.Select(function => new MemberItem(function.Name, "method", function.Signature));
+			.Select(function => new MemberItem(function.Name, "method", function.Signature))
+			.Concat(UniversalMembers(typeName));
 	}
+
+	/// <summary>
+	/// У любого значения есть <c>to_str</c>/<c>to_debug</c> (spec §3), даже если у
+	/// примитива нет отдельного нативного класса.
+	/// </summary>
+	private static IEnumerable<MemberItem> UniversalMembers(string typeName)
+	{
+		if (!IsPrimitive(typeName) && typeName is not ("unit" or "object"))
+			yield break;
+		yield return new MemberItem("to_str", "method", "to_str() -> str");
+		yield return new MemberItem("to_debug", "method", "to_debug() -> str");
+	}
+
+	private static bool IsPrimitive(string typeName) => typeName is
+		"bool" or "char" or "str" or "void" or "object" or "never" or
+		"i8" or "i16" or "i32" or "i64" or "u8" or "u16" or "u32" or "u64" or
+		"f16" or "f32" or "f64" or "inum" or "fnum" or "num";
 
 	/// <summary>Члены типа: методы, поля, свойства, конструкторы и нативные члены.</summary>
 	public IEnumerable<MemberItem> Members(TypeSymbol type)

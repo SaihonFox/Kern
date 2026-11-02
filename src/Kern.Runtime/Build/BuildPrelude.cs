@@ -1,4 +1,4 @@
-namespace Kern.Cli.Build;
+namespace Kern.Runtime.Build;
 
 /// <summary>
 /// Исходник встроенного модуля <c>kern.build</c> (docs/BUILDER.md §3-4). Склеивается с
@@ -6,7 +6,7 @@ namespace Kern.Cli.Build;
 /// <c>profile</c> — обычные Kern-классы, поэтому <c>w.name = "demo"</c> и <c>t.deps = [...]</c>
 /// проверяются тем же компилятором, а не отдельным парсером конфигурации.
 /// </summary>
-internal static class BuildPrelude
+public static class BuildPrelude
 {
 	/// <summary>Путь модуля в <c>SourceBundle</c>: по нему считается имя модуля <c>build_prelude</c>.</summary>
 	public const string Path = "build_prelude.kern";
@@ -121,4 +121,12 @@ internal static class BuildPrelude
 			w
 		}
 		""";
+
+	/// <summary>
+	/// Версия исходника для LSP: нативный <c>__build_env</c> заменён заглушкой, чтобы
+	/// <c>build.kern</c> анализировался без CLI-модуля нативов.
+	/// </summary>
+	public static string AnalysisSource =>
+		Source.Replace("fun workspace.env(str name) -> str? __build_env(name)",
+			"fun workspace.env(str name) -> str? nil", StringComparison.Ordinal);
 }

@@ -2,6 +2,7 @@ using Kern.Binding.Catalog;
 using Kern.Binding.Resolution;
 using Kern.Bytecode;
 using Kern.Cli.Infrastructure;
+using Kern.Runtime.Build;
 using Kern.Runtime.Core;
 using Kern.Vm.Execution;
 using Kern.Vm.Values;

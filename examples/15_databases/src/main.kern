@@ -19,6 +19,9 @@ fun demo_sqlite {
 		Ok(rows) => println(f"sqlite: ${rows}")
 		Err(e) => println(f"sqlite: ошибка ${e}")
 	}
+
+	sqlite s
+
 }
 
 fun demo_postgres(str url) {

@@ -67,4 +67,6 @@ fun main {
 	println(3 * "Ha")                                // HaHaHa (встроенный повтор)
 	println('-' * 3)                                  // ---
 	println((2 * Point(1, 2)).y)                      // 4
+
+	println()
 }

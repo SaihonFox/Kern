@@ -84,6 +84,64 @@ public sealed class LspTests
 	}
 
 	[Fact]
+	public void Completion_after_primitive_dot_lists_universal_members()
+	{
+		const string source = "fun main {\n\ti32 n = 1\n\tn.to_str()\n}\n";
+		var server = Create(out _);
+		Notify(server, "textDocument/didOpen", Document(source));
+		int offset = source.IndexOf("n.to_str", StringComparison.Ordinal) + 2;
+		JsonNode? result = Call(server, 9, "textDocument/completion", new
+		{
+			textDocument = new { uri = Uri },
+			position = Position(new TextMap(source), offset),
+		});
+		var labels = result!["items"]!.AsArray().Select(item => (string)item!["label"]!).ToList();
+		Assert.Contains("to_str", labels);
+		Assert.Contains("to_debug", labels);
+	}
+
+	[Fact]
+	public void Build_script_sees_workspace_and_target_types()
+	{
+		string directory = Path.Combine(Path.GetTempPath(), $"kern-lsp-build-{Guid.NewGuid():N}");
+		Directory.CreateDirectory(Path.Combine(directory, "src"));
+		string build = Path.Combine(directory, "build.kern");
+		File.WriteAllText(build, """
+			use kern.build[workspace, target]
+
+			fun build(workspace w) {
+				w.name = "demo"
+				w.target("app", fun (target t) {
+					t.kind = "app"
+				})
+			}
+			""");
+		File.WriteAllText(Path.Combine(directory, "src", "main.kern"), "fun main { }\n");
+		string uri = new Uri(build).AbsoluteUri;
+		try
+		{
+			var sent = new List<string>();
+			var server = new LspServer(sent.Add);
+			Call(server, 1, "initialize", new
+			{
+				rootUri = new Uri(directory).AbsoluteUri,
+				capabilities = new { },
+			});
+			Notify(server, "textDocument/didOpen", new
+			{
+				textDocument = new { uri, languageId = "kern", version = 1, text = File.ReadAllText(build) },
+			});
+			var diagnostic = sent
+				.Select(message => JsonNode.Parse(message)!)
+				.Last(node => (string?)node["method"] == "textDocument/publishDiagnostics");
+			Assert.Empty(diagnostic["params"]!["diagnostics"]!.AsArray());
+		}
+		finally
+		{
+			Directory.Delete(directory, recursive: true);
+		}
+	}
+	[Fact]
 	public void Completion_after_dot_lists_members()
 	{
 		const string source = """
