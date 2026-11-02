@@ -1,4 +1,3 @@
-using System.Runtime.InteropServices;
 using Kern.Cli;
 using Xunit;
 
@@ -12,10 +11,20 @@ public sealed class CliWorkingDirectoryTests
 	{
 		string directory = Path.Combine(Path.GetTempPath(), $"kern-cwd-{Guid.NewGuid():N}");
 		Directory.CreateDirectory(directory);
+		string marker = Path.Combine(directory, "marker.txt");
+		System.IO.File.WriteAllText(marker, "ok");
 		string file = Path.Combine(directory, "main.kern");
 		System.IO.File.WriteAllText(
 			file,
-			"use kern.env[env]\nfun main { println(env.cwd) }\n");
+			"""
+			use kern.env[env]
+			use kern.file[file]
+
+			fun main {
+				println(env.cwd)
+				println(file.exists("marker.txt"))
+			}
+			""");
 		try
 		{
 			var stdout = new StringWriter();
@@ -31,41 +40,21 @@ public sealed class CliWorkingDirectoryTests
 				Console.SetOut(previous);
 			}
 
+			string[] lines = stdout.ToString().Trim().Split('\n', StringSplitOptions.TrimEntries);
 			Assert.Equal(0, code);
-			Assert.Equal(Canonical(directory), stdout.ToString().Trim());
+			Assert.True(lines.Length >= 2, stdout.ToString());
+			// Сравниваем не строку пути (на macOS /var — символическая ссылка на
+			// /private/var), а факт: cwd — абсолютный путь с тем же именем каталога
+			// и с marker.txt рядом. Это не зависит от реального пути в ОС.
+			string workingDirectory = lines[0];
+			Assert.True(Path.IsPathRooted(workingDirectory), workingDirectory);
+			Assert.Equal(Path.GetFileName(directory), Path.GetFileName(workingDirectory));
+			Assert.Equal("true", lines[1]);
+			Assert.True(System.IO.File.Exists(Path.Combine(workingDirectory, "marker.txt")));
 		}
 		finally
 		{
 			Directory.Delete(directory, recursive: true);
 		}
 	}
-
-	/// <summary>
-	/// Канонический путь: на macOS <c>/var</c> — символическая ссылка на
-	/// <c>/private/var</c>, а <c>getcwd()</c> в программе возвращает уже реальный путь.
-	/// <c>realpath(3)</c> разрешает все компоненты; на Windows достаточно GetFullPath.
-	/// </summary>
-	private static string Canonical(string path)
-	{
-		if (OperatingSystem.IsWindows())
-			return Path.GetFullPath(path);
-
-		IntPtr resolved = realpath(path, IntPtr.Zero);
-		if (resolved == IntPtr.Zero)
-			return Path.GetFullPath(path);
-		try
-		{
-			return Marshal.PtrToStringUTF8(resolved) ?? Path.GetFullPath(path);
-		}
-		finally
-		{
-			free(resolved);
-		}
-	}
-
-	[DllImport("libc", SetLastError = true, EntryPoint = "realpath")]
-	private static extern IntPtr realpath(string path, IntPtr resolved);
-
-	[DllImport("libc", EntryPoint = "free")]
-	private static extern void free(IntPtr pointer);
 }
