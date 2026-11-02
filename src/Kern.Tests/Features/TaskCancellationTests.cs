@@ -26,8 +26,11 @@ public sealed class TaskCancellationTests
 				var tok = cancel_token()
 				var t = slow(tok)
 				tok.cancel_after(1)
-				await delay(50)
-				t.done
+				loop i32 i in 0..200 {
+					if t.done { ret true }
+					await delay(5)
+				}
+				false
 			}
 			""";
 

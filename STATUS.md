@@ -1,6 +1,11 @@
 # STATUS
 
 ## Now
+- **`kern.random` added (2026-11-02, owner request):** internal std module with crypto-strong
+  `i32/i64([min,] max)`, `f64`, `bool`, `bytes(n) -> list<u8>`, `hex(n)`, `choice<T>`,
+  `shuffle<T>`, `sample<T>`, plus deterministic `random.rng(seed)` (`rng`:
+  `next_i32/next_i64/next_f64/next_bool/choice/shuffle/sample`, xorshift64). Contract in spec §16
+  and `docs/LIBRARIES.md`; `RandomTests` (2). CI fix commit `66fcc80` pushed to origin.
 - **CI fixes (2026-11-02, GitHub Actions report):** an awaited canceled/failed task could leave the
   outer `task<T>` pending forever (`Resume` called `state.Fail` without `CompleteTask`), which made
   example `29_async` flaky/hang in Release; fixed in `Interpreter.Resume`, regression

@@ -23,7 +23,7 @@
 
 ## Std / API gaps
 - `use dotnet.X[...]` interop (способ C in ARCHITECTURE §6): implement after M7 if budget allows (M6.5); otherwise move to stage 2 and tell the owner.
-- Names of std modules not listed in the spec: follow the reference (`kern.core, kern.text, kern.collections, kern.numerics, kern.math, kern.io, kern.json, kern.time, kern.regex, kern.csv, kern.yaml, kern.xml, kern.crypto, kern.uuid, kern.compress, kern.http, kern.events, kern.tasks, kern.pipes, kern.threading, kern.reflection, kern.test, kern.build, kern.macro`) plus round-27 `kern.process, kern.path, kern.net, kern.log, kern.cli, kern.config, kern.ansi, kern.toml, kern.ini, kern.auth`.
+- Names of std modules not listed in the spec: follow the reference (`kern.core, kern.text, kern.collections, kern.numerics, kern.math, kern.io, kern.json, kern.time, kern.regex, kern.csv, kern.yaml, kern.xml, kern.crypto, kern.uuid, kern.compress, kern.http, kern.events, kern.tasks, kern.pipes, kern.threading, kern.reflection, kern.test, kern.build, kern.macro`) plus round-27 `kern.process, kern.path, kern.net, kern.log, kern.cli, kern.config, kern.ansi, kern.toml, kern.ini, kern.auth, kern.random`.
 - `kern.server` / `kern.web` (HTTP server) is a stage-2 thing (together with backend); stage 1 only has the **client**.
 
 ## Process gaps

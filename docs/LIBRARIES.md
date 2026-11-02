@@ -105,6 +105,15 @@
 - **Проверка:** `examples/13_db_web` (SQLite + ORM + HTTP) и `examples/27_backend` (DI, контроллеры, JWT, middleware, SSE, WebSocket, `/stop`) проходят `check` и `run`. В `src/Kern.Tests/Features/Backend` — 26 тестов: unit (маршруты, JWT, сессии/файл, ответы/файлы/cookie) и loopback-интеграция (маршруты/CORS/адаптация ответов, контроллеры+DI+роли+query/session/claims, basic/bearer/rate-limit, static files с ETag/Range, WebSocket echo+broadcast, SSE hello+broadcast+replay, ручной `accept`/`handle`, свободный `serve(a)`).
 - **Ограничения:** сервер на `HttpListener` (Windows без admin для `localhost` проверен; на других ОС нужен префикс/права), rate limit — в памяти процесса, SSE-буфер живёт в памяти (не переживает перезапуск); потоковая отдача есть через `res.stream`/`res_writer`, отмена — через `ctx.cancelled` и `res_writer.cancelled` (HTTP.sys не даёт отдельный cancellation-token).
 
+## kern.random (нативный модуль)
+
+`src/Kern.Runtime/Random/RandomApi.cs`, `[KernModule("kern.random")]`. Внутренний std:
+
+- **Криптостойкие:** `random.i32([min,] max)`, `random.i64([min,] max)`, `random.f64()` (`[0,1)`), `random.bool()`, `random.bytes(n) -> list<u8>`, `random.hex(n) -> str`, `random.choice<T>(list<T>)`, `random.shuffle<T>(list<T>)` (копия), `random.sample<T>(list<T>, n)`.
+- **Детерминированные:** `random.rng(seed) -> rng`; `r.next_i32([min,] max)`, `r.next_i64()`, `r.next_f64()`, `r.next_bool()`, `r.choice<T>`, `r.shuffle<T>`, `r.sample<T>`. Один и тот же seed даёт одну и ту же последовательность (xorshift64).
+- `bytes`/`hex` ограничены 1 МиБ; пустой список для `choice`, `n < 0`/`n > len` для `sample`, `min >= max` — panic по-русски.
+- **Проверка:** `src/Kern.Tests/Features/RandomTests.cs`.
+
 ## kern.auth (нативный модуль)
 
 `src/Kern.Runtime/Auth/AuthApi.cs`, `[KernModule("kern.auth")]`. Одноразовые коды и токены:
