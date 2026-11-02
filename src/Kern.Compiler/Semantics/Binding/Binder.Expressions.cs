@@ -62,6 +62,7 @@ public sealed partial class Binder
 		BinaryExpression { Operator: "&&" or "||" } logical => BindLogical(logical),
 		BinaryExpression { Operator: "?:" } elvis => BindElvis(elvis),
 		BinaryExpression binary => BindBinaryOperator(binary.Operator, BindExpression(binary.Left), BindExpression(binary.Right), binary.Span),
+		ComparisonChainExpression chain => BindComparisonChain(chain),
 		IfExpression conditional => BindIf(conditional),
 		LoopExpression loop => BindLoopExpression(loop),
 		MatchExpression match => BindMatchExpression(match),
@@ -232,9 +233,23 @@ public sealed partial class Binder
 		return new BoundErrorExpression(span);
 	}
 
-	private BoundExpression BindBinaryOperator(string symbol, BoundExpression left, BoundExpression right, TextSpan span)
+	/// <summary>
+	/// Цепочка сравнений: каждый сосед проверяется обычным <see cref="BindBinaryOperator"/>,
+	/// чтобы диагностики и расширения типов совпадали с одиночным сравнением.
+	/// </summary>
+	private BoundExpression BindComparisonChain(ComparisonChainExpression chain)
 	{
-		if (IsError(left.Type) || IsError(right.Type))
+		BoundExpression[] operands = [.. chain.Operands.Select(BindExpression)];
+		for (int i = 0; i < chain.Operators.Count; i++)
+			BindBinaryOperator(chain.Operators[i], operands[i], operands[i + 1], chain.Span);
+
+		if (operands.Any(operand => IsError(operand.Type)))
+			return new BoundErrorExpression(chain.Span);
+		return new BoundComparisonChainExpression(operands, chain.Operators, chain.Span);
+	}
+
+	private BoundExpression BindBinaryOperator(string symbol, BoundExpression left, BoundExpression right, TextSpan span)
+	{		if (IsError(left.Type) || IsError(right.Type))
 			return new BoundErrorExpression(span);
 
 		// `in`/`!in`: сначала пользовательский `op in(T)` на ПРАВОМ операнде (spec §16:

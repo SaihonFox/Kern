@@ -1,4 +1,5 @@
 using System.Text;
+using Kern.Bytecode;
 using Kern.Cli;
 using Kern.Cli.Build;
 using Xunit;
@@ -99,8 +100,23 @@ public sealed class BuilderTests : IDisposable
 		Assert.Equal(0, code);
 		Assert.Equal(string.Empty, stderr);
 		Assert.True(File.Exists(Path.Combine(root, "out", "app.kbc")));
-		Assert.False(File.Exists(Path.Combine(root, "out", "core.kbc")));
+		// lib-цель, как библиотека в C#, тоже даёт готовый .kbc (без точки входа).
+		Assert.True(File.Exists(Path.Combine(root, "out", "core.kbc")));
 		Assert.Contains("app.kbc", stdout, StringComparison.Ordinal);
+	}
+
+	[Fact]
+	public void Build_command_writes_a_library_kbc_without_entry_and_with_stubs()
+	{
+		string root = WorkspaceProject();
+
+		(int code, _, string stderr) = Run("build", root);
+
+		Assert.Equal(0, code);
+		Assert.Equal(string.Empty, stderr);
+		KbcModule library = KbcReader.Read(File.ReadAllBytes(Path.Combine(root, "out", "core.kbc")));
+		Assert.Equal(-1, library.EntryPoint);
+		Assert.Contains(library.Attributes, attribute => attribute.Name == "kern.stub");
 	}
 
 	[Fact]
@@ -294,7 +310,7 @@ public sealed class BuilderTests : IDisposable
 
 		Assert.Equal(0, code);
 		Assert.Equal(string.Empty, stderr);
-		Assert.False(File.Exists(Path.Combine(root, "out", "core.kbc")));
+		Assert.True(File.Exists(Path.Combine(root, "out", "core.kbc")));
 		Assert.Contains("задача core:compile", stdout, StringComparison.Ordinal);
 	}
 

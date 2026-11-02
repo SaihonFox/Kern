@@ -94,10 +94,36 @@ public sealed partial class Parser
 			var right = operatorToken.Text == "?:" && Current.Kind == TokenKind.Ret
 				? ParseReturnExpression()
 				: ParseExpression(precedence + (operatorToken.Text == "**" ? 0 : 1));
-			left = new BinaryExpression(left, operatorToken.Text, right,
-				new TextSpan(left.Span.Start, right.Span.End - left.Span.Start));
+			if (IsComparisonOperator(operatorToken.Text))
+				left = MakeComparison(operatorToken.Text, left, right);
+			else
+				left = new BinaryExpression(left, operatorToken.Text, right,
+					new TextSpan(left.Span.Start, right.Span.End - left.Span.Start));
 		}
 		return left;
+	}
+
+	private static bool IsComparisonOperator(string symbol) => symbol is "<" or ">" or "<=" or ">=";
+
+	/// <summary>
+	/// Собрать сравнение или продолжить цепочку (spec §3): <c>a &lt; b &lt; c</c>
+	/// хранится одним узлом, чтобы binder и codegen вычислили <c>b</c> один раз.
+	/// Скобки разрывают цепочку: <c>(a &lt; b) &lt; c</c> остаётся обычным сравнением.
+	/// </summary>
+	private ExpressionNode MakeComparison(string symbol, ExpressionNode left, ExpressionNode right)
+	{
+		var span = new TextSpan(left.Span.Start, right.Span.End - left.Span.Start);
+		if (left is ComparisonChainExpression chain)
+			return new ComparisonChainExpression(
+				[.. chain.Operands, right],
+				[.. chain.Operators, symbol],
+				span);
+		if (left is BinaryExpression { Operator: "<" or ">" or "<=" or ">=" } binary)
+			return new ComparisonChainExpression(
+				[binary.Left, binary.Right, right],
+				[binary.Operator, symbol],
+				span);
+		return new BinaryExpression(left, symbol, right, span);
 	}
 
 	private UnaryExpression ParseReturnExpression()

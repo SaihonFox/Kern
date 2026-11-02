@@ -20,6 +20,13 @@ public sealed partial class DeclarationCollector
 
 	private void ValidateDeclarationAttributes(SyntaxNode declaration)
 	{
+		var attributes = ConditionalCompilation.AttributesOf(declaration);
+		if (AttributeCatalog.Find(attributes, "if") is { } conditional &&
+			!ConditionalCompilation.TryEvaluate(conditional, out string? error) && error is not null)
+			Report("KRN2101", error, conditional.Span);
+		if (!ConditionalCompilation.IsIncluded(attributes))
+			return;
+
 		switch (declaration)
 		{
 			case TypeDeclaration type:

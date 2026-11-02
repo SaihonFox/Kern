@@ -117,7 +117,7 @@ public sealed partial class Parser
 			else if (Current.Kind == TokenKind.Use)
 			{
 				BuildModifiers(modifiers, ModifierTarget.Use, Accessibility.Public);
-				declarations.Add(ParseUse());
+				declarations.Add(ParseUse(attributes));
 			}
 			else if (Current.Kind == TokenKind.Op)
 				declarations.Add(ParseExtensionOperator(attributes,
@@ -316,7 +316,9 @@ public sealed partial class Parser
 					while (!AtEnd && Current.Kind != TokenKind.RightParen)
 					{
 						arguments.Add(Advance().Text);
-						if (!Match(TokenKind.Comma)) break;
+						if (Match(TokenKind.Comma)) continue;
+						if (Current.Kind != TokenKind.RightParen) continue;
+						break;
 					}
 					Consume(TokenKind.RightParen, "Ожидалась закрывающая скобка атрибута");
 				}
@@ -464,7 +466,7 @@ public sealed partial class Parser
 		return new BlockStatement([new ExpressionStatement(expression, expression.Span)], expression.Span);
 	}
 
-	private UseDeclaration ParseUse()
+	private UseDeclaration ParseUse(IReadOnlyList<AttributeNode>? attributes = null)
 	{
 		var start = Consume(TokenKind.Use, "Ожидалось ключевое слово use").Span.Start;
 		var parts = new List<string>();
@@ -497,7 +499,8 @@ public sealed partial class Parser
 			Consume(TokenKind.RightBracket, "Ожидалась ] после списка импортируемых символов");
 		}
 
-		return new UseDeclaration(string.Join('.', parts), new TextSpan(start, Previous.Span.End - start), items, wildcard);
+		return new UseDeclaration(string.Join('.', parts), new TextSpan(start, Previous.Span.End - start), items, wildcard,
+			Attributes: attributes);
 	}
 
 

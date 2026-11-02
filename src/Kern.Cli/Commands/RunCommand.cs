@@ -30,7 +30,7 @@ internal static class RunCommand
 			return 2;
 
 		if (kind == SourceKind.Project && File.Exists(Path.Combine(path, BuildSession.ScriptName)))
-			return RunProject(path, programArguments, options, stderr);
+			return RunProject(path, programArguments, options, stdout, stderr);
 
 		CompileResult result = SourceCompiler.Compile(path, kind, options.Apply(CompileOptions.Default));
 		SourceCompiler.Report(result, stderr);
@@ -40,7 +40,7 @@ internal static class RunCommand
 		string workingDirectory = kind == SourceKind.Project
 			? Path.GetFullPath(path)
 			: Path.GetDirectoryName(Path.GetFullPath(path)) ?? Environment.CurrentDirectory;
-		return Execute(result.Program!, kind, programArguments, stderr, workingDirectory: workingDirectory);
+		return Execute(result.Program!, kind, programArguments, stdout, stderr, workingDirectory: workingDirectory, profile: options.RunProfile);
 	}
 
 	/// <summary><c>run</c> проекта с <c>build.kern</c>: компилирует app-цель без записи .kbc.</summary>
@@ -48,6 +48,7 @@ internal static class RunCommand
 		string path,
 		IReadOnlyList<string> programArguments,
 		CliOptions options,
+		TextWriter stdout,
 		TextWriter stderr)
 	{
 		BuildTargetResult built;
@@ -61,6 +62,7 @@ internal static class RunCommand
 			BuildSession session = BuildSession.Open(path);
 			session.OptimizeOverride = options.Optimize;
 			session.ProfileName = options.Profile;
+			session.WarningsAsErrorsOverride = options.DenyWarnings ? true : null;
 			built = BuildTargetCompiler.CompileApp(session);
 			environment = session.EnvironmentFor(built.Target);
 			projectRoot = session.Root;
@@ -80,9 +82,11 @@ internal static class RunCommand
 			built.Compile.Program!,
 			SourceKind.Project,
 			arguments,
+			stdout,
 			stderr,
 			environment,
-			workingDirectory: projectRoot);
+			workingDirectory: projectRoot,
+			profile: options.RunProfile);
 	}
 
 	/// <summary>Выполнить уже скомпилированный проект (встроенная задача <c>:run</c>).</summary>
@@ -92,15 +96,17 @@ internal static class RunCommand
 		IReadOnlyDictionary<string, string>? environment,
 		TextWriter stderr,
 		string? workingDirectory = null) =>
-		Execute(program, SourceKind.Project, arguments, stderr, environment, workingDirectory);
+		Execute(program, SourceKind.Project, arguments, null, stderr, environment, workingDirectory);
 
 	private static int Execute(
 		CompiledProgram program,
 		SourceKind kind,
 		IReadOnlyList<string> programArguments,
+		TextWriter? stdout,
 		TextWriter stderr,
 		IReadOnlyDictionary<string, string>? environment = null,
-		string? workingDirectory = null)
+		string? workingDirectory = null,
+		bool profile = false)
 	{
 		int entry = program.Module.EntryPoint;
 		if (entry < 0)
@@ -130,10 +136,14 @@ internal static class RunCommand
 				}
 
 			var interpreter = new Interpreter(program.Module, new NativeResolver(program.Catalog));
+			if (profile)
+				interpreter.Profiler = new Profiler();
 			KValue[] mainArguments = entryPoint.ParamCount == 1
 				? [KValue.Obj(new KList(interpreter.Types.Prim(PrimKind.Str), programArguments.Select(KValue.Str)))]
 				: [];
 			KValue mainResult = WaitForTask(interpreter, interpreter.Run(entry, mainArguments));
+			if (profile)
+				interpreter.Profiler!.WriteReport(stdout ?? Console.Out);
 			// `main() -> i32` задаёт код выхода; void-main и прочие значения — 0.
 			return mainResult.Kind == ValueKind.I32 ? mainResult.AsI32 : 0;
 		}

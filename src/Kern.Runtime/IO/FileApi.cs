@@ -1,7 +1,10 @@
 using System.Text;
 using Kern.Binding.Attributes;
 using Kern.Binding.Values;
+using Kern.Bytecode;
 using Kern.Vm.Execution;
+using Kern.Vm.Types;
+using Kern.Vm.Values;
 
 namespace Kern.Runtime.IO;
 
@@ -147,6 +150,38 @@ public static class FileApi
 			}
 
 			System.IO.File.WriteAllText(path, builder.ToString(), Utf8);
+			return true;
+		});
+
+	/// <summary><c>file.read_bytes(path)</c>: двоичное содержимое файла.</summary>
+	[KernStatic]
+	[KernName("read_bytes")]
+	[KernMember]
+	public static KResult<KList<byte>, string> ReadBytes(string path) =>
+		Try(path, () =>
+		{
+			byte[] bytes = System.IO.File.ReadAllBytes(path);
+			return new KList<byte>(KValue.Obj(new Kern.Vm.Values.KList(
+				null, bytes.Select(KValue.U8))));
+		});
+
+	/// <summary><c>file.write_bytes(path, bytes)</c>: записать двоичные данные.</summary>
+	[KernStatic]
+	[KernName("write_bytes")]
+	[KernMember]
+	public static KResult<bool, string> WriteBytes(string path, KList<byte> bytes) =>
+		Try(path, () =>
+		{
+			if (bytes.Value.Ref is not Kern.Vm.Values.KList list)
+				throw new KernPanic($"file.write_bytes: ожидался list<u8>, получено {bytes.Value.TypeName}");
+			var data = new byte[list.Count];
+			for (int index = 0; index < data.Length; index++)
+			{
+				if (list[index].Kind != Kern.Vm.Values.ValueKind.U8)
+					throw new KernPanic($"file.write_bytes: элемент {index} — {list[index].TypeName}, ожидался u8");
+				data[index] = list[index].AsU8;
+			}
+			System.IO.File.WriteAllBytes(path, data);
 			return true;
 		});
 

@@ -4,6 +4,7 @@ using Kern.Compiler.CodeGen;
 using Kern.Compiler.Compilation;
 using Kern.Compiler.Native;
 using Kern.Compiler.Semantics;
+using Kern.Compiler.Semantics.Attributes;
 using Kern.Compiler.Semantics.Binding;
 using Kern.Compiler.Semantics.Declarations;
 using Kern.Compiler.Syntax;
@@ -102,7 +103,7 @@ internal static class SourceCompiler
 		foreach (var diagnostic in result.Diagnostics)
 		{
 			texts.TryGetValue(diagnostic.Path, out var fileSource);
-			messages.Add(Format(fileSource, diagnostic.Diagnostic));
+			messages.AddRange(FormatLines(fileSource, diagnostic.Diagnostic));
 		}
 
 		if (result.NativeProblems.Count > 0 || !result.Success || result.Module is null)
@@ -118,7 +119,7 @@ internal static class SourceCompiler
 
 		var generated = new CodeGenerator().Generate(result.Module, result.Bundle);
 		foreach (var diagnostic in generated.Diagnostics)
-			messages.Add(Format(null, diagnostic));
+			messages.AddRange(FormatLines(null, diagnostic));
 		if (generated.Diagnostics.Any(diagnostic => diagnostic.IsError))
 			return new CompileResult
 			{
@@ -185,11 +186,13 @@ internal static class SourceCompiler
 	{
 		var parsed = Parser.Parse(text);
 		List<Diagnostic> diagnostics = [.. parsed.Diagnostics];
+		diagnostics = [.. SuppressionAttribute.Filter(diagnostics, parsed.Tree)];
 		if (HasError(diagnostics))
 			return Failed(source, bundle, diagnostics);
 
 		var (table, tableDiagnostics) = SymbolTable.Collect(parsed.Tree);
 		diagnostics.AddRange(tableDiagnostics);
+		diagnostics = [.. SuppressionAttribute.Filter(diagnostics, parsed.Tree)];
 		if (HasError(diagnostics))
 			return Failed(source, bundle, diagnostics);
 
@@ -198,6 +201,7 @@ internal static class SourceCompiler
 		var (module, collectorDiagnostics) = DeclarationCollector.Collect(
 			parsed.Tree, table, moduleName, primes: null, external: null, nativeTypes);
 		diagnostics.AddRange(collectorDiagnostics);
+		diagnostics = [.. SuppressionAttribute.Filter(diagnostics, parsed.Tree)];
 		if (HasError(diagnostics))
 			return Failed(source, bundle, diagnostics);
 
@@ -213,6 +217,7 @@ internal static class SourceCompiler
 
 		var bound = new Binder(imported, table).Bind();
 		diagnostics.AddRange(bound.Diagnostics);
+		diagnostics = [.. SuppressionAttribute.Filter(diagnostics, parsed.Tree)];
 		if (HasError(diagnostics))
 			return Failed(source, bundle, diagnostics);
 
@@ -220,6 +225,7 @@ internal static class SourceCompiler
 			? new CodeGenerator().Generate(bound, source)
 			: new CodeGenerator().Generate(bound, bundle);
 		diagnostics.AddRange(generated.Diagnostics);
+		diagnostics = [.. SuppressionAttribute.Filter(diagnostics, parsed.Tree)];
 		if (HasError(diagnostics))
 			return Failed(source, bundle, diagnostics);
 
@@ -270,22 +276,44 @@ internal static class SourceCompiler
 			stderr.WriteLine(message);
 
 		foreach (Diagnostic diagnostic in result.Diagnostics)
-			stderr.WriteLine(result.Sources is { } bundle
-				? DiagnosticText.Format(diagnostic, bundle)
-				: Format(result.Source, diagnostic));
+		{
+			if (result.Sources is { } bundle)
+			{
+				foreach (string line in DiagnosticText.FormatLines(diagnostic, bundle))
+					stderr.WriteLine(line);
+			}
+			else
+			{
+				foreach (string line in FormatLines(result.Source, diagnostic))
+					stderr.WriteLine(line);
+			}
+		}
 
 		foreach (string problem in result.NativeProblems)
 			stderr.WriteLine($"ошибка: {problem}");
 	}
 
-	private static string Format(SourceText? source, Diagnostic diagnostic)
+	private static string Format(SourceText? source, Diagnostic diagnostic) =>
+		FormatLines(source, diagnostic).First();
+
+	private static IReadOnlyList<string> FormatLines(SourceText? source, Diagnostic diagnostic)
 	{
 		string kind = diagnostic.IsError ? "ошибка" : "предупреждение";
 		if (source is null)
-			return $"{kind} {diagnostic.Code}: {diagnostic.Message}";
+		{
+			List<string> bare = [$"{kind} {diagnostic.Code}: {diagnostic.Message}"];
+			bare.AddRange(diagnostic.Related.Select(note => $"примечание: {note.Message}"));
+			return bare;
+		}
 
 		(int line, int column) = source.GetLineColumn(diagnostic.Span.Start);
-		return $"{source.Path}:{line}:{column}: {kind} {diagnostic.Code}: {diagnostic.Message}";
+		List<string> lines = [$"{source.Path}:{line}:{column}: {kind} {diagnostic.Code}: {diagnostic.Message}"];
+		foreach (DiagnosticNote note in diagnostic.Related)
+		{
+			(int noteLine, int noteColumn) = source.GetLineColumn(note.Span.Start);
+			lines.Add($"{source.Path}:{noteLine}:{noteColumn}: примечание: {note.Message}");
+		}
+		return lines;
 	}
 
 	private static bool HasError(IEnumerable<Diagnostic> diagnostics) =>

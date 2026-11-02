@@ -2,6 +2,31 @@
 
 ## Now
 
+### Батч 2026-11-02 (owner request): размер, проекты, диагностика, инструменты, библиотеки
+
+Сделано и проверено (build 0 errors, тесты 549/549):
+- `.kbc` v3: LEB128 + Brotli, без дублирующего канонического текста; старые v2 читаются.
+  Пример 17: 136 КБ → 12 КБ. Добавлены `file.read_bytes/write_bytes`, `text.to_utf8/from_utf8`.
+- Виды проектов: `kernc new app|exe|console|lib|library|classlib|service`; `kernc build`
+  для lib-цели пишет готовый `.kbc` без entry и с `kern.stub`.
+- Язык: цепочки сравнений `0 < x < 10` (один раз средний операнд), `#[if(os/arch/target)]`,
+  `#[allow(...)]`, `#[memo]`, связанные места диагностики (`примечание:`),
+  `--deny-warnings`; `kern run --profile` (функции + горячие строки);
+  `kernc explain-type <файл> "<выражение>"`; `kernc build --native [--target rid]`
+  (самодостаточный однофайловый хост со встроенным `.kbc`, проверено на Windows).
+- Библиотеки: `kern.security`, `kern.text` (Levenshtein/slug/Unicode/Markdown/шаблоны),
+  `kern.parse` (базовый разбор), `kern.num` (статистика/матрицы/FFT/complex).
+- Отчёт по бутстраппингу — `docs/BOOTSTRAP.md`; `in/ref/out` без ключевых слов —
+  `docs/IN_REF_OUT.md`. `docs/TOKEN_BUDGET.md` удалён.
+
+Не сделано/ограничения: capabilities/разрешения модулей (`#[needs]`, `--allow`) — вопрос в
+`DECISIONS_NEEDED.md`; `kern.security` без BLAKE/Ed25519/argon2/bcrypt (в .NET нет
+из коробки); `kern.text` без циклов/условий/частичных шаблонов в шаблонизаторе;
+`kern.parse` без комбинаторов/PEG (только базовые разборщики и диагностика);
+`kern.num` без собственных чисел/матричных разложений; «настоящие» C#-генерики не
+переписаны — вопрос в `DECISIONS_NEEDED.md`; `kernc build --native` использует
+self-contained single-file (не NativeAOT).
+
 ### Открытый объём (2026-11-02)
 
 Не реализовано:

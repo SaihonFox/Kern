@@ -1,3 +1,4 @@
+using Kern.Compiler.Semantics.Attributes;
 using Kern.Compiler.Semantics.Declarations;
 using Kern.Compiler.Syntax;
 using Kern.Core.Diagnostics;
@@ -63,7 +64,7 @@ public sealed class ModuleLoader
 			return;
 
 		var imports = new List<ResolvedImport>();
-		foreach (var declaration in pending.Unit.Declarations.OfType<UseDeclaration>())
+		foreach (var declaration in pending.Unit.Declarations.OfType<UseDeclaration>().Where(ConditionalCompilation.IsIncluded))
 		{
 			var targetName = declaration.Path;
 			if (!_modules.TryGetValue(targetName, out var target))

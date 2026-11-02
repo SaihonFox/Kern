@@ -58,12 +58,12 @@ public sealed class NativeResolver : INativeResolver
 
 			if (!descriptor.Method.IsStatic)
 			{
-				_diagnostics.Add($"native '{descriptor.NativeKey}': экземплярные члены пока не поддержаны");
+				_diagnostics.Add($"native '{Kern.Vm.Native.NativeKey.Describe(descriptor.NativeKey)}': экземплярные члены пока не поддержаны");
 				continue;
 			}
 
 			if (!_descriptors.TryAdd(descriptor.NativeKey, descriptor))
-				_diagnostics.Add($"native '{descriptor.NativeKey}': ключ встречается несколько раз");
+				_diagnostics.Add($"native '{Kern.Vm.Native.NativeKey.Describe(descriptor.NativeKey)}': ключ встречается несколько раз");
 		}
 	}
 
@@ -99,7 +99,7 @@ public sealed class NativeResolver : INativeResolver
 	private static NativeBinding Build(NativeFunctionDescriptor descriptor)
 	{
 		MethodInfo method = descriptor.Method
-			?? throw new InvalidOperationException($"native '{descriptor.NativeKey}' не имеет CLR-метода");
+			?? throw new InvalidOperationException($"native '{Kern.Vm.Native.NativeKey.Describe(descriptor.NativeKey)}' не имеет CLR-метода");
 		if (method.IsGenericMethodDefinition)
 		{
 			// Реальные аргументы типа приходят через `[KernTypeArgs]`; закрытие `object`
@@ -135,7 +135,7 @@ public sealed class NativeResolver : INativeResolver
 
 		if (argumentIndex != descriptor.SignatureParameterCount)
 			throw new InvalidOperationException(
-				$"native '{descriptor.NativeKey}': ожидалось {descriptor.SignatureParameterCount} аргументов, метод принимает {argumentIndex}");
+				$"native '{Kern.Vm.Native.NativeKey.Describe(descriptor.NativeKey)}': ожидалось {descriptor.SignatureParameterCount} аргументов, метод принимает {argumentIndex}");
 
 		Expression call = Expression.Call(method, callArguments);
 		Expression body = ConvertReturn(call, method.ReturnType, interpreter);
@@ -157,7 +157,7 @@ public sealed class NativeResolver : INativeResolver
 				catch (Exception exception)
 				{
 					throw new KernPanic(
-						$"нативный вызов '{descriptor.NativeKey}' завершился ошибкой: {exception.Message}",
+						$"нативный вызов '{Kern.Vm.Native.NativeKey.Describe(descriptor.NativeKey)}' завершился ошибкой: {exception.Message}",
 						exception);
 				}
 			},

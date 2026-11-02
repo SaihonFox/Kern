@@ -17,4 +17,6 @@
 | `LIBRARIES.md` | External libraries: Db/Di/Backend/Ffi/Transpile implemented; Ui planned |
 | `LSP.md` | Kern language server MVP (`src/Kern.Lsp`) |
 | `DISTRIBUTION.md` | Portable `kernc` + `libs/` + examples package |
+| `BOOTSTRAP.md` | What is missing for self-hosting Kern (audit + slices) |
+| `IN_REF_OUT.md` | `in`/`ref`/`out` idioms without new keywords |
 | `history/` | Old implementation notes |

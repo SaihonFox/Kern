@@ -130,6 +130,15 @@ Cross-cutting milestone for the owner's round-27 items (spec «Раунд 27», 
 
 Accept: new syntax has parser/binder/codegen tests; tail recursion runs a deep loop without stack growth; generators are lazy; data structures/libraries have std tests and examples; doctest/tooling covered by CLI tests; full baseline green. Already done: first-line shebang and numeric separators (`LexerTests`, `CodeGeneratorTests`).
 
+## Owner batch 2026-11-02 — size, projects, diagnostics, tools, libraries
+
+Done: `.kbc` v3 (LEB128+Brotli, v2 readable), project kinds (`new` aliases, library `.kbc`
+with stubs), comparison chains, `#[if]`/`#[allow]`/`#[memo]`, related diagnostics,
+`--deny-warnings`, `run --profile`, `explain-type`, `build --native` (self-contained
+single-file host with embedded bytecode), `kern.security`/`kern.text`/`kern.parse`/`kern.num`
+(partial). Docs: `BOOTSTRAP.md`, `IN_REF_OUT.md`. Open decisions: capabilities (`#[needs]`,
+`--allow`) and full C# generics — see `DECISIONS_NEEDED.md`. Suite **549/549**, style clean.
+
 ## Owner batch 2026-10-27 — language polish (stage 1)
 Recorded in `DECISIONS_NEEDED.md` ("Decided — owner additions"). Ordered by dependency; every slice updates `docs/spec/kern.en.md` + `CHANGELOG_LANG.md` and lands with tests. Two slices may run in parallel only if they do not touch the same lexer/parser/binder files.
 

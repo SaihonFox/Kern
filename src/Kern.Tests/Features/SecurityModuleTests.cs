@@ -1,0 +1,81 @@
+using Kern.Runtime.Security;
+using Kern.Tests.Features.Support;
+using Kern.Vm.Values;
+using Xunit;
+
+namespace Kern.Tests.Features;
+
+/// <summary>
+/// <c>kern.security</c>: SHA-3/HMAC, AES-GCM и ChaCha20, JWT HS256, RSA-подписи и
+/// <c>secret&lt;str&gt;</c> (маска в <c>to_str</c>, явный <c>reveal</c>).
+/// </summary>
+[Collection("timing")]
+public sealed class SecurityModuleTests
+{
+	[Fact]
+	public void Hashes_and_hmac_are_hex()
+	{
+		Assert.Equal(
+			"ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+			Kern.Runtime.Crypto.CryptoApi.Sha256("abc"));
+		Assert.Equal(64, SecurityApi.Sha3_256("abc").Length);
+		Assert.Equal(128, SecurityApi.HmacSha512("key", "abc").Length);
+	}
+
+	[Fact]
+	public void Aes_gcm_round_trips_and_rejects_a_wrong_key()
+	{
+		var encrypted = SecurityApi.AesGcmEncrypt("0123456789abcdef", "секрет");
+
+		Assert.True(encrypted.IsOk);
+		string blob = encrypted.Ok;
+		Assert.True(SecurityApi.AesGcmDecrypt("0123456789abcdef", blob).IsOk);
+		Assert.False(SecurityApi.AesGcmDecrypt("fedcba9876543210", blob).IsOk);
+	}
+
+	[Fact]
+	public void Chacha20_round_trips()
+	{
+		string key = new('k', 32);
+		var encrypted = SecurityApi.Chacha20Encrypt(key, "text");
+		Assert.True(encrypted.IsOk);
+		var decrypted = SecurityApi.Chacha20Decrypt(key, encrypted.Ok);
+		Assert.True(decrypted.IsOk);
+		Assert.Equal("text", decrypted.Ok);
+	}
+
+	[Fact]
+	public void Jwt_hs256_round_trips_and_rejects_a_broken_signature()
+	{
+		string token = SecurityApi.JwtSign("""{"sub":"1"}""", "secret");
+		var verified = SecurityApi.JwtVerify(token, "secret");
+		Assert.True(verified.IsOk);
+		Assert.Equal("""{"sub":"1"}""", verified.Ok);
+		Assert.False(SecurityApi.JwtVerify(token[..^1] + "x", "secret").IsOk);
+	}
+
+	[Fact]
+	public void Secret_type_masks_to_str_and_reveals_explicitly()
+	{
+		const string source = """
+			fun masked() -> str secret<str>("token").to_str()
+			fun revealed() -> str secret<str>("token").reveal()
+			fun length() -> i32 secret<str>("token").len
+			""";
+
+		Assert.Equal(KValue.Str("secret(***)"), StdPipeline.Run(source, "masked"));
+		Assert.Equal(KValue.Str("token"), StdPipeline.Run(source, "revealed"));
+		Assert.Equal(KValue.I32(5), StdPipeline.Run(source, "length"));
+	}
+
+	[Fact]
+	public void Rsa_signature_verifies_with_the_public_key()
+	{
+		string privatePem = SecurityApi.RsaGenerate(2048);
+		string publicPem = SecurityApi.RsaPublic(privatePem);
+		var signature = SecurityApi.RsaSign(privatePem, "payload");
+		Assert.True(signature.IsOk);
+		Assert.True(SecurityApi.RsaVerify(publicPem, "payload", signature.Ok));
+		Assert.False(SecurityApi.RsaVerify(publicPem, "other", signature.Ok));
+	}
+}

@@ -2,6 +2,7 @@ using Kern.Binding.Catalog;
 using Kern.Compiler.CodeGen;
 using Kern.Compiler.Native;
 using Kern.Compiler.Semantics;
+using Kern.Compiler.Semantics.Attributes;
 using Kern.Compiler.Semantics.Binding;
 using Kern.Compiler.Semantics.Bound;
 using Kern.Compiler.Semantics.Declarations;
@@ -161,9 +162,38 @@ public static class ProjectCompiler
 		{
 			Bundle = bundle,
 			Module = module,
-			Diagnostics = diagnostics,
+			Diagnostics = FilterSuppressions(diagnostics, parsedSources),
 			HasEntryPoint = entry is not null,
 		};
+	}
+
+	/// <summary>Применить <c>#[allow(...)]</c> каждого файла к его предупреждениям.</summary>
+	private static List<ProjectDiagnostic> FilterSuppressions(
+		List<ProjectDiagnostic> diagnostics,
+		List<(
+			ProjectSourceFile File,
+			CompilationUnit Tree,
+			SymbolTable Table,
+			string ModuleName,
+			IReadOnlyDictionary<DeclarationNode, TypeSymbol> Primes,
+			Dictionary<string, TypeSymbol> Types)> sources)
+	{
+		var trees = sources
+			.GroupBy(source => source.File.RelativePath, StringComparer.Ordinal)
+			.ToDictionary(group => group.Key, group => group.First().Tree, StringComparer.Ordinal);
+		var result = new List<ProjectDiagnostic>(diagnostics.Count);
+		foreach (var diagnostic in diagnostics)
+		{
+			if (diagnostic.Diagnostic.IsError || !trees.TryGetValue(diagnostic.Path, out var tree))
+			{
+				result.Add(diagnostic);
+				continue;
+			}
+
+			if (SuppressionAttribute.Filter([diagnostic.Diagnostic], tree).Count > 0)
+				result.Add(diagnostic);
+		}
+		return result;
 	}
 
 	/// <summary>
@@ -202,7 +232,7 @@ public static class ProjectCompiler
 		{
 			if (!byName.TryGetValue(moduleName, out var source) || !visiting.Add(moduleName))
 				return;
-			foreach (var use in source.Tree.Declarations.OfType<UseDeclaration>())
+			foreach (var use in source.Tree.Declarations.OfType<UseDeclaration>().Where(ConditionalCompilation.IsIncluded))
 			{
 				if (use.Path.StartsWith("kern.", StringComparison.Ordinal))
 					continue;
@@ -274,7 +304,7 @@ public static class ProjectCompiler
 		IReadOnlyDictionary<string, Dictionary<string, TypeSymbol>> typesByModule)
 	{
 		var external = new Dictionary<string, TypeSymbol>(StringComparer.Ordinal);
-		foreach (var use in unit.Declarations.OfType<UseDeclaration>())
+		foreach (var use in unit.Declarations.OfType<UseDeclaration>().Where(ConditionalCompilation.IsIncluded))
 		{
 			if (use.Path.StartsWith("kern.", StringComparison.Ordinal))
 				continue;

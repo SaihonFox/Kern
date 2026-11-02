@@ -59,7 +59,7 @@ public sealed class NativeFunctionDescriptor
 	/// <summary>Число аргументов, которое VM передаёт в делегат (self + параметры).</summary>
 	public int SignatureParameterCount => (SelfType is null ? 0 : 1) + Parameters.Count;
 
-	public override string ToString() => NativeKey;
+	public override string ToString() => Kern.Vm.Native.NativeKey.Describe(NativeKey);
 }
 
 /// <summary>Нативный Kern-тип, объявленный в C#.</summary>
@@ -194,7 +194,7 @@ public sealed class NativeCatalog
 		{
 			if (!keys.Add(function.NativeKey))
 			{
-				diagnostics.Add($"повторяющийся NativeKey '{function.NativeKey}'");
+				diagnostics.Add($"повторяющийся нативный член '{Kern.Vm.Native.NativeKey.Describe(function.NativeKey)}'");
 				continue;
 			}
 

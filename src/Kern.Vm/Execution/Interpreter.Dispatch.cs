@@ -96,9 +96,25 @@ public sealed partial class Interpreter
 		int callBase = stack.Count - argc;
 		if (callBase < callerStackBase)
 			throw new KernPanic($"вызов '{callee.Name}': аргументы заходят ниже базы кадра");
+		long profileStart = Profiler?.StartCall(callee) ?? 0;
+		KValue[]? memoArguments = null;
+		if (CanMemoize(callee))
+		{
+			memoArguments = new KValue[argc];
+			stack.CopyTo(callBase, memoArguments, argc);
+			var key = new MemoKey(callee, memoArguments);
+			if (_memo.TryGetValue(key, out KValue cached))
+			{
+				stack.Truncate(callBase);
+				stack.Push(MemoValue(cached));
+				Profiler?.EndCall(callee, profileStart);
+				return default;
+			}
+		}
 		if (callee.IsNative)
 		{
 			InvokeNative(callee, argc, ref stack);
+			Profiler?.EndCall(callee, profileStart);
 			return default;
 		}
 		if (frameCount == frames.Length)
@@ -122,7 +138,7 @@ public sealed partial class Interpreter
 			constructed.BeginConstruction();
 			construction = constructed;
 		}
-		frames[frameCount++] = new Frame(caller, callerLocals, callerCaptures, callerPc, callerStackBase, construction);
+		frames[frameCount++] = new Frame(caller, callerLocals, callerCaptures, callerPc, callerStackBase, construction, memoArguments, profileStart);
 
 		KValue[] calleeLocals = AllocateLocals(callee);
 		stack.CopyTo(callBase, calleeLocals, argc);

@@ -18,6 +18,9 @@ public static class AttributeCatalog
 		"inline",
 		"no_inline",
 		"cfg",
+		"if",
+		"allow",
+		"memo",
 		"test",
 		"derive",
 		// HTTP-прокси (spec round 10): размечают абстрактные методы http_client.proxy.

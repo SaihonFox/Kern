@@ -30,6 +30,8 @@ public sealed partial class DeclarationCollector
 		// Сначала поля и свойства: параметрам `$name` нужны уже объявленные поля.
 		foreach (var node in memberNodes)
 		{
+			if (!ConditionalCompilation.IsIncluded(node))
+				continue;
 			switch (node)
 			{
 				case FieldMemberNode field:
@@ -52,6 +54,8 @@ public sealed partial class DeclarationCollector
 
 		foreach (var node in memberNodes)
 		{
+			if (!ConditionalCompilation.IsIncluded(node))
+				continue;
 			switch (node)
 			{
 				case FunctionDeclaration function when IsExtensionName(function.Name):

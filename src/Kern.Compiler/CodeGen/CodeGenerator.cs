@@ -275,6 +275,10 @@ public sealed partial class CodeGenerator
 				EmitBinary(binary);
 				break;
 
+			case BoundComparisonChainExpression chain:
+				EmitComparisonChain(chain);
+				break;
+
 			case BoundElvisExpression elvis:
 				EmitElvis(elvis);
 				break;

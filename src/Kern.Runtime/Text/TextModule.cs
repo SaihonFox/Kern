@@ -10,7 +10,7 @@ namespace Kern.Runtime.Text;
 /// неверный разбор возвращает <c>nil</c>.
 /// </summary>
 [KernModule("kern.text")]
-public static class TextModule
+public static partial class TextModule
 {
 	/// <summary><c>text.len(s)</c>: длина строки в UTF-16 единицах.</summary>
 	[KernMember]

@@ -29,6 +29,8 @@ public enum MemberFlags : uint
 	Padding = 1 << 18,
 	/// <summary>Функция — генератор: вызов возвращает ленивую <c>seq&lt;T&gt;</c> (spec §6).</summary>
 	Generator = 1 << 19,
+	/// <summary>Функция помечена <c>#[memo]</c>: результат кэшируется по аргументам (spec §7).</summary>
+	Memo = 1 << 20,
 }
 
 /// <summary>Использование атрибута: пара «имя типа атрибута + аргументы-константы».</summary>

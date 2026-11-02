@@ -20,6 +20,36 @@
 
 **Важно:** пока библиотеки не собраны, `use kern.db…`, `use kern.ui`, `use kern.ffi` дают ошибку KRN1101 «модуль не найден» (в сообщении есть подсказка). После сборки DLL лежат в `libs/_out/<имя>/`, и kernc находит их сам (если запущен из репозитория; иначе — `KERN_LIBS` или `libs` рядом с kernc).
 
+## Встроенные модули 2026-11-02: `kern.security`, `kern.text`, `kern.parse`, `kern.num`
+
+Это нативные модули в `src/Kern.Runtime` (не внешние `libs/`), доступны без сборки DLL.
+
+- **`kern.security`**: SHA-3 (`sha3_256`, `sha3_512`), `hmac_sha512`, `aes_gcm_encrypt/decrypt`
+  (ключ 16/24/32 байта, nonce+tag в Base64), `chacha20_encrypt/decrypt` (32-байтовый ключ),
+  `rsa_generate(2048..4096)`, `rsa_public`, `rsa_sign`, `rsa_verify`, `jwt_sign`/`jwt_verify`
+  (HS256), `hash_password(pwd, iterations)`/`verify_password` (PBKDF2-SHA256),
+  `random_bytes`, `hex_encode/decode`, `constant_time_eq`, тип `secret<str>`
+  (`secret<str>("…")`, `reveal()`, маскирующий `to_str()`, `len`). Базовые SHA-2/HMAC-SHA-256
+  остаются в `kern.crypto`, TOTP — в `kern.auth` (имена там уже заняты).
+  *Ограничения:* нет BLAKE2/3, Ed25519, argon2/bcrypt (нет в BCL без внешних пакетов);
+  `secret` не сериализуется автоматически — раскрытие только через `reveal()`.
+- **`kern.text`** (расширения): `levenshtein`, `fuzzy_contains`, `transliterate`, `slug`,
+  `normalize(text, "NFC"|"NFD"|"NFKC"|"NFKD")`, `graphemes`, `escape_html`, `markdown_to_html`,
+  `template_render(template, dict<str,str>)` с `{{key}}`, `to_utf8`/`from_utf8`.
+  *Ограничения:* шаблонизатор без циклов/условий/partials; Markdown — подмножество без таблиц
+  и вложенных списков.
+- **`kern.parse`**: `parse_ident`, `parse_integer`, `parse_number`, `parse_quoted`,
+  `is_ident`, `parse_error(text, offset)` (строка:колонка + подчёркивание).
+  *Ограничения:* комбинаторы (`~>`, `many`, `sep_by`, PEG) ещё не реализованы.
+- **`kern.num`**: `mean`, `median`, `variance([sample])`, `stdev`, `correlation`,
+  `regression -> [slope, intercept]`, `dot_product`, `transpose`, `matmul`, `identity`, `solve`,
+  `interpolate`, `integrate(f, a, b[, steps])` (Симпсон), `root(f, a, b[, iterations])`
+  (бисекция), `fft` (re/im парами), тип `complex` (`complex(re, im)`, `re`, `im`, `abs`,
+  `conjugate`, операторы `+ - * /`, `to_str`). *Ограничения:* собственные `rational`/векторные
+  типы, собственные числа и разреженные матрицы пока не добавлены; `solve` — Гаусс без
+  выбора полного pivoting.
+
+
 ## Где kernc ищет библиотеки
 
 1. переменная `KERN_LIBS` (список путей через `;` на Windows, `:` на Linux/macOS);

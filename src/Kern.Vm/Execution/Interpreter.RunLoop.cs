@@ -5,7 +5,6 @@ using Kern.Vm.Types;
 using Kern.Vm.Values;
 
 namespace Kern.Vm.Execution;
-
 /// <summary>Основной цикл исполнения инструкций VM (spec §16).</summary>
 public sealed partial class Interpreter
 {
@@ -21,13 +20,13 @@ public sealed partial class Interpreter
 		int pc = state.Pc;
 		int stackBase = state.StackBase;
 		int instruction = 0;
-
 		try
 		{
 			while (true)
 			{
 				instruction = pc;
 				OpCode op = (OpCode)code[pc++];
+				Profiler?.Sample(function, instruction);
 				switch (op)
 				{
 					// ---------- стек ----------
@@ -42,7 +41,6 @@ public sealed partial class Interpreter
 					case OpCode.Swap:
 						stack.Swap();
 						break;
-
 					// ---------- константы ----------
 					case OpCode.PushConst:
 						stack.Push(ToValue(_module.ConstPool[code[pc++]]));
@@ -383,6 +381,9 @@ public sealed partial class Interpreter
 							// Кадр вызывающего помнит окно, открытое этим вызовом: конструктор
 							// вернулся — значение unit! запечатано.
 							caller.Construction?.EndConstruction();
+							Profiler?.EndCall(function, caller.ProfileStart);
+							if (caller.MemoArguments is { } memoArguments)
+								_memo[new MemoKey(function, memoArguments)] = MemoValue(result);
 							function = caller.Function;
 							code = function.Code;
 							locals = caller.Locals;

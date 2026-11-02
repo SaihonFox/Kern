@@ -1,3 +1,4 @@
+using System.Text;
 using Kern.Cli;
 using Kern.Cli.Commands;
 using Kern.Cli.Infrastructure;
@@ -43,6 +44,101 @@ public sealed class ToolingCommandTests
 			Assert.True(File.Exists(Path.Combine(directory, "src", "lib.kern")));
 			int check = Run(["check", directory], out _, out string error);
 			Assert.True(check == 0, error);
+		}
+		finally
+		{
+			Delete(directory);
+		}
+	}
+
+	[Fact]
+	public void New_library_alias_creates_the_same_project()
+	{
+		string directory = Temp("kern-new-classlib");
+		try
+		{
+			int code = Run(["new", "classlib", directory], out string output, out string error);
+			Assert.Equal(0, code);
+			Assert.Equal(string.Empty, error);
+			Assert.Contains("создан проект lib", output);
+			Assert.True(File.Exists(Path.Combine(directory, "src", "lib.kern")));
+			Assert.Contains("t.kind = \"lib\"", File.ReadAllText(Path.Combine(directory, "build.kern")));
+		}
+		finally
+		{
+			Delete(directory);
+		}
+	}
+
+	[Fact]
+	public void New_console_alias_creates_an_app_project()
+	{
+		string directory = Temp("kern-new-console");
+		try
+		{
+			Assert.Equal(0, Run(["new", "console", directory], out string output, out _));
+			Assert.Contains("создан проект app", output);
+			Assert.True(File.Exists(Path.Combine(directory, "src", "main.kern")));
+			Assert.Contains("t.kind = \"app\"", File.ReadAllText(Path.Combine(directory, "build.kern")));
+		}
+		finally
+		{
+			Delete(directory);
+		}
+	}
+
+	[Fact]
+	public void Explain_type_prints_inferred_type_and_generic_arguments()
+	{
+		string directory = Temp("kern-explain");
+		try
+		{
+			Directory.CreateDirectory(directory);
+			string file = Path.Combine(directory, "main.kern");
+			File.WriteAllText(file, """
+				fun id<T>(T x) -> T x
+				fun main { }
+				""", new UTF8Encoding(false));
+
+			int code = Run(["explain-type", file, "id(5)"], out string output, out string error);
+
+			Assert.Equal(0, code);
+			Assert.Equal(string.Empty, error);
+			Assert.Contains("тип: i32", output);
+			Assert.Contains("generic: T=i32", output);
+		}
+		finally
+		{
+			Delete(directory);
+		}
+	}
+
+	[Fact]
+	public void Run_profile_prints_functions_and_hot_lines()
+	{
+		string directory = Temp("kern-profile");
+		try
+		{
+			Directory.CreateDirectory(directory);
+			string file = Path.Combine(directory, "main.kern");
+			File.WriteAllText(file, """
+				fun work(i32 n) -> i32 {
+					i32 total = 0
+					loop i in 0..n { total += i }
+					total
+				}
+
+				fun main { work(10) }
+				""", new UTF8Encoding(false));
+
+			int code = Run(["run", "--profile", file], out string output, out string error);
+
+			Assert.Equal(0, code);
+			Assert.Equal(string.Empty, error);
+			Assert.Contains("; профиль: функции", output);
+			Assert.Contains("work", output);
+			Assert.Contains("; горячие строки", output);
+			Assert.Contains("main.kern:", output);
 		}
 		finally
 		{

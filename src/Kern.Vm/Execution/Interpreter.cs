@@ -85,6 +85,9 @@ public sealed partial class Interpreter
 
 	public Scheduler Scheduler => _scheduler;
 
+	/// <summary>Профилировщик исполнения; включается <c>kern run --profile</c>.</summary>
+	public Profiler? Profiler { get; set; }
+
 	/// <summary>
 	/// Новый интерпретатор для другого потока: общие модуль, типы и статика, собственные
 	/// планировщик, стек и кадры (DECISIONS §D, общая память).
@@ -651,37 +654,6 @@ public sealed partial class Interpreter
 	private static long BitsToInt64(int low, int high) =>
 		unchecked((long)(((ulong)(uint)high << 32) | (uint)low));
 
-	internal struct Frame
-	{
-		public FunctionDef Function;
-		public KValue[] Locals;
-		public KValue[]? Captures;
-		public int Pc;
-		public int StackBase;
-		/// <summary>
-		/// Объект неизменяемого unit, окно создания которого открыл <c>Call</c>, сохранивший
-		/// этот кадр (конструктор ещё не вернулся). Кадр помнит собственный вызов, поэтому
-		/// <c>Ret</c> вызываемого закрывает окно, а раскрутка по панике снимает его через
-		/// <see cref="CloseConstructionWindows"/>. <c>null</c> — вызов окна не открывал.
-		/// </summary>
-		public KObject? Construction;
-
-		public Frame(
-			FunctionDef function,
-			KValue[] locals,
-			KValue[]? captures,
-			int pc,
-			int stackBase,
-			KObject? construction)
-		{
-			Function = function;
-			Locals = locals;
-			Captures = captures;
-			Pc = pc;
-			StackBase = stackBase;
-			Construction = construction;
-		}
-	}
 
 	/// <summary>
 	/// Одноразовое состояние <c>&lt;static-init&gt;</c>, общее для всех форков: форки делят

@@ -28,4 +28,8 @@
 		<ProjectReference Include="../Kern.Vm/Kern.Vm.csproj" />
 		<ProjectReference Include="../Kern.Binding/Kern.Binding.csproj" />
 	</ItemGroup>
+	<!-- Режим native: байткод встраивается в однофайловый хост. -->
+	<ItemGroup Condition="'$(KernEmbedProgram)' != ''">
+		<EmbeddedResource Include="$(KernEmbedProgram)" LogicalName="program.kbc" />
+	</ItemGroup>
 </Project>

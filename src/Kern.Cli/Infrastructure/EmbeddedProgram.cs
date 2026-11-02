@@ -16,7 +16,11 @@ internal static class EmbeddedProgram
 {
 	public const string FileName = "program.kbc";
 
-	public static bool Exists => File.Exists(Path.Combine(AppContext.BaseDirectory, FileName));
+	public static bool Exists =>
+		File.Exists(Path.Combine(AppContext.BaseDirectory, FileName)) || ResourceExists();
+
+	private static bool ResourceExists() =>
+		typeof(EmbeddedProgram).Assembly.GetManifestResourceInfo(FileName) is not null;
 
 	public static int Run(IReadOnlyList<string> arguments, TextWriter stderr)
 	{
@@ -27,7 +31,10 @@ internal static class EmbeddedProgram
 		KbcModule module;
 		try
 		{
-			module = KbcReader.Read(File.ReadAllBytes(path));
+			byte[] bytes = File.Exists(path)
+				? File.ReadAllBytes(path)
+				: ReadResource() ?? throw new IOException($"не найден {FileName} ни рядом с хостом, ни во встроенных ресурсах");
+			module = KbcReader.Read(bytes);
 			KbcModuleValidator.Validate(module);
 		}
 		catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
@@ -63,6 +70,16 @@ internal static class EmbeddedProgram
 			stderr.WriteLine($"ошибка выполнения: {panic.Message}");
 			return 1;
 		}
+	}
+
+	private static byte[]? ReadResource()
+	{
+		using Stream? stream = typeof(EmbeddedProgram).Assembly.GetManifestResourceStream(FileName);
+		if (stream is null)
+			return null;
+		using MemoryStream buffer = new();
+		stream.CopyTo(buffer);
+		return buffer.ToArray();
 	}
 
 	private static KValue Wait(Interpreter interpreter, KValue value)

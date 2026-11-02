@@ -40,6 +40,29 @@ public static class NativeKey
 		};
 		return $"{owner}|{name}|{kindCode}|{(isStatic ? '1' : '0')}|{string.Join(',', parameterTypes)}";
 	}
+
+	/// <summary>
+	/// Человекочитаемый вид ключа для диагностик: <c>owner.name(params)</c> вместо
+	/// внутреннего формата с разделителями <c>|</c>. Повреждённый ключ печатается как есть.
+	/// </summary>
+	public static string Describe(string key)
+	{
+		if (string.IsNullOrEmpty(key))
+			return key;
+		string[] parts = key.Split('|');
+		if (parts.Length != 5)
+			return key;
+		string owner = parts[0];
+		string name = parts[1];
+		string parameters = parts[4];
+		return parts[2] switch
+		{
+			"c" => $"{owner}({parameters})",
+			"g" => $"{owner}.{name}",
+			"s" => $"{owner}.{name} = value",
+			_ => $"{owner}.{name}({parameters})",
+		};
+	}
 }
 
 /// <summary>Вызов нативного члена: аргументы уже приведены к VM-значениям.</summary>

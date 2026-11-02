@@ -1,3 +1,4 @@
+using Kern.Compiler.Semantics.Attributes;
 using Kern.Compiler.Syntax;
 using Kern.Core.Diagnostics;
 
@@ -33,6 +34,8 @@ public sealed class SymbolTable
 		var diagnostics = new List<Diagnostic>();
 		foreach (var declaration in unit.Declarations)
 		{
+			if (!ConditionalCompilation.IsIncluded(declaration))
+				continue;
 			var symbol = CreateSymbol(declaration);
 			if (symbol is null)
 				continue;
@@ -46,14 +49,27 @@ public sealed class SymbolTable
 			if (symbol.Kind == SymbolKind.Function && group.All(existing => existing.Kind == SymbolKind.Function))
 			{
 				var signature = GetFunctionSignature((FunctionDeclaration)declaration);
-				if (group.Any(existing => GetFunctionSignature((FunctionDeclaration)existing.Declaration) == signature))
-					diagnostics.Add(new("KRN1400", $"Повторная сигнатура функции '{symbol.Name}'", symbol.Span));
+				var previous = group.FirstOrDefault(existing =>
+					GetFunctionSignature((FunctionDeclaration)existing.Declaration) == signature);
+				if (previous is not null)
+					diagnostics.Add(new Diagnostic(
+						"KRN1400",
+						$"Повторная сигнатура функции '{symbol.Name}'",
+						symbol.Span,
+						DiagnosticSeverity.Error,
+						[new DiagnosticNote("первое объявление здесь", previous.Span)]));
 				else
 					group.Add(symbol);
 				continue;
 			}
 
-			diagnostics.Add(new("KRN1400", $"Повторное объявление имени '{symbol.Name}'", symbol.Span));
+			var previousName = group[0];
+			diagnostics.Add(new Diagnostic(
+				"KRN1400",
+				$"Повторное объявление имени '{symbol.Name}'",
+				symbol.Span,
+				DiagnosticSeverity.Error,
+				[new DiagnosticNote("первое объявление здесь", previousName.Span)]));
 		}
 
 		return (new SymbolTable(symbols), diagnostics);

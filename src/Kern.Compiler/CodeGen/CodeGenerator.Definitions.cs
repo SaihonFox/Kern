@@ -217,6 +217,8 @@ public sealed partial class CodeGenerator
 			definition.Flags |= MemberFlags.Abstract;
 		if (function.Symbol.Attributes.Any(attribute => attribute.Name == "test"))
 			definition.Flags |= MemberFlags.Test;
+		if (function.Symbol.Attributes.Any(attribute => attribute.Name == "memo"))
+			definition.Flags |= MemberFlags.Memo;
 
 		// HTTP-прокси (spec round 10): путь `{id}` ссылается на имена параметров, а в
 		// FunctionDef имён нет — добавляем служебный атрибут рядом с #[get]/#[post].

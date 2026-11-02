@@ -72,6 +72,9 @@ internal sealed class BuildSession
 	/// <summary>Профиль из CLI (<c>-p release</c>); <c>null</c> — профиль по умолчанию.</summary>
 	public string? ProfileName { get; set; }
 
+	/// <summary><c>--deny-warnings</c> из CLI; <c>null</c> — из build.kern/профиля.</summary>
+	public bool? WarningsAsErrorsOverride { get; set; }
+
 	/// <summary>Выбранный профиль (если объявлен) — влияет на оптимизацию и окружение.</summary>
 	public ProfileModel? ActiveProfile =>
 		ProfileName is { Length: > 0 } name ? Workspace.FindProfile(name) : null;
@@ -172,7 +175,7 @@ internal sealed class BuildSession
 		return new CompileOptions
 		{
 			Optimize = OptimizeOverride ?? profile?.Optimize ?? settings.Optimize,
-			WarningsAsErrors = settings.WarningsAsErrors || profile?.WarningsAsErrors == true,
+			WarningsAsErrors = WarningsAsErrorsOverride ?? settings.WarningsAsErrors || profile?.WarningsAsErrors == true,
 			Macros = settings.Macros,
 			DebugInfo = settings.DebugInfo,
 		};

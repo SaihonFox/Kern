@@ -91,6 +91,7 @@ internal static class CheckCommand
 			BuildSession session = BuildSession.Open(path);
 			session.OptimizeOverride = options.Optimize;
 			session.ProfileName = options.Profile;
+			session.WarningsAsErrorsOverride = options.DenyWarnings ? true : null;
 			// Проверяем все цели, включая библиотечные: `kernc check` не должен требовать
 			// app-цель у проекта-библиотеки (`kernc new lib`).
 			results = BuildTargetCompiler.BuildAllCheck(session);

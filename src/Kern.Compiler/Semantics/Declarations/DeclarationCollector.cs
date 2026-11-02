@@ -69,6 +69,8 @@ public sealed partial class DeclarationCollector
 		// 1. Символы типов и их заголовки: generic-параметры, ограничения, родители, union-альтернативы.
 		foreach (var declaration in unit.Declarations)
 		{
+			if (!ConditionalCompilation.IsIncluded(declaration))
+				continue;
 			switch (declaration)
 			{
 				case TypeDeclaration type:
@@ -83,6 +85,8 @@ public sealed partial class DeclarationCollector
 		// 2. Члены типов, верхнеуровневые функции/поля и расширения. Ошибки не прерывают сбор.
 		foreach (var declaration in unit.Declarations)
 		{
+			if (!ConditionalCompilation.IsIncluded(declaration))
+				continue;
 			switch (declaration)
 			{
 				case TypeDeclaration type when !_duplicateTypes.Contains(type):
@@ -134,7 +138,7 @@ public sealed partial class DeclarationCollector
 			_globals,
 			extensions)
 		{
-			Uses = [.. unit.Declarations.OfType<UseDeclaration>()]
+			Uses = [.. unit.Declarations.OfType<UseDeclaration>().Where(ConditionalCompilation.IsIncluded)]
 		};
 		return (module, [.. _diagnostics]);
 	}

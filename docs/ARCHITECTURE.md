@@ -120,8 +120,9 @@ public sealed class Counter
 ## 8. Байткод
 
 Стековая машина; код функции — `int[]` (opcode + операнды). Пулы: strings, typeSigs, constants, functions, types, fields.
-См. `Kern.Bytecode/OpCode.cs`. `.kbc` = бинарный формат с magic `KBC2` и версией (`KbcWriter`/`KbcReader`). Запись `kernc build` — по умолчанию в `<проект>/out/<имя>.kbc`.
+См. `Kern.Bytecode/OpCode.cs`. `.kbc` = бинарный формат с magic `KBC2` и версией (`KbcWriter`/`KbcReader`). Версия 3 (2026-11-02): LEB128 для кода/счётчиков/индексов, без дублирующего канонического текста подписей, Brotli-сжатие блока при выигрыше; версия 2 читается. Запись `kernc build` — по умолчанию в `<проект>/out/<имя>.kbc`.
 `kernc exe`: копирует хост (файлы рядом с kernc, `kernc.exe` переименовывается в имя модуля) и кладёт рядом `program.kbc`; хост при старте запускает его. По умолчанию `<проект>/dist/<имя>`.
+`kernc build --native [--target <rid>]` (2026-11-02): компилирует `.kbc` и публикует его **внутрь** однофайлового self-contained хоста (VM + std + байткод ресурсом); установленный .NET не нужен, `--target` меняет RID. Это не NativeAOT (см. `DECISIONS_NEEDED.md`), но именно «встраивание VM с байткодом» из запроса; результат — `<проект>/dist/native/<имя>[.exe]`.
 `kernc dll`: тот же .kbc, но без точки входа + интерфейсные заглушки (`kern.stub`) для подключения через `use` (`t.kbc(...)` в `build.kern`; спецификация — «Раунд 25»).
 
 ## 9. Оптимизации (Kern.Compiler.Optimization)

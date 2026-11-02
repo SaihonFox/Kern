@@ -17,7 +17,8 @@ internal sealed record BuildTargetResult(TargetModel Target, CompileResult Compi
 /// <summary>
 /// Сборка цели <c>build.kern</c> (docs/BUILDER.md §3, задача <c>compile</c>): исходники цели
 /// и её зависимостей компилируются одним модулем с именем цели; app-цель пишется в
-/// <c>&lt;root&gt;/out/&lt;цель&gt;.kbc</c>. Папка без <c>build.kern</c> идёт прежним
+/// <c>&lt;root&gt;/out/&lt;цель&gt;.kbc</c>, lib-цель — туда же без точки входа и с
+/// интерфейсными заглушками. Папка без <c>build.kern</c> идёт прежним
 /// соглашением §2 через <see cref="ProjectSources"/>.
 /// </summary>
 internal static class BuildTargetCompiler
@@ -30,9 +31,8 @@ internal static class BuildTargetCompiler
 		IReadOnlyList<TargetModel> targets = BuildGraph.TopologicalOrder(session.Workspace);
 		if (targets.Count == 0)
 			throw new BuildException("в build.kern не объявлено ни одной цели");
-		if (output is not null && targets[0] is { IsConvention: false } &&
-			(targets.Count != 1 || targets[0].IsLibrary))
-			throw new BuildException("параметр -o применим, только если в build.kern одна app-цель");
+		if (output is not null && targets[0] is { IsConvention: false } && targets.Count != 1)
+			throw new BuildException("параметр -o применим, только если в build.kern одна цель");
 
 		var results = new List<BuildTargetResult>(targets.Count);
 		foreach (TargetModel target in targets)
@@ -122,10 +122,14 @@ internal static class BuildTargetCompiler
 
 		ValidateApp(target, compiled, files);
 
-		// Библиотека участвует в сборке зависимых целей своими исходниками; отдельный .kbc
-		// для неё появится в срезе dll, поэтому сейчас пишем его только по явному -o.
-		if (target.IsLibrary && output is null)
-			return new BuildTargetResult(target, compiled, null);
+		if (target.IsLibrary)
+		{
+			// Как библиотека в C#: проект вида "lib" по умолчанию даёт готовый .kbc без
+			// точки входа и с интерфейсными заглушками, поэтому его можно подключить
+			// через t.kbc(...) без отдельной команды dll.
+			compiled.Program!.Module.EntryPoint = -1;
+			AddStubs(compiled, files);
+		}
 		if (!write)
 			return new BuildTargetResult(target, compiled, null);
 
@@ -134,8 +138,38 @@ internal static class BuildTargetCompiler
 		return new BuildTargetResult(target, compiled, path);
 	}
 
-	private static IReadOnlyList<BuildSourceFile> WithStubs(
-		IReadOnlyList<BuildSourceFile> files,
+	/// <summary>
+	/// Встроить интерфейсные исходники (<c>kern.stub</c>) в библиотечный модуль, чтобы
+	/// потребитель мог импортировать его обычным <c>use</c> (spec round 25).
+	/// </summary>
+	private static void AddStubs(CompileResult compiled, IReadOnlyList<BuildSourceFile> files)
+	{
+		var expanded = new Dictionary<string, string>(StringComparer.Ordinal);
+		foreach (var (path, text) in compiled.ExpandedFiles ?? [])
+			expanded[path] = text;
+
+		foreach (BuildSourceFile file in files)
+		{
+			string source = expanded.TryGetValue(file.ModulePath, out string? expandedText)
+				? expandedText
+				: file.Text;
+			string stub = StubGenerator.Generate(source, file.ModulePath);
+			compiled.Program!.Module.Attributes.Add(new AttributeUse(
+				"kern.stub",
+				KConst.Str(file.ModulePath),
+				KConst.Str(ModuleName(file.ModulePath)),
+				KConst.Str(stub)));
+		}
+	}
+
+	private static string ModuleName(string path)
+	{
+		string withoutExtension = Path.ChangeExtension(path, null).Replace('\\', '/');
+		string normalized = withoutExtension.Replace('/', '.');
+		return normalized.StartsWith("src.", StringComparison.Ordinal) ? normalized[4..] : normalized;
+	}
+
+	private static IReadOnlyList<BuildSourceFile> WithStubs(		IReadOnlyList<BuildSourceFile> files,
 		IReadOnlyList<KbcDependency> dependencies)
 	{
 		if (dependencies.Count == 0)

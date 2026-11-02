@@ -3,20 +3,35 @@ using System.Text;
 namespace Kern.Cli.Commands;
 
 /// <summary>
-/// <c>kernc new app|lib|service &lt;папка&gt;</c>: создать проект по шаблону.
+/// <c>kernc new app|exe|console|lib|library|classlib|service &lt;папка&gt;</c>: создать проект
+/// по шаблону. Виды проекта как в C#: запускаемое приложение (<c>app</c>, он же
+/// <c>exe</c>/<c>console</c>) и библиотека (<c>lib</c>, он же <c>library</c>/<c>classlib</c>).
 /// Шаблоны — обычные исходники и <c>build.kern</c>, без скрытой магии.
 /// </summary>
 internal static class NewCommand
 {
 	public static int Run(string[] args, TextWriter stdout, TextWriter stderr)
 	{
-		if (args.Length != 2 || args[0] is not ("app" or "lib" or "service"))
+		if (args.Length != 2)
 		{
 			stderr.WriteLine("ошибка: использование: kernc new app|lib|service <папка>");
 			return 2;
 		}
 
-		string template = args[0];
+		string? template = args[0] switch
+		{
+			"app" or "exe" or "console" => "app",
+			"lib" or "library" or "classlib" => "lib",
+			"service" => "service",
+			_ => null,
+		};
+		if (template is null)
+		{
+			stderr.WriteLine(
+				$"ошибка: неизвестный вид проекта: {args[0]} (ожидалось app|exe|console|lib|library|classlib|service)");
+			return 2;
+		}
+
 		string path = Path.GetFullPath(args[1]);
 		if (Directory.Exists(path) && Directory.EnumerateFileSystemEntries(path).Any())
 		{
@@ -69,7 +84,7 @@ internal static class NewCommand
 
 	private static string BuildScript(string template, string name)
 	{
-		string kind = template == "lib" ? "t.kind = \"lib\"" : "t.entry = \"main\"";
+		string kind = template == "lib" ? "t.kind = \"lib\"" : "t.kind = \"app\"\n\t\t\t\t\tt.entry = \"main\"";
 		string libs = template == "service" ? "\n\t\tt.lib(\"kern.backend\")\n\t\tt.lib(\"kern.di\")" : "";
 		return $$"""
 			use kern.build[workspace, target]

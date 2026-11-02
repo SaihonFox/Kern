@@ -13,11 +13,18 @@ public enum DiagnosticSeverity
 	Info
 }
 
+/// <summary>Связанное место диагностики: «объявлено здесь», «передано здесь».</summary>
+public sealed record DiagnosticNote(string Message, TextSpan Span);
+
 public sealed record Diagnostic(
 	string Code,
 	string Message,
 	TextSpan Span,
-	DiagnosticSeverity Severity = DiagnosticSeverity.Error)
+	DiagnosticSeverity Severity = DiagnosticSeverity.Error,
+	IReadOnlyList<DiagnosticNote>? Notes = null)
 {
 	public bool IsError => Severity == DiagnosticSeverity.Error;
+
+	/// <summary>Связанные места (может быть пусто).</summary>
+	public IReadOnlyList<DiagnosticNote> Related => Notes ?? [];
 }

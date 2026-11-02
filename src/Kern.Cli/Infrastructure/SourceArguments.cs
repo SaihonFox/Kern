@@ -16,8 +16,24 @@ internal sealed record CliOptions
 
 	public string? Profile { get; init; }
 
+	/// <summary><c>--deny-warnings</c>: любое предупреждение делает сборку неуспешной.</summary>
+	public bool DenyWarnings { get; init; }
+
+	/// <summary><c>--profile</c> у <c>run</c>: замерить вызовы и время функций.</summary>
+	public bool RunProfile { get; init; }
+
+	/// <summary><c>--native</c> у <c>build</c>: один самодостаточный исполняемый файл.</summary>
+	public bool Native { get; init; }
+
+	/// <summary><c>--target &lt;rid&gt;</c> для <c>--native</c> (<c>linux-x64</c> и т.п.).</summary>
+	public string? TargetRid { get; init; }
+
 	public CompileOptions Apply(CompileOptions defaults) =>
-		Optimize is { } level ? defaults with { Optimize = level } : defaults;
+		defaults with
+		{
+			Optimize = Optimize is { } level ? level : defaults.Optimize,
+			WarningsAsErrors = defaults.WarningsAsErrors || DenyWarnings,
+		};
 }
 
 /// <summary>
@@ -79,6 +95,36 @@ internal static class SourceArguments
 			if (argument == "--time")
 			{
 				options = options with { Time = true };
+				continue;
+			}
+
+			if (argument == "--deny-warnings")
+			{
+				options = options with { DenyWarnings = true };
+				continue;
+			}
+
+			if (argument == "--profile")
+			{
+				options = options with { RunProfile = true };
+				continue;
+			}
+
+			if (argument == "--native")
+			{
+				options = options with { Native = true };
+				continue;
+			}
+
+			if (argument == "--target")
+			{
+				if (index + 1 >= args.Length)
+				{
+					stderr.WriteLine("ошибка: параметр --target требует RID (например linux-x64)");
+					return false;
+				}
+
+				options = options with { TargetRid = args[++index] };
 				continue;
 			}
 

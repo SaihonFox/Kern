@@ -37,13 +37,13 @@ public static class NativeSymbolBuilder
 		{
 			if (descriptor.Method is not null && !descriptor.Method.IsStatic)
 			{
-				problems.Add($"native '{descriptor.NativeKey}': экземплярные члены пока не поддержаны");
+				problems.Add($"native '{Kern.Vm.Native.NativeKey.Describe(descriptor.NativeKey)}': экземплярные члены пока не поддержаны");
 				continue;
 			}
 
 			if (!TryBuild(types, descriptor, out FunctionSymbol? symbol, out string? error))
 			{
-				problems.Add($"native '{descriptor.NativeKey}': {error}");
+				problems.Add($"native '{Kern.Vm.Native.NativeKey.Describe(descriptor.NativeKey)}': {error}");
 				continue;
 			}
 

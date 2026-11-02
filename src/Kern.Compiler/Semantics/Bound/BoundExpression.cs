@@ -68,6 +68,16 @@ public sealed record BoundBinaryExpression(
 	KernType Type,
 	TextSpan Span) : BoundExpression(Type, Span);
 
+/// <summary>
+/// Цепочка сравнений <c>a &lt; b &lt; c</c>: эквивалентна
+/// <c>a &lt; b &amp;&amp; b &lt; c</c>, но каждый операнд вычисляется один раз
+/// (codegen хранит средние значения во временном слоте).
+/// </summary>
+public sealed record BoundComparisonChainExpression(
+	IReadOnlyList<BoundExpression> Operands,
+	IReadOnlyList<string> Operators,
+	TextSpan Span) : BoundExpression(PrimitiveType.Bool, Span);
+
 public sealed record BoundUnaryExpression(
 	string Operator,
 	BoundExpression Operand,
