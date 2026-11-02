@@ -1,6 +1,6 @@
 # ROADMAP — stage 1 (core + std + CLI)
 
-Order matters; do not start a milestone before the previous one builds and its tests are green. Token numbers are **soft caps** (see `TOKEN_BUDGET.md`);
+Order matters; do not start a milestone before the previous one builds and its tests are green. Token numbers are **soft caps**;
 if a milestone exceeds 1.5× its cap, stop and report in `DECISIONS_NEEDED.md`.
 Every milestone ends with: `dotnet build Kern.slnx` 0 errors · `dotnet test` green · `node tools/check-style.mjs` clean · `STATUS.md` updated · `logs/` saved.
 

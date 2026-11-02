@@ -10,7 +10,7 @@
 | `CONVENTIONS.md` | Layout and code style |
 | `TESTING.md` | Test layers, golden tests format |
 | `WORKFLOW.md` | Roles, task briefs, report formats |
-| `TOKEN_BUDGET.md` | How to spend ~60M tokens |
+
 | `KNOWN_ISSUES.md` | Traps/bugs from the old attempt |
 | `OPEN_QUESTIONS.md` | Gaps with defaults |
 | `WISHLIST.md` | Stage 2+ |

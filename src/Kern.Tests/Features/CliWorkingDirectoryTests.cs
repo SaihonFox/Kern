@@ -31,11 +31,37 @@ public sealed class CliWorkingDirectoryTests
 			}
 
 			Assert.Equal(0, code);
-			Assert.Equal(Path.GetFullPath(directory), stdout.ToString().Trim());
+			Assert.Equal(Canonical(directory), stdout.ToString().Trim());
 		}
 		finally
 		{
 			Directory.Delete(directory, recursive: true);
 		}
+	}
+
+	/// <summary>
+	/// Разрешает символические ссылки в компонентах пути: на macOS временный каталог
+	/// возвращается как <c>/var/…</c>, а <c>getcwd()</c> в программе — уже как
+	/// <c>/private/var/…</c>. Без этого сравнение падало только в CI macOS.
+	/// </summary>
+	private static string Canonical(string path)
+	{
+		string full = Path.GetFullPath(path);
+		if (!OperatingSystem.IsMacOS() && !OperatingSystem.IsLinux())
+			return full;
+		string root = Path.GetPathRoot(full)!;
+		string current = root;
+		foreach (string part in full[root.Length..].Split(
+			[Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],
+			StringSplitOptions.RemoveEmptyEntries))
+		{
+			current = Path.Combine(current, part);
+			FileSystemInfo info = Directory.Exists(current)
+				? new DirectoryInfo(current)
+				: new FileInfo(current);
+			if (info.LinkTarget is { } target)
+				current = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(current)!, target));
+		}
+		return current;
 	}
 }

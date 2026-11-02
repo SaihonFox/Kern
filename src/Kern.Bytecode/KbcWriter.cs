@@ -1,14 +1,24 @@
+using System.IO.Compression;
 using System.Text;
 
 namespace Kern.Bytecode;
 
 /// <summary>
-/// Бинарная запись <see cref="KbcModule"/> (формат KBC2, версия 2, little-endian).
-/// Порядок секций фиксирован и зеркален <see cref="KbcReader"/>; запись детерминирована,
-/// поэтому повторная сериализация прочитанного модуля даёт те же байты.
+/// Бинарная запись <see cref="KbcModule"/> (формат KBC2, версия 3, little-endian).
+/// <para>
+/// Версия 3 уменьшает размер: целые числа и счётчики пишутся LEB128 (код функций,
+/// таблицы строк, индексы — самая объёмная часть), канонический текст подписи типа
+/// больше не дублируется (читатель строит его из структуры), а весь блок сжимается
+/// Brotli, если это выгодно. Порядок секций прежний и зеркален <see cref="KbcReader"/>;
+/// запись детерминирована, повторная сериализация прочитанного модуля даёт те же байты.
+/// </para>
 /// </summary>
 public static class KbcWriter
 {
+	private static readonly UTF8Encoding Utf8 = new(false);
+
+	private const byte FlagCompressed = 1;
+
 	public static byte[] Write(KbcModule module)
 	{
 		using MemoryStream stream = new();
@@ -22,9 +32,42 @@ public static class KbcWriter
 		ArgumentNullException.ThrowIfNull(stream);
 		KbcModuleValidator.Validate(module);
 
-		using BinaryWriter writer = new(stream, new UTF8Encoding(false), leaveOpen: true);
-		writer.Write(Encoding.ASCII.GetBytes(KbcModule.Magic));
-		writer.Write(KbcModule.Version);
+		byte[] payload;
+		using (MemoryStream buffer = new())
+		{
+			using (BinaryWriter writer = new(buffer, Utf8, leaveOpen: true))
+				WritePayload(writer, module);
+			payload = buffer.ToArray();
+		}
+
+		byte[] compressed;
+		using (MemoryStream buffer = new())
+		{
+			using (BrotliStream brotli = new(buffer, CompressionLevel.SmallestSize, leaveOpen: true))
+				brotli.Write(payload);
+			compressed = buffer.ToArray();
+		}
+
+		bool useCompressed = compressed.Length < payload.Length;
+		using BinaryWriter header = new(stream, Utf8, leaveOpen: true);
+		header.Write(Encoding.ASCII.GetBytes(KbcModule.Magic));
+		header.Write(KbcModule.Version);
+		header.Write((byte)(useCompressed ? FlagCompressed : 0));
+		header.Write(payload.Length);
+		if (useCompressed)
+		{
+			header.Write(compressed.Length);
+			header.Write(compressed);
+		}
+		else
+		{
+			header.Write(payload);
+		}
+		header.Flush();
+	}
+
+	private static void WritePayload(BinaryWriter writer, KbcModule module)
+	{
 		WriteString(writer, module.Name);
 		WriteStrings(writer, module.References);
 		WriteStrings(writer, module.StringPool);
@@ -35,28 +78,54 @@ public static class KbcWriter
 		WriteList(writer, module.FieldPool, WriteField);
 		WriteList(writer, module.PropertyPool, WriteProperty);
 		WriteList(writer, module.FunctionPool, WriteFunction);
-		writer.Write(module.EntryPoint);
-		writer.Write(module.StaticInit);
+		WriteInt32(writer, module.EntryPoint);
+		WriteInt32(writer, module.StaticInit);
 		WriteList(writer, module.Attributes, WriteAttribute);
-		writer.Flush();
+	}
+
+	private static void WriteUInt32(BinaryWriter writer, uint value)
+	{
+		while (value >= 0x80)
+		{
+			writer.Write((byte)(value | 0x80));
+			value >>= 7;
+		}
+		writer.Write((byte)value);
+	}
+
+	/// <summary>ZigZag + LEB128: отрицательные индексы (-1) тоже занимают один байт.</summary>
+	private static void WriteInt32(BinaryWriter writer, int value) =>
+		WriteUInt32(writer, (uint)((value << 1) ^ (value >> 31)));
+
+	private static void WriteInt64(BinaryWriter writer, long value) =>
+		WriteUInt64(writer, (ulong)((value << 1) ^ (value >> 63)));
+
+	private static void WriteUInt64(BinaryWriter writer, ulong value)
+	{
+		while (value >= 0x80)
+		{
+			writer.Write((byte)(value | 0x80));
+			value >>= 7;
+		}
+		writer.Write((byte)value);
 	}
 
 	private static void WriteList<T>(BinaryWriter writer, IReadOnlyList<T> items, Action<BinaryWriter, T> write)
 	{
-		writer.Write(items.Count);
+		WriteUInt32(writer, (uint)items.Count);
 		foreach (T item in items) write(writer, item);
 	}
 
 	private static void WriteStrings(BinaryWriter writer, IReadOnlyList<string> items)
 	{
-		writer.Write(items.Count);
+		WriteUInt32(writer, (uint)items.Count);
 		foreach (string item in items) WriteString(writer, item);
 	}
 
 	private static void WriteString(BinaryWriter writer, string value)
 	{
 		byte[] bytes = Encoding.UTF8.GetBytes(value);
-		writer.Write(bytes.Length);
+		WriteUInt32(writer, (uint)bytes.Length);
 		writer.Write(bytes);
 	}
 
@@ -68,8 +137,8 @@ public static class KbcWriter
 
 	private static void WriteIntArray(BinaryWriter writer, int[] items)
 	{
-		writer.Write(items.Length);
-		foreach (int item in items) writer.Write(item);
+		WriteUInt32(writer, (uint)items.Length);
+		foreach (int item in items) WriteInt32(writer, item);
 	}
 
 	private static void WriteConst(BinaryWriter writer, KConst value)
@@ -82,11 +151,14 @@ public static class KbcWriter
 			case KConstKind.Bool:
 				writer.Write(value.AsBool);
 				break;
-			case KConstKind.I64 or KConstKind.F64:
+			case KConstKind.I64:
+				WriteInt64(writer, value.Bits);
+				break;
+			case KConstKind.F64:
 				writer.Write(value.Bits);
 				break;
 			case KConstKind.Char:
-				writer.Write((ushort)value.AsChar);
+				WriteUInt32(writer, (ushort)value.AsChar);
 				break;
 			case KConstKind.Str:
 				WriteString(writer, value.AsStr);
@@ -98,8 +170,7 @@ public static class KbcWriter
 
 	private static void WriteSig(BinaryWriter writer, TypeSig sig)
 	{
-		// Канонический текст пишется рядом со структурой: читатель сверяет их.
-		WriteString(writer, sig.Canonical);
+		// Канонический текст не пишется: он полностью выводится из структуры.
 		switch (sig)
 		{
 			case TypeSig.PrimSig prim:
@@ -113,8 +184,8 @@ public static class KbcWriter
 				break;
 			case TypeSig.ParamSig param:
 				writer.Write((byte)3);
-				writer.Write(param.Scope);
-				writer.Write(param.Index);
+				WriteInt32(writer, param.Scope);
+				WriteInt32(writer, param.Index);
 				WriteString(writer, param.Name);
 				break;
 			case TypeSig.FuncSig func:
@@ -152,8 +223,8 @@ public static class KbcWriter
 	{
 		WriteString(writer, field.Name);
 		WriteSig(writer, field.Type);
-		writer.Write((uint)field.Flags);
-		writer.Write(field.Slot);
+		WriteUInt32(writer, (uint)field.Flags);
+		WriteInt32(writer, field.Slot);
 		WriteList(writer, field.Attributes, WriteAttribute);
 	}
 
@@ -161,34 +232,33 @@ public static class KbcWriter
 	{
 		WriteString(writer, property.Name);
 		WriteSig(writer, property.Type);
-		writer.Write((uint)property.Flags);
-		writer.Write(property.OwnerType);
-		writer.Write(property.Getter);
-		writer.Write(property.Setter);
-		writer.Write(property.Init);
-		writer.Write(property.BackingField);
+		WriteUInt32(writer, (uint)property.Flags);
+		WriteInt32(writer, property.OwnerType);
+		WriteInt32(writer, property.Getter);
+		WriteInt32(writer, property.Setter);
+		WriteInt32(writer, property.Init);
+		WriteInt32(writer, property.BackingField);
 		WriteList(writer, property.Attributes, WriteAttribute);
 	}
 
 	private static void WriteFunction(BinaryWriter writer, FunctionDef function)
 	{
 		WriteString(writer, function.Name);
-		writer.Write(function.OwnerType);
-		writer.Write((uint)function.Flags);
+		WriteInt32(writer, function.OwnerType);
+		WriteUInt32(writer, (uint)function.Flags);
 		WriteList(writer, function.ParamTypes, WriteSig);
 		WriteSig(writer, function.ReturnType);
-		writer.Write(function.LocalCount);
-		writer.Write(function.MaxStack);
+		WriteInt32(writer, function.LocalCount);
+		WriteInt32(writer, function.MaxStack);
 		WriteIntArray(writer, function.Code);
-		writer.Write(function.LineTable.Count);
-		foreach (LineEntry line in function.LineTable)
+		WriteList(writer, function.LineTable, (w, line) =>
 		{
-			writer.Write(line.Offset);
-			writer.Write(line.Line);
-		}
+			WriteInt32(w, line.Offset);
+			WriteInt32(w, line.Line);
+		});
 		WriteNullableString(writer, function.SourceFile);
 		WriteNullableString(writer, function.NativeKey);
-		writer.Write(function.NativeTypeArgs);
+		WriteInt32(writer, function.NativeTypeArgs);
 		WriteList(writer, function.Attributes, WriteAttribute);
 	}
 
@@ -197,13 +267,13 @@ public static class KbcWriter
 		WriteString(writer, type.Name);
 		WriteString(writer, type.FullName);
 		writer.Write((byte)type.Kind);
-		writer.Write((uint)type.Flags);
+		WriteUInt32(writer, (uint)type.Flags);
 		WriteStrings(writer, type.GenericParams);
 		WriteList(writer, type.Parents, WriteSig);
 		WriteList(writer, type.Fields, WriteField);
 		WriteList(writer, type.Properties, WriteProperty);
-		WriteList(writer, type.Methods, (w, value) => w.Write(value));
-		WriteList(writer, type.Ctors, (w, value) => w.Write(value));
+		WriteList(writer, type.Methods, WriteInt32);
+		WriteList(writer, type.Ctors, WriteInt32);
 		WriteList(writer, type.Attributes, WriteAttribute);
 		WriteList(writer, type.UnionMembers, WriteSig);
 	}

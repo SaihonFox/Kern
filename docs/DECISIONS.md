@@ -12,7 +12,7 @@ Language details live in `docs/spec/kern.en.md`; this file is the index of *why*
 - [FINAL] Permissions: agents may run `dotnet` and edit files in the project folder; anything else → ask.
 - [FINAL] Reports: `STATUS.md`, `DECISIONS_NEEDED.md`, logs of build/tests in `logs/`, `CHANGELOG_LANG.md`.
 - [FINAL] Platforms: Windows + Linux + macOS, with CI (template in `.github/workflows/ci.yml`). Owner develops on Windows, .NET 10 SDK.
-- [FINAL] Budget ≈ 60M tokens total; agent decides how to spend (`TOKEN_BUDGET.md`).
+- [FINAL] Budget ≈ 60M tokens total; agent decides how to spend (the budget file was removed in 2026-11-02 by the owner's request).
 
 ## B. Architecture (rounds 1–2)
 - [FINAL] Bytecode + VM (stack machine); `kernc exe` = `.kbc` + VM host. Interpreter now; the Kern→C#/Kotlin translator is the external library `libs/Kern.Lib.Transpile` (implemented 2026-11-02).

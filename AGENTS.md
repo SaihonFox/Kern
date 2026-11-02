@@ -8,7 +8,7 @@ never-compiled attempt that you may mine for ideas and copy from **piece by piec
 ## Read order (read only what the task needs; use ranges/grep, never dump huge files)
 1. `STATUS.md` — where we are. 2. `docs/ROADMAP.md` — milestone you are on. 3. `docs/spec/kern.en.md` — language spec (source of truth).
 4. `docs/DECISIONS.md` — what the owner decided. 5. `docs/ARCHITECTURE.md` — projects and design. 6. `docs/KNOWN_ISSUES.md` — traps.
-Others on demand: `BUILDER.md`, `TESTING.md`, `CONVENTIONS.md`, `WORKFLOW.md`, `TOKEN_BUDGET.md`, `OPEN_QUESTIONS.md`.
+Others on demand: `BUILDER.md`, `TESTING.md`, `CONVENTIONS.md`, `WORKFLOW.md`, `OPEN_QUESTIONS.md`.
 
 ## Hard rules
 - **Nothing is "done" until it builds and tests pass**: `dotnet build Kern.slnx` = 0 errors, `dotnet test` green. Save output to `logs/` (`build.log`, `test.log`).
@@ -32,7 +32,7 @@ Others on demand: `BUILDER.md`, `TESTING.md`, `CONVENTIONS.md`, `WORKFLOW.md`, `
 
 ## Delegation (lead agent only)
 Give a sub-agent a *small, self-contained* task: goal, files to touch, spec sections, acceptance check. Expect back: what changed,
-build/test result, open questions. Prefer many short sessions over one huge one (see `docs/TOKEN_BUDGET.md`).
+build/test result, open questions. Prefer many short sessions over one huge one.
 
 ## Reports (keep them short and current)
 `STATUS.md` (done / tests green / next) · `DECISIONS_NEEDED.md` (questions with options) · `logs/*.log` · `CHANGELOG_LANG.md`.

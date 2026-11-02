@@ -7,7 +7,8 @@ namespace Kern.Bytecode;
 public sealed class KbcModule
 {
 	public const string Magic = "KBC2";
-	public const ushort Version = 2;
+	/// <summary>Версия формата: 3 — LEB128, без дублирующего канонического текста, Brotli.</summary>
+	public const ushort Version = 3;
 
 	public required string Name { get; set; }
 
