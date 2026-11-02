@@ -13,9 +13,21 @@ internal static class LspCommand
 	public static int Run(string[] args, TextWriter stdout, TextWriter stderr)
 	{
 		_ = stdout;
-		if (args.Length != 0)
+		for (var index = 0; index < args.Length; index++)
 		{
-			stderr.WriteLine("ошибка: kernc lsp не принимает аргументов (сервер общается по stdio)");
+			string argument = args[index];
+			// vscode-languageclient добавляет эти флаги к любой stdio-команде.
+			if (argument is "--stdio" or "--pipe")
+				continue;
+			if (argument.StartsWith("--clientProcessId=", StringComparison.Ordinal))
+				continue;
+			if (argument == "--clientProcessId" && index + 1 < args.Length)
+			{
+				index++;
+				continue;
+			}
+
+			stderr.WriteLine($"ошибка: kernc lsp: неизвестный аргумент '{argument}' (сервер общается по stdio)");
 			return 2;
 		}
 

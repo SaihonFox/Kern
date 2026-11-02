@@ -16,7 +16,8 @@ scope): the compiler and runtime are unchanged.
 
 `kernc lsp` и `kern-lsp` — один и тот же сервер: JSON-RPC 2.0 на stdin/stdout с
 `Content-Length`. Сервер не печатает ничего, кроме протокола, поэтому его можно запускать
-из любого редактора.
+из любого редактора. Служебные флаги `vscode-languageclient` (`--stdio`,
+`--clientProcessId=…`) игнорируются.
 
 ## VS Code
 
