@@ -67,6 +67,8 @@ public sealed class ModuleLoader
 		foreach (var declaration in pending.Unit.Declarations.OfType<UseDeclaration>().Where(ConditionalCompilation.IsIncluded))
 		{
 			var targetName = declaration.Path;
+			if (targetName.StartsWith("dotnet.", StringComparison.Ordinal))
+				continue; // типы `use dotnet...` уже в нативном каталоге
 			if (!_modules.TryGetValue(targetName, out var target))
 			{
 				var unit = _loadUnit(targetName);

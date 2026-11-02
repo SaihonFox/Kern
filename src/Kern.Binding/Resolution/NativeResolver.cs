@@ -85,8 +85,11 @@ public sealed class NativeResolver : INativeResolver
 
 			if (!_descriptors.TryGetValue(key, out NativeFunctionDescriptor? descriptor))
 			{
-				binding = null!;
-				return false;
+				if (!TryBuildDotnet(key, out descriptor))
+				{
+					binding = null!;
+					return false;
+				}
 			}
 
 			NativeBinding built = Build(descriptor);
@@ -94,6 +97,55 @@ public sealed class NativeResolver : INativeResolver
 			binding = built;
 			return true;
 		}
+	}
+
+	/// <summary>
+	/// Резервный путь для <c>use dotnet...</c>: в <c>.kbc</c> хранится только ключ
+	/// <c>dotnet:&lt;тип&gt;|имя|…</c>, поэтому тип и метод находятся рефлексией при первом вызове.
+	/// </summary>
+	private static bool TryBuildDotnet(string key, out NativeFunctionDescriptor descriptor)
+	{
+		descriptor = null!;
+		if (!key.StartsWith("dotnet:", StringComparison.Ordinal))
+			return false;
+		string[] parts = key.Split('|');
+		if (parts.Length != 5)
+			return false;
+		string typeName = parts[0]["dotnet:".Length..];
+		string name = parts[1];
+		NativeMemberKind kind = parts[2] switch
+		{
+			"g" => NativeMemberKind.PropertyGet,
+			"s" => NativeMemberKind.PropertySet,
+			"c" => NativeMemberKind.Constructor,
+			_ => NativeMemberKind.Method,
+		};
+		int expected = parts[4].Length == 0 ? 0 : parts[4].Split(',').Length;
+
+		Type? type = DotnetCatalog.FindType(typeName);
+		if (type is null)
+			return false;
+
+		foreach (MethodInfo method in type.GetMethods(BindingFlags.Public | BindingFlags.Static))
+		{
+			if (method.IsGenericMethodDefinition)
+				continue;
+			if (kind == NativeMemberKind.PropertyGet && !method.Name.StartsWith("get_", StringComparison.Ordinal))
+				continue;
+			if (kind == NativeMemberKind.Method && method.IsSpecialName)
+				continue;
+			if (method.GetParameters().Length != expected)
+				continue;
+			if (!DotnetCatalog.TryBuild(method, type, type.Name, kind, out NativeFunctionDescriptor? candidate))
+				continue;
+			if (candidate!.Name != name && !method.Name.Equals(name, StringComparison.Ordinal))
+				continue;
+			if (candidate.NativeKey != key)
+				continue;
+			descriptor = candidate;
+			return true;
+		}
+		return false;
 	}
 
 	private static NativeBinding Build(NativeFunctionDescriptor descriptor)

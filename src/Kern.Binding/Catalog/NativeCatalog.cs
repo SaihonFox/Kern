@@ -132,6 +132,28 @@ public sealed class NativeCatalog
 
 	public bool IsEmpty => Functions.Count == 0 && Types.Count == 0 && Modules.Count == 0;
 
+	/// <summary>
+	/// Добавить отражённые .NET-типы (<c>use dotnet.X[...]</c>): возвращает новый каталог
+	/// с теми же модулями/типами плюс переданные дескрипторы. Дубликаты ключей отбрасываются.
+	/// </summary>
+	internal NativeCatalog Extend(
+		IEnumerable<NativeTypeDescriptor> extraTypes,
+		IEnumerable<NativeFunctionDescriptor> extraFunctions)
+	{
+		var types = new List<NativeTypeDescriptor>(Types);
+		foreach (NativeTypeDescriptor type in extraTypes)
+			if (!types.Any(existing => string.Equals(existing.Name, type.Name, StringComparison.Ordinal)))
+				types.Add(type);
+
+		var functions = new List<NativeFunctionDescriptor>(Functions);
+		var keys = new HashSet<string>(functions.Select(function => function.NativeKey), StringComparer.Ordinal);
+		foreach (NativeFunctionDescriptor function in extraFunctions)
+			if (keys.Add(function.NativeKey))
+				functions.Add(function);
+
+		return new NativeCatalog(Modules, types, functions, Diagnostics);
+	}
+
 	/// <summary>Сканировать сборки; повторяющиеся ключи считаются ошибкой каталога.</summary>
 	public static NativeCatalog Scan(params Assembly[] assemblies) =>
 		Scan((IEnumerable<Assembly>)assemblies);

@@ -102,8 +102,10 @@ public sealed class Counter
 8. Исключения C# внутри нативов → `panic` Kern с сообщением, либо `result.Err` если метод возвращает `KResult`.
 9. `NativeCatalog.Scan(Assembly)` строит символы для компилятора (без запуска). `NativeResolver` создаёт делегаты
    (скомпилированные `Expression`-деревья, не `MethodInfo.Invoke`) для VM.
-10. Способ C (интероп): `use dotnet.System.IO[File, Path]` — компилятор спрашивает `NativeCatalog` (раздел dotnet), который рефлектит
-    любой загруженный .NET-тип и применяет те же правила маппинга; имена → snake_case; `File.read_all_text(p)`.
+10. Способ C (интероп): `use dotnet.System.IO[File, Path]` — `DotnetImport` находит типы, `DotnetCatalog` рефлектит
+    **статические** методы/свойства и кладёт их в нативный каталог; имена → snake_case; `File.read_all_text(p)`.
+    В `.kbc` хранится ключ `dotnet:<полное имя типа>`, поэтому `NativeResolver` находит метод рефлексией и для
+    однофайлового хоста. Ограничения: экземплярные члены, конструкторы и открытые generic-типы пока не импортируются.
 11. Наследование нативных типов берётся из C#: `class KernSet<T> : KernCollection<T>` ⇒ `set<T>` наследует `collection<T>` (база тоже `[KernType]`). Kern-типы от нативных не наследуются. Встроенные list/array/str/dict/range получают родителя `collection<…>` правилом компилятора (`NativeType.CollectionParentOf`), а в нативный код подаются через адаптеры (`[KernAdapter]`, `IValueAdapter`).
 12. Внешние библиотеки (`libs/`) — сборки `Kern.Lib.*.dll` с теми же атрибутами; `LibraryLoader` загружает их до компиляции и до запуска VM. `NativeResolver` ищет члены по `NativeKey` среди ЗАГРУЖЕННЫХ сборок, поэтому `Pipeline.CreateVm` явно загружает `Kern.Runtime` (иначе .kbc без компиляции не найдёт нативы).
 13. `.kern` в std НЕ дублируют сигнатуры нативных типов. Они `use` их: `use kern.text[str]`. Атрибут `#[native]`

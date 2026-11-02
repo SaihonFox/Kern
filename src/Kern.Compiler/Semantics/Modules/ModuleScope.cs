@@ -181,6 +181,8 @@ public static class ModuleResolver
 
 			if (use.Path.StartsWith("kern.", StringComparison.Ordinal))
 				continue;
+			if (use.Path.StartsWith("dotnet.", StringComparison.Ordinal))
+				continue;
 
 			if (!byName.TryGetValue(use.Path, out var target))
 			{

@@ -56,4 +56,38 @@ public sealed class TextExtrasTests
 		Assert.Equal(KValue.Str("<h1>Hi</h1>\n<p><strong>bold</strong></p>\n"), StdPipeline.Run(source, "html"));
 		Assert.Equal(KValue.Str("Привет, &lt;Аня&gt;!"), StdPipeline.Run(source, "template"));
 	}
+
+	[Fact]
+	public void StringBuilder_accumulates_without_quadratic_concat()
+	{
+		const string source = """
+			fun value() -> str {
+				string_builder b()
+				loop i in 0..4 {
+					b.append(i)
+					b.append_line("!")
+				}
+				b.to_str()
+			}
+
+			fun length() -> i32 {
+				string_builder b()
+				b.append("abc")
+				b.append_line("de")
+				b.len
+			}
+
+			fun reusable() -> str {
+				string_builder b()
+				b.append("old")
+				b.clear()
+				b.append("new")
+				b.to_str()
+			}
+			""";
+
+		Assert.Equal(KValue.Str("0!\n1!\n2!\n3!\n"), StdPipeline.Run(source, "value"));
+		Assert.Equal(KValue.I32(6), StdPipeline.Run(source, "length"));
+		Assert.Equal(KValue.Str("new"), StdPipeline.Run(source, "reusable"));
+	}
 }

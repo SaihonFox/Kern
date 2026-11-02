@@ -36,6 +36,8 @@
 - **`kern.text`** (расширения): `levenshtein`, `fuzzy_contains`, `transliterate`, `slug`,
   `normalize(text, "NFC"|"NFD"|"NFKC"|"NFKD")`, `graphemes`, `escape_html`, `markdown_to_html`,
   `template_render(template, dict<str,str>)` с `{{key}}`, `to_utf8`/`from_utf8`.
+  Эффективная сборка строк — тип `string_builder`: `string_builder([capacity])`, `append(...)`,
+  `append_line(...)`, `len`, `is_empty`, `clear()`, `to_str()`.
   *Ограничения:* шаблонизатор без циклов/условий/partials; Markdown — подмножество без таблиц
   и вложенных списков.
 - **`kern.parse`**: `parse_ident`, `parse_integer`, `parse_number`, `parse_quoted`,
@@ -48,6 +50,25 @@
   `conjugate`, операторы `+ - * /`, `to_str`). *Ограничения:* собственные `rational`/векторные
   типы, собственные числа и разреженные матрицы пока не добавлены; `solve` — Гаусс без
   выбора полного pivoting.
+
+## `use dotnet.X[...]` (способ C)
+
+```kern
+use dotnet.System.IO[File, Path]
+use dotnet.System[Math]
+
+File.write_all_text("out.txt", "ok")
+str text = File.read_all_text("out.txt")
+str name = Path.get_file_name_without_extension("data/report.md")
+f64 absolute = Math.abs(-3.5)
+```
+
+Статические методы и свойства BCL становятся членами типа с snake_case-именами. Работает и
+в `exe`/`dist`: в `.kbc` хранится `dotnet:<полное имя>` и `NativeResolver` находит метод
+рефлексией. *Ограничения:* только статические члены; экземплярные члены, конструкторы,
+сеттеры свойств и открытые generic-типы не импортируются; тип должен быть в загруженной
+сборке (явно пробуются `System.Runtime`, `System.Console`, `System.IO.FileSystem`).
+
 
 
 ## Где kernc ищет библиотеки

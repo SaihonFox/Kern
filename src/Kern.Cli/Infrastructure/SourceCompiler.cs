@@ -9,6 +9,7 @@ using Kern.Compiler.Semantics.Binding;
 using Kern.Compiler.Semantics.Declarations;
 using Kern.Compiler.Syntax;
 using Kern.Cli.Macros;
+using Kern.Cli.Interop;
 using Kern.Core.Diagnostics;
 using Kern.Core.Text;
 using Kern.Runtime.Core;
@@ -93,6 +94,7 @@ internal static class SourceCompiler
 		var projectFiles = files
 			.Select(file => new ProjectSourceFile(file.Path, file.Text))
 			.ToList();
+		catalog = DotnetImport.Apply(catalog, files.Select(file => file.Text));
 		ProjectCompileResult result = ProjectCompiler.Compile(projectFiles, moduleName, catalog);
 		var texts = new Dictionary<string, SourceText>(StringComparer.Ordinal);
 		foreach (var (path, text) in files)
@@ -197,6 +199,7 @@ internal static class SourceCompiler
 			return Failed(source, bundle, diagnostics);
 
 		NativeCatalog catalog = NativeCatalog.Scan(typeof(CoreModule).Assembly);
+		catalog = DotnetImport.Apply(catalog, [text]);
 		var nativeTypes = NativeSymbolBuilder.CreateTypeSymbols(catalog);
 		var (module, collectorDiagnostics) = DeclarationCollector.Collect(
 			parsed.Tree, table, moduleName, primes: null, external: null, nativeTypes);

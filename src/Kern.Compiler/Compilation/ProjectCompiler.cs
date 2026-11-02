@@ -236,6 +236,8 @@ public static class ProjectCompiler
 			{
 				if (use.Path.StartsWith("kern.", StringComparison.Ordinal))
 					continue;
+				if (use.Path.StartsWith("dotnet.", StringComparison.Ordinal))
+					continue;
 				Visit(use.Path);
 			}
 
@@ -307,6 +309,8 @@ public static class ProjectCompiler
 		foreach (var use in unit.Declarations.OfType<UseDeclaration>().Where(ConditionalCompilation.IsIncluded))
 		{
 			if (use.Path.StartsWith("kern.", StringComparison.Ordinal))
+				continue;
+			if (use.Path.StartsWith("dotnet.", StringComparison.Ordinal))
 				continue;
 			if (!typesByModule.TryGetValue(use.Path, out var target))
 				continue;
