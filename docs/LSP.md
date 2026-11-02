@@ -66,8 +66,14 @@ LSP даёт редактору то, чего не даёт обычный те
 | `textDocument/formatting` | full-document edit from `SourceFormatter` (tabs/CRLF/trailing spaces) |
 | `shutdown` / `exit` | standard lifecycle |
 
-## Limits (MVP)
+## Syntax highlighting
 
+Подсветка не входит в LSP: её даёт TextMate-грамматика расширения
+`editors/vscode/syntaxes/kern.tmLanguage.json` (ключевые слова, типы, строки с префиксами
+`r/f/x/v` в любом порядке, `${…}`, `#[…]`, числа, операторы). После изменения грамматики
+перезапустите окно расширения.
+
+## Limits (MVP)
 - The native catalog is `Kern.Runtime` only; external `Kern.Lib.*` modules
   (`kern.backend`, `kern.db`, ...) are not loaded yet, so `use kern.backend[...]`
   reports unresolved names.

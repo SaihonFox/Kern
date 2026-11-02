@@ -324,7 +324,16 @@ public sealed partial class Parser
 			_tokens[index].Text is "?" or "!")
 			index++;
 
-		return _tokens[index].Kind == TokenKind.Identifier &&
+		if (_tokens[index].Kind != TokenKind.Identifier)
+			return false;
+
+		// Тип и имя локальной переменной обязаны быть на одной строке: иначе две
+		// последовательные строки-выражения (`count` / `count`) ошибочно считались
+		// объявлением `<тип> <имя>`.
+		if (index > 0 && HasNewlineBetween(_tokens[index - 1].Span.End, _tokens[index].Span.Start))
+			return false;
+
+		return
 			(index + 1 >= _tokens.Count ||
 			_tokens[index + 1].Kind is TokenKind.Equals or TokenKind.Comma or TokenKind.RightParen or
 				TokenKind.Semicolon or TokenKind.LeftParen ||

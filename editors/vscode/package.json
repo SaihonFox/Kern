@@ -28,6 +28,13 @@
 				"configuration": "./language-configuration.json"
 			}
 		],
+		"grammars": [
+			{
+				"language": "kern",
+				"scopeName": "source.kern",
+				"path": "./syntaxes/kern.tmLanguage.json"
+			}
+		],
 		"configuration": {
 			"title": "Kern",
 			"properties": {
