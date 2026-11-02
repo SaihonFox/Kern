@@ -93,7 +93,7 @@ public static class LspFeatures
 				GlobalFieldDeclaration field => field.Name,
 				_ => null,
 			};
-			if (name is null)
+			if (string.IsNullOrWhiteSpace(name))
 				continue;
 
 			int kind = declaration switch
