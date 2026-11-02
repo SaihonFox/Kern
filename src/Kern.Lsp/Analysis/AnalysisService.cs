@@ -173,22 +173,29 @@ public sealed class AnalysisService
 
 	private static IEnumerable<string> LibraryFiles(string root)
 	{
-		var roots = new List<string> { Path.Combine(root, "libs"), Path.Combine(root, "libs", "_out") };
-		foreach (string candidate in roots)
+		var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+		for (DirectoryInfo? current = new(root); current is not null; current = current.Parent)
 		{
-			if (!Directory.Exists(candidate))
-				continue;
-			IEnumerable<string> files;
-			try
+			foreach (string candidate in new[]
+				{
+					Path.Combine(current.FullName, "libs"),
+					Path.Combine(current.FullName, "libs", "_out"),
+				})
 			{
-				files = Directory.EnumerateFiles(candidate, "Kern.Lib.*.dll", SearchOption.AllDirectories);
+				if (!seen.Add(candidate) || !Directory.Exists(candidate))
+					continue;
+				IEnumerable<string> files;
+				try
+				{
+					files = Directory.EnumerateFiles(candidate, "Kern.Lib.*.dll", SearchOption.AllDirectories);
+				}
+				catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+				{
+					continue;
+				}
+				foreach (string file in files)
+					yield return file;
 			}
-			catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-			{
-				continue;
-			}
-			foreach (string file in files)
-				yield return file;
 		}
 	}
 }
