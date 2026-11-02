@@ -53,7 +53,7 @@ systems; run `chmod +x kernc` once.
 Native modules/types are discovered by reflection over attributes
 (`[KernModule]`, `[KernType]`, `[KernMember]`), and the optimizer is looked up by
 type name. `Kern.Cli.csproj` therefore roots `Kern.Core`, `Kern.Bytecode`,
-`Kern.Vm`, `Kern.Binding`, `Kern.Runtime`, `Kern.Compiler` and `kernc` for the
+`Kern.Vm`, `Kern.Binding`, `Kern.Runtime`, `Kern.Compiler`, `Kern.Lsp` and `kernc` for the
 trimmer, and `Properties/ILLink.Descriptors.xml` preserves the debugger
 attributes used by runtime-loaded `Kern.Lib.*` assemblies. Without this,
 trimmed builds compile programs with functions that have no bytecode
@@ -67,3 +67,11 @@ If a third-party library relies on reflection that the trimmer cannot see, use
 Send the whole `dist/kern-win-x64.zip` (or the folder). Do not send only
 `kernc.exe`: programs that use `kern.db`/`kern.backend` need `libs/`, and
 examples need `examples/` if you want them to be runnable out of the box.
+
+## GitHub Releases
+
+`.github/workflows/release.yml` builds `kernc` (self-contained, trimmed single-file) for
+`win-x64`, `linux-x64`, `osx-x64` and `osx-arm64` on a tag `v*` (or manual dispatch). Each job
+runs `tools/package-release.ps1`, uploads `kern-<rid>.zip` (kernc + `libs/` + `examples/`) and
+the release job attaches all archives to the GitHub release with generated notes.
+

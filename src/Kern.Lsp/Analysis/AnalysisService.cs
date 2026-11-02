@@ -148,17 +148,27 @@ public sealed class AnalysisService
 	private static NativeCatalog BuildCatalog(string? root)
 	{
 		var assemblies = new List<Assembly> { typeof(Kern.Runtime.Core.CoreModule).Assembly };
+		var roots = new List<string>();
 		if (!string.IsNullOrEmpty(root) && Directory.Exists(root))
+			roots.Add(root);
+		string? environment = Environment.GetEnvironmentVariable("KERN_LIBS");
+		if (!string.IsNullOrWhiteSpace(environment))
+			roots.AddRange(environment.Split(
+				OperatingSystem.IsWindows() ? ';' : ':',
+				StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+		roots.Add(AppContext.BaseDirectory);
+
+		var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+		foreach (string library in roots.SelectMany(LibraryFiles))
 		{
-			foreach (string library in LibraryFiles(root))
+			if (!seen.Add(Path.GetFullPath(library)))
+				continue;
+			try
 			{
-				try
-				{
-					assemblies.Add(Assembly.LoadFrom(library));
-				}
-				catch (Exception exception) when (exception is IOException or BadImageFormatException or FileLoadException)
-				{
-				}
+				assemblies.Add(Assembly.LoadFrom(library));
+			}
+			catch (Exception exception) when (exception is IOException or BadImageFormatException or FileLoadException)
+			{
 			}
 		}
 		try
