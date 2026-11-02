@@ -96,6 +96,9 @@ public sealed partial class Parser
 			return ParseBlock();
 		if (Current.Kind == TokenKind.Identifier && Current.Text == "if")
 			return ParseIfExpression(requireElse: false);
+		// `loop … yield x` — оператор в теле без скобок (spec §6).
+		if (Current.Kind == TokenKind.Yield)
+			return ParseStatement();
 		var expression = ParseExpression();
 		if (IsAssignmentOperator(Current))
 		{

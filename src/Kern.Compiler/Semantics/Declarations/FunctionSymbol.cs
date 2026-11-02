@@ -69,6 +69,12 @@ public sealed class FunctionSymbol(string name, FunctionKind kind)
 	/// </summary>
 	public bool IsAsync { get; init; }
 
+	/// <summary>
+	/// В теле есть <c>yield</c>: при результате <c>seq&lt;T&gt;</c> функция — генератор
+	/// (spec §6, раунд 27). Тело исполняется лениво и имеет тип <c>void</c>.
+	/// </summary>
+	public bool HasYield { get; init; }
+
 	public bool IsConstructor => Kind == FunctionKind.Constructor;
 
 	public bool IsOperator => Kind == FunctionKind.Operator;

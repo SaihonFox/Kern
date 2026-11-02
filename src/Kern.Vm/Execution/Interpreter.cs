@@ -152,6 +152,66 @@ public sealed partial class Interpreter
 	}
 
 	/// <summary>
+	/// Создать ленивый генератор для функции с флагом <see cref="MemberFlags.Generator"/>:
+	/// тело не исполняется до первого <see cref="KGenerator.TryNext"/>.
+	/// </summary>
+	public KGenerator CreateGenerator(FunctionDef function, KValue[] arguments, KValue[]? captures = null)
+	{
+		ArgumentNullException.ThrowIfNull(function);
+		ArgumentNullException.ThrowIfNull(arguments);
+		EnsureStaticInitialized();
+		return new KGenerator(this, CreateState(function, arguments, captures));
+	}
+
+	/// <summary>Продолжить генератор до следующего <c>Yield</c> или конца тела.</summary>
+	private bool GeneratorNext(KGenerator generator, out KValue value)
+	{
+		ExecutionState state = generator.State;
+		value = KValue.None;
+		if (state.Completed)
+		{
+			if (state.Error is { } completedError)
+				throw completedError;
+			return false;
+		}
+
+		state.HasYielded = false;
+		state.Yielded = KValue.None;
+		Pump(state);
+		if (state.HasYielded)
+		{
+			value = state.Yielded;
+			return true;
+		}
+
+		if (state.Error is { } error)
+			throw error;
+		if (!state.Completed)
+			throw new KernPanic("генератор приостановлен не на yield");
+		return false;
+	}
+
+	/// <summary>
+	/// Ленивая последовательность из генератора: состояние исполнения паркуется на
+	/// <see cref="OpCode.Yield"/> и возобновляется следующим <c>next()</c>.
+	/// </summary>
+	public sealed class KGenerator
+	{
+		private readonly Interpreter _interpreter;
+
+		internal KGenerator(Interpreter interpreter, ExecutionState state)
+		{
+			_interpreter = interpreter;
+			State = state;
+		}
+
+		internal ExecutionState State { get; }
+
+		/// <summary>Следующий элемент; <c>false</c> — генератор завершился.</summary>
+		public bool TryNext(out KValue value) => _interpreter.GeneratorNext(this, out value);
+	}
+
+	/// <summary>
 	/// Выполнить точку входа модуля (main без аргументов).</summary>
 	public KValue RunEntry()	{
 		if (_module.EntryPoint < 0)
@@ -599,7 +659,7 @@ public sealed partial class Interpreter
 	private static long BitsToInt64(int low, int high) =>
 		unchecked((long)(((ulong)(uint)high << 32) | (uint)low));
 
-	private struct Frame
+	internal struct Frame
 	{
 		public FunctionDef Function;
 		public KValue[] Locals;
@@ -651,7 +711,7 @@ public sealed partial class Interpreter
 	/// Припаркованное/текущее состояние выполнения одной корутины: стек, кадры и позиция.
 	/// Хранится в <see cref="KTask"/> до продолжения — стек C# не удерживается.
 	/// </summary>
-	private sealed class ExecutionState(Interpreter interpreter)
+	internal sealed class ExecutionState(Interpreter interpreter)
 	{
 		public Interpreter Interpreter { get; } = interpreter;
 		public OperandStack Stack;
@@ -666,6 +726,10 @@ public sealed partial class Interpreter
 		public KValue Result = KValue.None;
 		public KernPanic? Error;
 		public bool Completed;
+
+		/// <summary>Состояние припарковано на <c>Yield</c>: элемент ждёт в <see cref="Yielded"/>.</summary>
+		public bool HasYielded;
+		public KValue Yielded = KValue.None;
 
 		/// <summary>Задача, которую надо завершить по окончании состояния (<see cref="StartAsync"/>).</summary>
 		public KTask? CompletionTask;
@@ -684,7 +748,7 @@ public sealed partial class Interpreter
 	}
 
 	/// <summary>Стек операндов кадра: массив значений + счётчик; растёт по необходимости.</summary>
-	private struct OperandStack
+	internal struct OperandStack
 	{
 		private KValue[] _items;
 		public int Count;

@@ -88,6 +88,21 @@ public sealed partial class Parser
 			var end = expression?.Span.End ?? Previous.Span.End;
 			return new ReturnStatement(expression, new TextSpan(start, end - start));
 		}
+		if (Current.Kind == TokenKind.Yield)
+		{
+			var token = Advance();
+			if (_yieldScopes.Count > 0)
+			{
+				int count = _yieldScopes.Pop();
+				_yieldScopes.Push(count + 1);
+			}
+
+			ExpressionNode? value = null;
+			if (Current.Kind is not (TokenKind.Semicolon or TokenKind.RightBrace or TokenKind.EndOfFile))
+				value = ParseExpression();
+			var end = value?.Span.End ?? token.Span.End;
+			return new YieldStatement(value, new TextSpan(token.Span.Start, end - token.Span.Start));
+		}
 		if (Current.Kind is TokenKind.Stop or TokenKind.Next)
 		{
 			var token = Advance();

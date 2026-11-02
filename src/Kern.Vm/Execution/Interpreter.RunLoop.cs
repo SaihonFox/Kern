@@ -278,6 +278,17 @@ public sealed partial class Interpreter
 								break;
 							}
 
+							// Генератор (spec §6): вызов не исполняет тело — возвращается
+							// ленивая последовательность, которая запустится первым next().
+							if ((callee.Flags & MemberFlags.Generator) != 0)
+							{
+								KValue[] generatorArgs = new KValue[argc];
+								for (int i = argc - 1; i >= 0; i--)
+									generatorArgs[i] = stack.Pop();
+								stack.Push(KValue.Obj(new KNativeBox(new KSeq(this, callee, generatorArgs))));
+								break;
+							}
+
 							// Прокси (mock/http_client.proxy) и async-вызов — отдельные помощники.
 							if (TryInvokeProxy(callee, argc, ref stack))
 								break;
@@ -333,6 +344,24 @@ public sealed partial class Interpreter
 							code = callee.Code;
 							pc = 0;
 							break;
+						}
+					// Генератор приостанавливается на yield: состояние сохраняется и
+					// возобновляется следующим next() (spec §6).
+					case OpCode.Yield:
+						{
+							KValue yielded = stack.Pop();
+							state.Pc = pc;
+							state.Stack = stack;
+							state.Frames = frames;
+							state.FrameCount = frameCount;
+							state.Function = function;
+							state.Code = code;
+							state.Locals = locals;
+							state.Captures = captures;
+							state.StackBase = stackBase;
+							state.Yielded = yielded;
+							state.HasYielded = true;
+							return;
 						}
 					case OpCode.Ret:
 						{
@@ -485,55 +514,17 @@ public sealed partial class Interpreter
 							break;
 						}
 					case OpCode.ListLen:
-						{
-							// B4b1: длина list/array как i32 для проверки паттерна списка.
-							KValue receiver = stack.Pop();
-							stack.Push(receiver.Ref switch
-							{
-								KList list => KValue.I32(list.Count),
-								KArray array => KValue.I32(array.Length),
-								_ => throw new KernPanic($"ListLen: ожидался list или array, получено {receiver.TypeName}")
-							});
-							break;
-						}
+						ListLen(ref stack);
+						break;
 					case OpCode.ListGet:
-						{
-							// B4b1/B5b1: стек [list/array, индекс i32]; выход — элемент.
-							// Паттерны списков всегда передают неотрицательный индекс; отрицательный
-							// (B5b1, spec round 27) считается с конца.
-							KValue indexValue = stack.Pop();
-							KValue receiver = stack.Pop();
-							if (indexValue.Kind != ValueKind.I32)
-								throw new KernPanic($"ListGet: ожидался индекс i32, получено {indexValue.TypeName}");
-							int index = indexValue.AsI32;
-							stack.Push(receiver.Ref switch
-							{
-								KList list => list[NormalizeIndex(index, list.Count)],
-								KArray array => array[NormalizeIndex(index, array.Length)],
-								_ => throw new KernPanic($"ListGet: ожидался list или array, получено {receiver.TypeName}")
-							});
-							break;
-						}
+						ListGet(ref stack);
+						break;
 					case OpCode.ListSet:
 						ListSet(ref stack);
 						break;
 					case OpCode.StrGet:
-						{
-							// B5b2: стек [str, индекс i32]; выход — char. Отрицательный индекс
-							// считается с конца, выход за границы — паника (spec round 27).
-							KValue indexValue = stack.Pop();
-							KValue receiver = stack.Pop();
-							if (indexValue.Kind != ValueKind.I32)
-								throw new KernPanic($"StrGet: ожидался индекс i32, получено {indexValue.TypeName}");
-							if (receiver.Kind != ValueKind.Str)
-								throw new KernPanic($"StrGet: ожидалась строка, получено {receiver.TypeName}");
-							string text = receiver.AsStr;
-							int index = NormalizeIndex(indexValue.AsI32, text.Length);
-							if ((uint)index >= (uint)text.Length)
-								throw new KernPanic($"StrGet: индекс {indexValue.AsI32} вне длины {text.Length}");
-							stack.Push(KValue.Char(text[index]));
-							break;
-						}
+						StrGet(ref stack);
+						break;
 					case OpCode.ListSlice:
 						{
 							// B4b2: стек [list/array, начало i32, конец i32]; выход — новый list<T>
@@ -699,6 +690,12 @@ public sealed partial class Interpreter
 							if (argc != target.ParamCount)
 								throw new KernPanic(
 									$"функция '{target.Name}' ожидает {target.ParamCount} аргументов, передано {argc}");
+							if ((target.Flags & MemberFlags.Generator) != 0)
+							{
+								stack.Push(KValue.Obj(new KNativeBox(
+									new KSeq(this, target, arguments, targetCaptures))));
+								break;
+							}
 							if (target.IsNative)
 							{
 								stack.Push(InvokeNative(target, arguments));

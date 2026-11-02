@@ -36,22 +36,30 @@ public sealed partial class Binder
 		elementType = ErrorType.Instance;
 
 		var produced = protocol.Arguments[0];
+		// У нативного generic-итератора (`seq<T>`) сигнатура next объявлена через T:
+		// подставляем аргументы получателя, прежде чем сверять с элементом.
+		IReadOnlyDictionary<string, KernType> substitution =
+			iterable.Type is ClassType sequenceType
+				? IteratorSubstitution(sequenceType)
+				: new Dictionary<string, KernType>(StringComparer.Ordinal);
 		FunctionSymbol? next = null;
 		var wrongShape = false;
-		if (OwnerOf(iterable.Type) is { } owner)
+		foreach (var function in IteratorNextMethods(iterable.Type))
 		{
-			foreach (var function in owner.Members.GetFunctions("next"))
+			// Нативные члены объявлены статическими CLR-методами с self-параметром:
+			// для них IsStatic не означает отсутствие приёмника.
+			if ((function.IsStatic && function.NativeSelfType is null) ||
+				function.Parameters.Count != 0)
+				continue;
+			if (function.ReturnType is { } declaredNext &&
+				TypeSubstitution.Apply(declaredNext, substitution) is NullableType nullable &&
+				nullable.Underlying.Equals(produced))
 			{
-				if (function.IsStatic || function.Parameters.Count != 0)
-					continue;
-				if (function.ReturnType is NullableType nullable && nullable.Underlying.Equals(produced))
-				{
-					next = function;
-					break;
-				}
-
-				wrongShape = true;
+				next = function;
+				break;
 			}
+
+			wrongShape = true;
 		}
 
 		if (next is null)

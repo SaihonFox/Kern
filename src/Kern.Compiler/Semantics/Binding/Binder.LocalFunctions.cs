@@ -78,7 +78,8 @@ public sealed partial class Binder
 			var value = BindLambda(
 				new LambdaExpression(declaration.Parameters, declaration.ReturnType, declaration.Body, declaration.Span)
 				{
-					IsAsync = declaration.IsAsync
+					IsAsync = declaration.IsAsync,
+					HasYield = declaration.HasYield
 				},
 				functionType);
 			if (IsError(value.Type))
@@ -173,7 +174,8 @@ public sealed partial class Binder
 			var value = BindLambda(
 				new LambdaExpression(declaration.Parameters, declaration.ReturnType, declaration.Body, declaration.Span)
 				{
-					IsAsync = declaration.IsAsync
+					IsAsync = declaration.IsAsync,
+					HasYield = declaration.HasYield
 				},
 				functionType);
 			if (IsError(value.Type))
@@ -192,7 +194,8 @@ public sealed partial class Binder
 		var inferred = BindLambda(
 			new LambdaExpression(declaration.Parameters, declaration.ReturnType, declaration.Body, declaration.Span)
 			{
-				IsAsync = declaration.IsAsync
+				IsAsync = declaration.IsAsync,
+				HasYield = declaration.HasYield
 			},
 			hint: null);
 		if (IsError(inferred.Type))

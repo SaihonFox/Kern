@@ -118,10 +118,21 @@ public sealed partial class Parser
 			returnType = ParseTypeSyntax();
 		}
 		SyntaxNode body;
-		if (Current.Kind == TokenKind.LeftBrace)
-			body = ParseBlock();
-		else
-			body = ParseExpression();
+		// yield внутри лямбды не делает генератором объемлющую функцию: у лямбды
+		// собственный счётчик, а binder сообщит, что yield вне генератора запрещён.
+		_yieldScopes.Push(0);
+		try
+		{
+			if (Current.Kind == TokenKind.LeftBrace)
+				body = ParseBlock();
+			else
+				body = ParseExpression();
+		}
+		finally
+		{
+			_yieldScopes.Pop();
+		}
+
 		return new LambdaExpression(parameters, returnType, body, new TextSpan(start, body.Span.End - start))
 		{
 			IsAsync = isAsync

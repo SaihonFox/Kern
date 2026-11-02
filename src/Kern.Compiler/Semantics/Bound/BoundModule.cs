@@ -17,6 +17,9 @@ public sealed record BoundFunction(
 {
 	public IReadOnlySet<int> BoxedSlots { get; init; } = new HashSet<int>();
 
+	/// <summary>Функция — генератор (<c>yield</c> + <c>seq&lt;T&gt;</c>): тело имеет тип void.</summary>
+	public bool IsGenerator { get; init; }
+
 	/// <summary>
 	/// Инициализаторы полей экземпляра в порядке объявления; заполняются только у конструктора
 	/// (spec §8, п.827). Пусто — пролог ничего не генерирует.

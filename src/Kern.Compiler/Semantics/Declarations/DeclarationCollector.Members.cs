@@ -280,6 +280,7 @@ public sealed partial class DeclarationCollector
 			IsOpen = declaration.IsAbstract || declaration.IsOpen,
 			IsOverride = declaration.IsOverride,
 			IsAsync = declaration.IsAsync,
+			HasYield = declaration.HasYield,
 			Body = declaration.Body,
 			Declaration = declaration,
 			Attributes = AttributeValues.Build(declaration.DeclaredAttributes)
@@ -309,6 +310,7 @@ public sealed partial class DeclarationCollector
 			IsOpen = declaration.IsAbstract || declaration.IsOpen,
 			IsOverride = declaration.IsOverride,
 			IsAsync = declaration.IsAsync,
+			HasYield = declaration.HasYield,
 			Body = declaration.Body,
 			Declaration = declaration,
 			Attributes = AttributeValues.Build(declaration.DeclaredAttributes)

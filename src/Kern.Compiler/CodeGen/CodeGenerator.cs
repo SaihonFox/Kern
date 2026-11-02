@@ -193,6 +193,17 @@ public sealed partial class CodeGenerator
 			case BoundNextStatement next:
 				EmitLoopJump(breakJump: false, next.TargetDepth, next.Span);
 				break;
+
+			case BoundYieldStatement yield:
+				if (yield.Value is null)
+					Emit(OpCode.PushVoid);
+				else
+				{
+					EmitExpression(yield.Value);
+					EmitCopyIfUnit(yield.Value.Type);
+				}
+				Emit(OpCode.Yield);
+				break;
 		}
 	}
 

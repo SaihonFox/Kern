@@ -14,4 +14,7 @@ public sealed record LambdaExpression(
 	/// видимый тип — <c>fun(...)-&gt;task&lt;T&gt;</c>. У анонимных лямбд пока не задаётся.
 	/// </summary>
 	public bool IsAsync { get; init; }
+
+	/// <summary>В теле есть <c>yield</c> (локальная функция-генератор, spec §6).</summary>
+	public bool HasYield { get; init; }
 }

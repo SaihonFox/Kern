@@ -25,4 +25,7 @@ public sealed record FunctionDeclaration(
 
 	/// <summary>Число generic-параметров; вычисляется из <see cref="GenericParameters"/>.</summary>
 	public int GenericArity => GenericParameters.Count;
+
+	/// <summary>В теле есть <c>yield</c> (spec §6, раунд 27): функция — генератор.</summary>
+	public bool HasYield { get; init; }
 }

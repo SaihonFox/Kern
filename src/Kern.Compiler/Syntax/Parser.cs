@@ -13,6 +13,9 @@ public sealed partial class Parser
 	// В литерале коллекции `:` отделяет ключ словаря, поэтому `x:{...}` там не with.
 	private bool _suppressWith;
 
+	// Счётчики yield по вложенным функциям/лямбдам: верхний элемент — текущая функция.
+	private readonly Stack<int> _yieldScopes = new();
+
 	// Приоритеты операторов — ровно как в C# (spec §3), от низкого к высокому.
 	// `**` — особый: правоассоциативный и выше унарного минуса.
 	private static readonly Dictionary<string, int> Precedence = new(StringComparer.Ordinal)
@@ -433,10 +436,23 @@ public sealed partial class Parser
 			{
 				GenericParameters = genericParameters
 			};
-		var body = ParseFunctionBody();
+		_yieldScopes.Push(0);
+		BlockStatement body;
+		bool hasYield;
+		try
+		{
+			body = ParseFunctionBody();
+			hasYield = _yieldScopes.Peek() > 0;
+		}
+		finally
+		{
+			_yieldScopes.Pop();
+		}
+
 		return new FunctionDeclaration(functionName, parameters, body, new TextSpan(start, body.Span.End - start), returnType, attributes, isAbstract, isStatic, accessibility, isOverride, isAsync, isOpen, ExtensionReceiver: extensionReceiver)
 		{
-			GenericParameters = genericParameters
+			GenericParameters = genericParameters,
+			HasYield = hasYield
 		};
 	}
 

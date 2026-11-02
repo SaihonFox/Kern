@@ -142,7 +142,7 @@ public static class PeepholeOptimizer
 			reachable[index] = true;
 
 			Instruction instruction = instructions[index];
-			if (instruction.Op == OpCode.Ret || instruction.Op == OpCode.Stop)
+			if (instruction.Op is OpCode.Ret or OpCode.Stop or OpCode.TailCall or OpCode.Yield)
 				continue;
 
 			if (OpCodeInfo.IsJump(instruction.Op) &&

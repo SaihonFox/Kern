@@ -702,11 +702,13 @@ public sealed partial class Binder
 		{
 			BuiltinGenericType expectedBuiltin when actual is BuiltinGenericType actualBuiltin =>
 				expectedBuiltin.BuiltinKind == actualBuiltin.BuiltinKind,
-			// Нативный generic-тип (`event<T>`, `channel<T>`): аргументы выводит
-			// OverloadResolver из типа получателя, поэтому здесь достаточно символа.
+			// Нативный generic-тип (`event<T>`, `channel<T>`, `seq<T>`): аргументы выводит
+			// OverloadResolver из типа получателя, поэтому здесь достаточно имени символа.
+			// Сравнение по имени, а не по ссылке: символ типа может быть создан заново
+			// каталогом и коллектором деклараций.
 			ClassType { Symbol.Kind: Semantics.Types.SymbolKind.Native } expectedClass
 				when actual is ClassType actualClass =>
-				ReferenceEquals(expectedClass.Symbol, actualClass.Symbol) &&
+				expectedClass.Symbol.Name == actualClass.Symbol.Name &&
 				expectedClass.Arguments.Count == actualClass.Arguments.Count,
 			_ => expected.Equals(actual),
 		};

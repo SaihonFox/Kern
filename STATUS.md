@@ -1,6 +1,12 @@
 # STATUS
 
 ## Now
+- **Generators and lazy `seq<T>` implemented (2026-11-02, owner request):** `yield` keyword/statement;
+  functions `-> seq<T>` with `yield` are lazy generators; `seq<T>` (native, parent `iter<T>`) with
+  `next/to_list/map/filter/take/skip`; VM parks on the new `OpCode.Yield`. `GeneratorTests` cover
+  laziness, ordering, `loop`, nil end; suite **463/463**, style clean. `global.json` opts into
+  Microsoft.Testing.Platform for `dotnet test` on .NET 10. Known gaps: async generators, `len`,
+  restarting a sequence.
 - **TCO implemented (2026-11-02, owner request):** append-only `TailCall` opcode; codegen emits it
   for direct self-recursion in return position (last expression, `ret`, `if`/`match`/block tails);
   the VM reuses the frame without pushing. Virtual/async/ctor calls and mutual recursion are not

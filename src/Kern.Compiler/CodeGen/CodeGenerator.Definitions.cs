@@ -211,6 +211,8 @@ public sealed partial class CodeGenerator
 			definition.Flags |= MemberFlags.Static;
 		if (function.Symbol.IsAsync)
 			definition.Flags |= MemberFlags.Async;
+		if (function.IsGenerator)
+			definition.Flags |= MemberFlags.Generator;
 		if (function.Symbol.IsAbstract)
 			definition.Flags |= MemberFlags.Abstract;
 		if (function.Symbol.Attributes.Any(attribute => attribute.Name == "test"))

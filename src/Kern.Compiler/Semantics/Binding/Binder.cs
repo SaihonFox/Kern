@@ -34,6 +34,15 @@ public sealed partial class Binder
 	private bool _isAsyncFunction;
 
 	/// <summary>
+	/// Текущая функция — генератор (<c>yield</c> + результат <c>seq&lt;T&gt;</c>, spec §6):
+	/// тело имеет тип <c>void</c>, а <c>yield</c> проверяется против <see cref="_generatorElement"/>.
+	/// </summary>
+	private bool _isGeneratorFunction;
+
+	/// <summary>Тип элемента <c>seq&lt;T&gt;</c> текущего генератора; null вне генератора.</summary>
+	private KernType? _generatorElement;
+
+	/// <summary>
 	/// Тип, объект которого сейчас создаётся (Q15b, spec §8): тело или пролог его конструктора,
 	/// инициализаторы его полей/свойств. Только в этом контексте можно писать <c>init</c>-члены.
 	/// Вложенные функции контекст не наследуют: <see cref="BindFunction"/> сбрасывает его в null
@@ -170,6 +179,25 @@ public sealed partial class Binder
 		_selfVariable = null;
 		_selfType = null;
 		_isAsyncFunction = symbol.IsAsync;
+		_isGeneratorFunction = false;
+		_generatorElement = null;
+		if (symbol.HasYield)
+		{
+			if (symbol.ReturnType is { } generatorReturn &&
+				TryGetSeqElement(generatorReturn, out KernType? generatorElement))
+			{
+				_isGeneratorFunction = true;
+				_generatorElement = generatorElement;
+			}
+			else
+			{
+				Report(
+					"KRN2101",
+					"yield допустим только в функции с результатом seq<T>",
+					DeclarationSpan(symbol));
+			}
+		}
+
 		_typeScope = TypeParameterScope.Empty;
 		// Новый кадр: слоты и захваты считаются относительно него (см. Binder.Lambdas.cs).
 		_frame = ++_nextFrame;
@@ -211,7 +239,7 @@ public sealed partial class Binder
 				_flow.MarkFieldAssigned(parameterField);
 		}
 
-		_returnType = symbol.Kind == FunctionKind.Constructor
+		_returnType = symbol.Kind == FunctionKind.Constructor || _isGeneratorFunction
 			? PrimitiveType.Void
 			: symbol.ReturnType ?? PrimitiveType.Void;
 		CheckMainSignature(symbol);
@@ -241,15 +269,19 @@ public sealed partial class Binder
 		if (symbol is { Kind: FunctionKind.Constructor, Owner: { } constructedOwner } && chain is null)
 			CheckRequiredFields(symbol, constructedOwner);
 		var localCount = _nextSlot;
+		var isGenerator = _isGeneratorFunction;
 		_current = null;
 		_selfVariable = null;
 		_selfType = null;
 		_isAsyncFunction = false;
+		_isGeneratorFunction = false;
+		_generatorElement = null;
 		return new BoundFunction(symbol, parameters, body, _returnType, localCount)
 		{
 			Initializers = initializers,
 			Chain = chain,
 			BaseCalls = baseCalls,
+			IsGenerator = isGenerator,
 			BoxedSlots = _boxedByFrame[_frame]
 		};
 	}
@@ -380,6 +412,7 @@ public sealed partial class Binder
 		ExpressionStatement expression => BindExpressionStatement(expression, consumeValue, hint),
 		AssignmentStatement assignment => BindAssignment(assignment),
 		ReturnStatement ret => BindReturn(ret),
+		YieldStatement yield => BindYield(yield),
 		BlockStatement block => BindBlock(block, createScope: true),
 		UseStatement use => BindUseStatement(use),
 		LoopStatement loop => BindLoopStatement(loop),

@@ -177,6 +177,9 @@ public enum OpCode
 
 	// --- хвостовая саморекурсия (spec §6, раунд 27) ---
 	TailCall,         // functionIdx, argc: как Call, но переиспользует текущий кадр (только сама функция)
+
+	// --- генераторы (spec §6, раунд 27) ---
+	Yield,            // нет операндов: снять значение и приостановить состояние до следующего next()
 }
 
 /// <summary>Раскладка операндов и вспомогательные проверки для <see cref="OpCode"/>.</summary>
@@ -206,7 +209,7 @@ public static class OpCodeInfo
 	public static bool IsJump(OpCode op) => op is OpCode.Jmp or OpCode.JmpIf or OpCode.JmpIfNot;
 
 	/// <summary>Известен ли номер опкода (защита от мусора в .kbc).</summary>
-	public static bool IsDefined(int value) => value >= 0 && value <= (int)OpCode.TailCall;
+	public static bool IsDefined(int value) => value >= 0 && value <= (int)OpCode.Yield;
 
 	public static bool IsDefined(OpCode op) => IsDefined((int)op);
 }

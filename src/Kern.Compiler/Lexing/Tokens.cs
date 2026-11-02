@@ -29,6 +29,7 @@ public enum TokenKind
 	Ret,
 	Stop,
 	Next,
+	Yield,
 	Project,
 	At,
 	Hash,

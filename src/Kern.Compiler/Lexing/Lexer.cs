@@ -24,6 +24,7 @@ public sealed class Lexer
 		["ret"] = TokenKind.Ret,
 		["stop"] = TokenKind.Stop,
 		["next"] = TokenKind.Next,
+		["yield"] = TokenKind.Yield,
 		["project"] = TokenKind.Project
 	};
 

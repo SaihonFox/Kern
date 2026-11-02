@@ -144,6 +144,8 @@ public sealed partial class Binder
 		var savedNextSlot = _nextSlot;
 		var savedReturn = _returnType;
 		var savedAsync = _isAsyncFunction;
+		var savedGenerator = _isGeneratorFunction;
+		var savedGeneratorElement = _generatorElement;
 		var savedFlow = _flow;
 		var savedNoneDepth = _noneReadDepth;
 		var savedConstruction = _constructionType;
@@ -161,6 +163,8 @@ public sealed partial class Binder
 			_flow = new FlowState();
 			// `await` внутри лямбды разрешён только для локальной `async fun`.
 			_isAsyncFunction = lambda.IsAsync;
+			_isGeneratorFunction = false;
+			_generatorElement = null;
 			_loopContexts.Clear();
 			_functionLabels.Clear();
 			_noneReadDepth = 0;
@@ -216,8 +220,21 @@ public sealed partial class Binder
 			if (lambda.ReturnType is not null)
 			{
 				returnType = _resolver.Resolve(lambda.ReturnType, _typeScope);
+				if (lambda.HasYield && TryGetSeqElement(returnType, out KernType? generatorElement))
+				{
+					_isGeneratorFunction = true;
+					_generatorElement = generatorElement;
+				}
+				else if (lambda.HasYield)
+				{
+					Report(
+						"KRN2101",
+						"yield допустим только в функции с результатом seq<T>",
+						lambda.Span);
+				}
+
 				lambdaSymbol = NewLambdaSymbol(name, symbols, returnType, lambda);
-				_returnType = returnType;
+				_returnType = _isGeneratorFunction ? PrimitiveType.Void : returnType;
 				body = BindBody(lambda.Body, lambdaSymbol);
 			}
 			else if (lambda.Body is ExpressionNode expression)
@@ -240,8 +257,14 @@ public sealed partial class Binder
 			// Валидатор .kbc требует captures ≤ LocalCount − ParamCount: захваты живут
 			// в кадре за последним локальным слотом, значения берутся из массива захватов.
 			var localCount = System.Math.Max(_nextSlot, parameters.Count + context.Captures.Count);
-			var function = new BoundFunction(lambdaSymbol, parameters, body, returnType, localCount)
+			var function = new BoundFunction(
+				lambdaSymbol,
+				parameters,
+				body,
+				_isGeneratorFunction ? PrimitiveType.Void : returnType,
+				localCount)
 			{
+				IsGenerator = _isGeneratorFunction,
 				BoxedSlots = _boxedByFrame[frame]
 			};
 			var functionType = new FunctionType(parameterTypes, CallResultTypeForAsync(lambda.IsAsync, returnType));
@@ -255,6 +278,8 @@ public sealed partial class Binder
 			_nextSlot = savedNextSlot;
 			_returnType = savedReturn;
 			_isAsyncFunction = savedAsync;
+			_isGeneratorFunction = savedGenerator;
+			_generatorElement = savedGeneratorElement;
 			_flow = savedFlow;
 			_noneReadDepth = savedNoneDepth;
 			_constructionType = savedConstruction;
@@ -277,6 +302,7 @@ public sealed partial class Binder
 			Parameters = parameters,
 			ReturnType = returnType,
 			IsAsync = lambda.IsAsync,
+			HasYield = lambda.HasYield,
 			Body = lambda.Body,
 			Declaration = lambda
 		};

@@ -90,6 +90,14 @@ public sealed record BoundReturn(
 	TextSpan Span) : BoundStatement(Span);
 
 /// <summary>
+/// <c>yield value</c> (spec §6, раунд 27): выдать элемент ленивой <c>seq&lt;T&gt;</c>.
+/// Остаток тела продолжает исполняться при следующем <c>next()</c>.
+/// </summary>
+public sealed record BoundYieldStatement(
+	BoundExpression? Value,
+	TextSpan Span) : BoundStatement(Span);
+
+/// <summary>
 /// Цикл в позиции оператора: результат-список отбрасывается. Condition = null — бесконечный цикл;
 /// <see cref="IsDoWhile"/> — условие проверяется после тела.
 /// </summary>
