@@ -19,7 +19,7 @@
 		<TrimmerRootAssembly Include="Kern.Binding" />
 		<TrimmerRootAssembly Include="Kern.Runtime" />
 		<TrimmerRootAssembly Include="Kern.Compiler" />
-		<TrimmerRootAssembly Include="Kern.Lsp" />
+		<TrimmerRootAssembly Include="kern-lsp" />
 		<TrimmerRootAssembly Include="kernc" />
 		<TrimmerRootDescriptor Include="Properties/ILLink.Descriptors.xml" />
 	</ItemGroup>
