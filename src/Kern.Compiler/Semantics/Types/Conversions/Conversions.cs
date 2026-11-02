@@ -303,8 +303,21 @@ public static class Conversions
 		if (source is PrimitiveType { Primitive: PrimitiveKind.Str })
 			return element.Equals(PrimitiveType.Char);
 
-		if (source is not BuiltinGenericType builtin ||
-			builtin.BuiltinKind is not (
+		if (source is not BuiltinGenericType builtin)
+			return false;
+
+		// dict<K, V> обходится парами: его элемент — кортеж (K, V) (spec round 17b).
+		if (builtin.BuiltinKind == BuiltinGenericKind.Dict && builtin.Arguments.Count == 2)
+		{
+			var pair = new TupleType(
+			[
+				new TupleElement(builtin.Arguments[0], null),
+				new TupleElement(builtin.Arguments[1], null),
+			]);
+			return TryClassify(pair, element, out _);
+		}
+
+		if (builtin.BuiltinKind is not (
 				BuiltinGenericKind.List or BuiltinGenericKind.Array or BuiltinGenericKind.Set or
 				BuiltinGenericKind.Queue or BuiltinGenericKind.Stack or BuiltinGenericKind.Observable) ||
 			builtin.Arguments.Count != 1)

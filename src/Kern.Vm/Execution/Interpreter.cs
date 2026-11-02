@@ -135,7 +135,6 @@ public sealed partial class Interpreter
 	/// </summary>
 	public KTask StartAsync(KValue callable, params KValue[] args)
 	{
-		ArgumentNullException.ThrowIfNull(callable);
 		args ??= [];
 		EnsureStaticInitialized();
 		ExecutionState state = callable.Ref switch

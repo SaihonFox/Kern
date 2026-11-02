@@ -77,8 +77,14 @@ public sealed class NativeBindingM6Tests
 				sum(q)
 			}
 			fun empty_list() -> bool empty(<i32>[])
+			fun dict_size(collection<(str, i32)> c) -> i32 c.len
+			fun dict_size_direct() -> i32 {
+				dict<str, i32> d = ["a": 1, "b": 2]
+				dict_size(d)
+			}
 			""";
 
+		Assert.Equal(KValue.I32(2), Run(source, "dict_size_direct"));
 		Assert.Equal(KValue.I32(3), Run(source, "list_size"));
 		Assert.Equal(KValue.I32(1), Run(source, "set_size"));
 		Assert.Equal(KValue.I32(2), Run(source, "queue_size"));
