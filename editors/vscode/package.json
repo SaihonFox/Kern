@@ -4,6 +4,7 @@
 	"description": "Kern language support through the bundled kernc LSP server.",
 	"version": "0.1.0",
 	"publisher": "kern",
+	"license": "MIT",
 	"repository": {
 		"type": "git",
 		"url": "https://github.com/SaihonFox/Kern.git"

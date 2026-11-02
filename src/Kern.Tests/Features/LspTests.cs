@@ -84,6 +84,87 @@ public sealed class LspTests
 	}
 
 	[Fact]
+	public void Completion_after_dot_lists_members()
+	{
+		const string source = """
+			type Counter {
+				i32 value = 0
+				fun bump() -> i32 {
+					value += 1
+					value
+				}
+			}
+
+			fun main {
+				Counter c()
+				c.bump()
+			}
+			""";
+		var server = Create(out _);
+		Notify(server, "textDocument/didOpen", Document(source));
+		int offset = source.IndexOf("c.bump", StringComparison.Ordinal) + 2;
+		JsonNode? result = Call(server, 7, "textDocument/completion", new
+		{
+			textDocument = new { uri = Uri },
+			position = Position(new TextMap(source), offset),
+		});
+		var labels = result!["items"]!.AsArray().Select(item => (string)item!["label"]!).ToList();
+		Assert.Contains("bump", labels);
+		Assert.Contains("value", labels);
+	}
+
+	[Fact]
+	public void Signature_help_shows_parameters()
+	{
+		const string source = "fun add(i32 a, str b) -> i32 { a }\nfun main { add(1, \"x\") }\n";
+		var server = Create(out _);
+		Notify(server, "textDocument/didOpen", Document(source));
+		int offset = source.IndexOf("add(", StringComparison.Ordinal) + 4;
+		JsonNode? result = Call(server, 8, "textDocument/signatureHelp", new
+		{
+			textDocument = new { uri = Uri },
+			position = Position(new TextMap(source), offset),
+		});
+		Assert.NotNull(result);
+		string label = (string)result!["signatures"]![0]!["label"]!;
+		Assert.Contains("add", label);
+		Assert.Contains("i32", label);
+	}
+
+	[Fact]
+	public void Imports_from_unopened_project_files_are_resolved()
+	{
+		string directory = Path.Combine(Path.GetTempPath(), $"kern-lsp-{Guid.NewGuid():N}");
+		Directory.CreateDirectory(Path.Combine(directory, "src"));
+		string main = Path.Combine(directory, "src", "main.kern");
+		File.WriteAllText(Path.Combine(directory, "src", "lib.kern"), "pub fun value() -> i32 7\n");
+		File.WriteAllText(main, "use lib[value]\nfun main { println(value()) }\n");
+		string uri = new Uri(main).AbsoluteUri;
+		try
+		{
+			var sent = new List<string>();
+			var server = new LspServer(sent.Add);
+			Call(server, 1, "initialize", new
+			{
+				rootUri = new Uri(directory).AbsoluteUri,
+				capabilities = new { },
+			});
+			Notify(server, "textDocument/didOpen", new
+			{
+				textDocument = new { uri, languageId = "kern", version = 1, text = File.ReadAllText(main) },
+			});
+			var diagnostic = sent
+				.Select(message => JsonNode.Parse(message)!)
+				.Last(node => (string?)node["method"] == "textDocument/publishDiagnostics");
+			Assert.Empty(diagnostic["params"]!["diagnostics"]!.AsArray());
+		}
+		finally
+		{
+			Directory.Delete(directory, recursive: true);
+		}
+	}
+
+	[Fact]
 	public void Hover_returns_a_kern_code_block()
 	{
 		const string source = "fun foo() -> i32 { 1 }\n";

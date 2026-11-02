@@ -81,6 +81,7 @@ public sealed class LspServer
 		"shutdown" => null,
 		"textDocument/completion" => Completion(parameters),
 		"textDocument/hover" => Hover(parameters),
+		"textDocument/signatureHelp" => SignatureHelp(parameters),
 		"textDocument/definition" => Definition(parameters),
 		"textDocument/documentSymbol" => DocumentSymbols(parameters),
 		"textDocument/formatting" => Formatting(parameters),
@@ -150,12 +151,14 @@ public sealed class LspServer
 				? folders[0]?["uri"]?.GetValue<string>()
 				: parameters?["rootUri"]?.GetValue<string>();
 		_documents.SetRoot(root);
+		_analysis.SetRoot(_documents.RootPath);
 		return new
 		{
 			capabilities = new
 			{
 				textDocumentSync = new { openClose = true, change = 1 },
-				completionProvider = new { triggerCharacters = new[] { "." } },
+				completionProvider = new { triggerCharacters = new[] { ".", "[" } },
+				signatureHelpProvider = new { triggerCharacters = new[] { "(", "," } },
 				hoverProvider = true,
 				definitionProvider = true,
 				documentFormattingProvider = true,
@@ -168,13 +171,23 @@ public sealed class LspServer
 	private object? Completion(JsonNode? parameters)
 	{
 		string text = RequireText(parameters);
-		return new { isIncomplete = false, items = LspFeatures.Completion(text) };
+		return new
+		{
+			isIncomplete = false,
+			items = LspFeatures.Completion(text, Offset(parameters, text), _analysis.Index),
+		};
 	}
 
 	private object? Hover(JsonNode? parameters)
 	{
 		string text = RequireText(parameters);
-		return LspFeatures.Hover(text, Offset(parameters, text));
+		return LspFeatures.Hover(text, Offset(parameters, text), _analysis.Index);
+	}
+
+	private object? SignatureHelp(JsonNode? parameters)
+	{
+		string text = RequireText(parameters);
+		return LspFeatures.SignatureHelp(text, Offset(parameters, text), _analysis.Index);
 	}
 
 	private object? Definition(JsonNode? parameters)

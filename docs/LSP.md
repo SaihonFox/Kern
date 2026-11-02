@@ -56,12 +56,13 @@ LSP даёт редактору то, чего не даёт обычный те
 
 | Method | Behaviour |
 |---|---|
-| `initialize` | `textDocumentSync` = full, completion, hover, definition, formatting, document symbols |
+| `initialize` | `textDocumentSync` = full, completion, signature help, hover, definition, formatting, document symbols |
 | `textDocument/didOpen`, `didChange`, `didClose` | keeps open documents in memory and publishes diagnostics |
-| `textDocument/publishDiagnostics` | `ProjectCompiler` over all open documents; codes/messages/severity are compiler diagnostics |
-| `textDocument/completion` | Kern keywords + identifiers of the current document |
-| `textDocument/hover` | markdown code block with the source line under the cursor |
-| `textDocument/definition` | declaration of `fun`/`type`/`unit` (and `fun Type.name`) by name |
+| `textDocument/publishDiagnostics` | `ProjectCompiler` over open documents **plus unopened `.kern` files of the project** (so `use` between files resolves); codes/messages/severity are compiler diagnostics |
+| `textDocument/completion` | keywords, functions/types/globals with signatures, members after `.` (simple local type inference), module names after `use`, symbols inside `use mod[…]` |
+| `textDocument/signatureHelp` | overload signatures and parameter labels for the call under the cursor |
+| `textDocument/hover` | markdown signature for known functions/types, otherwise the source line |
+| `textDocument/definition` | declaration of `fun`/`type`/`unit` (and `fun Type.name`) by name, same file |
 | `textDocument/documentSymbol` | top-level functions, types, units and globals with ranges |
 | `textDocument/formatting` | full-document edit from `SourceFormatter` (tabs/CRLF/trailing spaces) |
 | `shutdown` / `exit` | standard lifecycle |
@@ -74,13 +75,19 @@ LSP даёт редактору то, чего не даёт обычный те
 перезапустите окно расширения.
 
 ## Limits (MVP)
-- The native catalog is `Kern.Runtime` only; external `Kern.Lib.*` modules
-  (`kern.backend`, `kern.db`, ...) are not loaded yet, so `use kern.backend[...]`
-  reports unresolved names.
-- All open documents form one project; `RelativePath` is relative to the workspace
-  root (or just the file name when there is no root).
-- Hover and definition are syntactic (token/line based), not type-aware; references,
-  rename, semantic tokens, signature help and code actions are not implemented.
+
+- Проект загружается из `src/**/*.kern` (иначе `*.kern` в корне) плюс открытые документы;
+  внешние `Kern.Lib.*.dll` ищутся в `libs/**` и `libs/_out/**`. Если DLL не загрузилась,
+  LSP продолжает работать с ядром.
+- Completion после точки выводит тип локальной переменной/параметра простым текстовым
+  разбором (`Type name = …`, `fun(Type name)`, `var name = Type(…)`); сложные выражения и
+  цепочки `a.b.c.` пока не выводятся. Список членов — методы/поля/свойства/конструкторы
+  плюс нативные члены по имени базового типа.
+- Signature help — для глобальных функций и методов по имени перед `(`; перегрузки
+  показываются списком.
+- Hover/definition остаются синтаксическими для незнакомых имён; переход к определению
+  ищет только в текущем файле.
+- Нет references, rename, semantic tokens или code actions.
 - Formatting is the conservative `kernc fmt` formatter, not a pretty-printer.
 
 ## Tests
