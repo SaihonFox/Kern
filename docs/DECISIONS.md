@@ -78,7 +78,7 @@ Language details live in `docs/spec/kern.en.md`; this file is the index of *why*
 ## G. UI, architecture examples, tooling (stage 2)
 - [DEFERRED] UI is NOT in the first pass. Wishes: own UI base (not Avalonia-only), desktop + mobile + web, React-like routing, widget hierarchy (`button/label/…` with a common base), Compose-style state. Avalonia may be one backend.
 - [DEFERRED] Architecture examples: mvvm, mvc, mvp, mvi, viper, state.
-- [DEFERRED] LSP; transpiler (Kern → C# and Kotlin, user mapping scripts, external library). DB/ORM (`kern.db*`), DI (`kern.di`), backend (`kern.backend*`) and FFI (`kern.ffi`) are implemented 2026-11-02.
+- [DEFERRED] transpiler (Kern → C# and Kotlin, user mapping scripts, external library); LSP MVP implemented 2026-11-02 (`src/Kern.Lsp`, `docs/LSP.md`). DB/ORM (`kern.db*`), DI (`kern.di`), backend (`kern.backend*`) and FFI (`kern.ffi`) are implemented 2026-11-02.
 - Design of stage-2 libraries is documented in `docs/spec/kern.en.md` (rounds 13–21) and `docs/LIBRARIES.md`.
 
 ## H. Owner preferences (apply always)

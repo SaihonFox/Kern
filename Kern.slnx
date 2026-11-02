@@ -8,5 +8,6 @@
 	<Project Path="src/Kern.Compiler/Kern.Compiler.csproj" />
 	<Project Path="src/Kern.Std/Kern.Std.csproj" />
 	<Project Path="src/Kern.Cli/Kern.Cli.csproj" />
+	<Project Path="src/Kern.Lsp/Kern.Lsp.csproj" />
 	<Project Path="src/Kern.Tests/Kern.Tests.csproj" />
 </Solution>

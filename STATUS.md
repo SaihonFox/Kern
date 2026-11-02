@@ -1,6 +1,11 @@
 # STATUS
 
 ## Now
+- **LSP MVP implemented (2026-11-02, owner request):** new `src/Kern.Lsp` (`kern-lsp`, JSON-RPC
+  over stdio) with diagnostics from `ProjectCompiler`, completion, hover, definition,
+  document symbols and formatting; `docs/LSP.md` documents capabilities and limits (core
+  catalog only, syntactic hover/definition). `LspTests` (7) cover the protocol handlers; suite
+  **470/470**, style clean.
 - **Generators and lazy `seq<T>` implemented (2026-11-02, owner request):** `yield` keyword/statement;
   functions `-> seq<T>` with `yield` are lazy generators; `seq<T>` (native, parent `iter<T>`) with
   `next/to_list/map/filter/take/skip`; VM parks on the new `OpCode.Yield`. `GeneratorTests` cover
