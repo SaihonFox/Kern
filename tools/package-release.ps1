@@ -55,15 +55,22 @@ dotnet publish (Join-Path $root "src/Kern.Cli/Kern.Cli.csproj") `
 	-p:PublishTrimmed=$trim `
 	-p:TrimMode=full `
 	-p:EnableCompressionInSingleFile=false `
+	-p:DebugType=None `
+	-p:DebugSymbols=false `
+	-p:IncludeSymbolsInSingleFile=false `
 	-o $out
 if ($LASTEXITCODE -ne 0)
 {
 	throw "Публикация kernc не удалась"
 }
 
+# В релизном архиве не должно быть отладочных символов.
+Get-ChildItem $out -Recurse -File -Filter "*.pdb" | Remove-Item -Force
+
 $libs = Join-Path $out "libs"
 New-Item -ItemType Directory -Force $libs | Out-Null
 Copy-Item (Join-Path $root "libs/_out/*") $libs -Recurse -Force
+Get-ChildItem $libs -Recurse -File -Filter "*.pdb" | Remove-Item -Force
 
 Copy-Item (Join-Path $root "examples") (Join-Path $out "examples") -Recurse -Force
 Get-ChildItem (Join-Path $out "examples") -Recurse -Directory |
@@ -71,6 +78,7 @@ Get-ChildItem (Join-Path $out "examples") -Recurse -Directory |
 	Remove-Item -Recurse -Force
 Get-ChildItem (Join-Path $out "examples") -Recurse -File -Filter "*.db" |
 	Remove-Item -Force
+Get-ChildItem $out -Recurse -File -Filter "*.pdb" | Remove-Item -Force
 
 $readme = @"
 Kern — компилятор и VM.

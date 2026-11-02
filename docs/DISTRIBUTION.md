@@ -48,6 +48,10 @@ The recipient needs no .NET SDK/runtime: the executable is self-contained.
 For Linux/macOS the `kernc` binary is not executable after unzip on some
 systems; run `chmod +x kernc` once.
 
+Release archives are built with `DebugType=None`/`DebugSymbols=false`, and
+`tools/package-release.ps1` removes any `*.pdb` left by the SDK or libraries,
+so the `.zip` contains no debug symbols.
+
 ## Trimming notes
 
 Native modules/types are discovered by reflection over attributes
