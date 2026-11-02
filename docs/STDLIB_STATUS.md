@@ -30,13 +30,13 @@
 | `kern.transpile` | внешняя `libs/Kern.Lib.Transpile`: `transpiler("csharp"\|"kotlin")`, `map_script`, `text/file/project` → `result`; цели C#/Kotlin, `KResult`-runtime, подстановки `map_type/map_call/map_member` | сгенерированный C# проверяется сборкой (`TranspileTests`); Kotlin — только текстом (нет `kotlinc`); сложные конструкции упрощаются с предупреждением |
 | `kern.log` / `kern.cli` / `kern.config` / `kern.process` | внутренние std-модули (2026-11-02): уровни/файл логов; парсер аргументов; JSON/YAML/`.env`/`key=value`; `run/run_in/shell/spawn/which` | — (`log.level = …` и `to_file -> result<bool, str>` поддержаны) |
 | `kern.auth` / `kern.random` | внутренние std-модули (2026-11-02): TOTP/HOTP/токены; криптостойкие числа/байты и детерминированный `rng(seed)` | TOTP — HMAC-SHA1; `rng` — xorshift64 и хранит состояние (продолжает последовательность) |
+| M14-структуры | `src/Kern.Runtime/Collections`: `deque`, `priority_queue`, `sorted_dict`, `sorted_set`, `bitset`, `ring_buffer`, `lazy`, `frozen_list/dict/set`, `span`; пример `32_data_structures` | сортировка поддерживает числа/bool/char/str/unit/`op compare`; `span` не проверяет stack-only |
 | LSP | `src/Kern.Lsp` (`kern-lsp`, JSON-RPC over stdio): диагностика, completion, hover, definition, symbols, formatting | только каталог `Kern.Runtime` (внешние `Kern.Lib.*` не подгружаются); hover/definition синтаксические |
 
 ## Отсутствует (M13/M14 и UI)
 
 - `kern.ui` (Avalonia, `libs/Kern.Lib.Ui` отсутствует; `examples/19_gui` не запускается).
 - `kern.net`, `kern.ansi`, `kern.toml`, `kern.ini`, часовые пояса `kern.time`.
-- Структуры данных M14: `span<T>`, `frozen_list/frozen_dict/frozen_set`, `deque`, `priority_queue`, `sorted_dict`, `sorted_set`, `bitset`, `ring_buffer`, `lazy<T>`.
 - Инструменты: `kernc wasm` (нужен WASI-хост/бэкенд, `DECISIONS_NEEDED.md`); package fetching (M13); архитектурные примеры; отладчик. `kernc new`, `kernc doc` (doctest) и `kernc run --watch` реализованы 2026-11-02.
 - Языковые ограничения: `use dotnet.X[...]`, `in/ref/out`, identity для `unit`, запись через пользовательский `op []`, шаг срезов, `op in`, async-генераторы.
 

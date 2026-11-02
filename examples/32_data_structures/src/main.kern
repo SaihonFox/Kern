@@ -1,0 +1,61 @@
+// M14: deque, priority_queue, sorted_set, sorted_dict, bitset, ring_buffer,
+// lazy, frozen_* и span (kernc run examples/32_data_structures).
+fun main {
+	// deque: оба конца
+	deque<i32> d()
+	d.push_back(2)
+	d.push_front(1)
+	d.push_back(3)
+	println(f"deque: ${d.to_list().join(",")}")
+
+	// priority_queue: максимум сверху
+	priority_queue<i32> pq()
+	pq.push(3)
+	pq.push(9)
+	pq.push(1)
+	println(f"pq: ${pq.pop()}, ${pq.to_list().join(",")}")
+
+	// sorted_set / sorted_dict
+	sorted_set<i32> ss()
+	ss.add(3)
+	ss.add(1)
+	ss.add(2)
+	ss.add(1)
+	println(f"set: ${ss.to_list().join(",")}")
+
+	sorted_dict<str, i32> sd()
+	sd.set("b", 2)
+	sd.set("a", 1)
+	println(f"dict: ${sd.keys().join(",")}=${sd.get("a")},${sd.get("b")}")
+
+	// bitset
+	bitset first = bitset(8)
+	first.set(0)
+	first.set(2)
+	bitset second = bitset(8)
+	second.set(1)
+	println(f"bitset: ${first.count}+${second.count}=${first.or(second).count}")
+
+	// ring_buffer перезаписывает старейший
+	ring_buffer<i32> ring = ring_buffer(2)
+	ring.push(1)
+	ring.push(2)
+	ring.push(3)
+	println(f"ring: ${ring.to_list().join(",")}")
+
+	// lazy вычисляется при первом обращении
+	lazy<i32> value = lazy(fun -> i32 41 + 1)
+	println(f"lazy: ${value.value}, ready=${value.is_ready}")
+
+	// frozen — независимая копия
+	list<i32> source = [1, 2]
+	frozen_list<i32> frozen = frozen_list(source)
+	source.add(3)
+	println(f"frozen: ${frozen.len}, source=${source.len}")
+
+	// span — view: запись видна в исходном списке
+	list<i32> numbers = [1, 2, 3]
+	span<i32> view = span(numbers)
+	view.set(1, 9)
+	println(f"span: ${numbers.join(",")}")
+}

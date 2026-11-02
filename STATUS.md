@@ -7,11 +7,11 @@
 Не реализовано:
 - UI: `kern.ui` / `libs/Kern.Lib.Ui` отсутствует, `examples/19_gui` не запускается.
 - Библиотеки: `kern.net`, `kern.ansi`, `kern.toml`, `kern.ini`, часовые пояса `kern.time`.
-- M14-структуры: `span<T>`, `frozen_list/frozen_dict/frozen_set`, `deque`, `priority_queue`, `sorted_dict`, `sorted_set`, `bitset`, `ring_buffer`, `lazy<T>`.
 - Инструменты: `kernc wasm` (WASI; нужен отдельный хост/бэкенд — `DECISIONS_NEEDED.md`), package fetching (M13), отладчик, архитектурные примеры. `kernc new`, `kernc doc` (doctest) и `kernc run --watch` реализованы 2026-11-02.
 - Язык: `use dotnet.X[...]`, `in/ref/out`, identity для `unit`, запись через пользовательский `op []`, async-генераторы, `seq.len`/повторный обход.
 - Известные ограничения: `fail` из `kern.test` — `void`, не `never`; `define_type` без generics/родителей/методов; `instantiate()` атрибута нет; макросы не раскрываются в одиночном `CompileCore`; LSP видит только каталог `Kern.Runtime`.
 
+- **M14 data structures implemented (2026-11-02, owner request):** `deque`, `priority_queue`, `sorted_dict`, `sorted_set`, `bitset`, `ring_buffer`, `lazy`, `frozen_list/frozen_dict/frozen_set`, `span`; shared `KValue` ordering (`op compare` for user types); example `32_data_structures`; `DataStructuresTests` (14). Native generic member return types now substitute receiver arguments (`SubstituteNativeReturn`).
 - **Language/API gaps closed (2026-11-02, owner request):** slice step (`xs[a..b:step]`, positive only), user `op in` on the right operand, `ctor(args)` argument-type checks, configurable VM frame limit (`KERN_MAX_CALL_DEPTH`, default 10 000), module property assignment (`log.level = …`), `regex.try_new(...)` qualified form, native `database` (renamed from `db`, so `Ok(db)` bindings are safe again), `log.to_file -> result<bool, str>`. Tests `LanguageExtrasTests` (7); `DbMigrationsTests` updated.
 - **`kern.random` added (2026-11-02, owner request):** internal std module with crypto-strong
   `i32/i64([min,] max)`, `f64`, `bool`, `bytes(n) -> list<u8>`, `hex(n)`, `choice<T>`,

@@ -15,8 +15,8 @@ logs/*.err
 logs/*/
 logs/examples_status.txt
 logs/golden_err.txt
-# Артефакт запуска примеров с БД.
-*.db
+# Артефакты запуска примеров с БД (не трогать каталоги вроде Kern.Lib.Db).
+examples/**/*.db
 
 # Побочные файлы запуска примеров (09, 23 и др.).
 /demo.txt

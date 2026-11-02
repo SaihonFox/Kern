@@ -352,6 +352,9 @@ public sealed partial class Binder
 				returnType = substituted;
 		}
 
+		if (receiver.Type is ClassType { Symbol.Kind: Kern.Compiler.Semantics.Types.SymbolKind.Native })
+			returnType = SubstituteNativeReturn(returnType, receiver.Type);
+
 		// Выбор родителя $[A]foo — статическая привязка именно к реализации A: без
 		// динамического поиска по наследникам (иначе селектор мог бы «переехать»).
 		var isParentSelection = owner is not null && owner.Members.IsParentSelection(resolution.Function!);

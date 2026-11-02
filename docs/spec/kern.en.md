@@ -1351,7 +1351,18 @@ s.dispose()                                                             // dispo
 - Замороженные коллекции: `frozen_list<T>`, `frozen_dict<K, V>`, `frozen_set<T>`. Они неизменяемы и поддерживают общий протокол чтения коллекций (`len`, `is_empty`, `contains`/`in`, `iter`, `to_list`).
 - Новые структуры данных: `deque<T>` (двусторонняя очередь), `priority_queue<T>` (очередь с приоритетом), `sorted_dict<K, V>` (словарь с упорядоченными ключами), `sorted_set<T>` (упорядоченное множество), `bitset` (набор битов), `ring_buffer<T>` (кольцевой буфер), `lazy<T>` (значение, вычисляемое при первом обращении и кэшируемое).
 - Где применимо, структуры следуют общему протоколу коллекций (раунд 16): `len`, `is_empty`, `contains`/`in`, `clear`, `iter`, `to_list`. Точные члены фиксируются при реализации.
-- **Статус (2026-11-02):** `span<T>`, `frozen_*`, `deque`, `priority_queue`, `sorted_dict`, `sorted_set`, `bitset`, `ring_buffer`, `lazy<T>` **не реализованы**; `seq<T>` реализован отдельно (см. «Генераторы и `seq<T>`»).
+- **Зафиксированный контракт (2026-11-02):**
+  - `deque<T>`: `deque<T>()`, `push_front(v)`, `push_back(v)`, `pop_front() -> T`, `pop_back() -> T` (пустой — panic), `peek_front/peek_back() -> T?`, `len`, `is_empty`, `clear()`, `to_list()`;
+  - `priority_queue<T>`: `priority_queue<T>()` (максимум сверху), `push(v)`, `pop() -> T`, `peek() -> T?`, `len`, `is_empty`, `clear()`, `to_list()` (в порядке приоритета);
+  - `sorted_dict<K,V>`: `sorted_dict<K,V>()`, `set/get/get_or/contains_key/remove/clear/len/is_empty/keys/values/to_list`; ключи упорядочены;
+  - `sorted_set<T>`: `sorted_set<T>()`, `add/remove/contains/clear/len/is_empty/to_list`; элементы упорядочены;
+  - `bitset(size)`: `set(i)`, `clear(i)`, `flip(i)`, `get(i) -> bool`, `count`, `len`, `clear_all()`, `and/or/xor(other) -> bitset`, `not() -> bitset`;
+  - `ring_buffer<T>(capacity)`: `push(v)` (перезаписывает старейший), `pop() -> T?`, `peek() -> T?`, `len`, `capacity`, `is_empty`, `clear()`, `to_list()`;
+  - `lazy<T>(fun() -> T)`: свойство `value -> T` (вычисляется один раз, потокобезопасно), `is_ready`;
+  - `frozen_list<T>(list<T>)`, `frozen_dict<K,V>(dict<K,V>)`, `frozen_set<T>(set<T>)`: неизменяемые копии с `len/is_empty/get/contains/to_list` (для словаря — `get/get_or/contains_key/keys/values`);
+  - `span<T>(list<T>[, start, len])`: изменяемый view (без проверки stack-only), `len`, `get(i)`, `set(i, v)`, `to_list()`.
+- Сортировка `sorted_*` и `priority_queue` использует общий порядок значений (`bool`, числа, `char`, `str`, `unit`/`type` с `op compare`); неподдерживаемый тип — panic.
+- **Статус (2026-11-02):** контракт выше реализован в `src/Kern.Runtime/Collections` (`DequeApi`, `PriorityQueueApi`, `SortedDictApi`, `SortedSetApi`, `BitSetApi`, `RingBufferApi`, `LazyApi`, `Frozen*Api`, `SpanApi`), пример `examples/32_data_structures`; `seq<T>` реализован отдельно (см. «Генераторы и `seq<T>`»).
 
 ### Библиотеки
 

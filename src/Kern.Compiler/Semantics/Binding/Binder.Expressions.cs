@@ -664,6 +664,10 @@ public sealed partial class Binder
 			{
 				nativeType = substituted;
 			}
+			else
+			{
+				nativeType = SubstituteNativeReturn(nativeType, receiver.Type);
+			}
 			return new BoundCallExpression(native, [], nativeType, member.Span, receiver);
 		}
 
