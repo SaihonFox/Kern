@@ -19,6 +19,13 @@ public sealed class SecurityModuleTests
 			"ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
 			Kern.Runtime.Crypto.CryptoApi.Sha256("abc"));
 		Assert.Equal(64, SecurityApi.Sha3_256("abc").Length);
+		Assert.Equal(
+			"3a985da74fe225b2045c172d6bd390bd855f086e3e9d525b46bfe24511431532",
+			SecurityApi.Sha3_256("abc"));
+		Assert.Equal(
+			"b751850b1a57168a5693cd924b6b096e08f621827444f70d884f5d0240d2712e" +
+			"10e116e9192af3c91a7ec57647e3934057340b4cf408d5a56592f8274eec53f0",
+			SecurityApi.Sha3_512("abc"));
 		Assert.Equal(128, SecurityApi.HmacSha512("key", "abc").Length);
 	}
 

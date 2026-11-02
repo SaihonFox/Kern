@@ -70,8 +70,14 @@ public sealed class ConditionalCompilationTests
 	[Fact]
 	public void Architecture_condition_is_evaluated()
 	{
-		string expected = System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture ==
-			System.Runtime.InteropServices.Architecture.X64 ? "x64" : "other";
+		string expected = System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture switch
+		{
+			System.Runtime.InteropServices.Architecture.X64 => "x64",
+			System.Runtime.InteropServices.Architecture.Arm64 => "arm64",
+			System.Runtime.InteropServices.Architecture.X86 => "x86",
+			System.Runtime.InteropServices.Architecture.Arm => "arm",
+			_ => "other",
+		};
 		const string source = """
 			#[if(arch = "x64")] fun arch() -> str "x64"
 			#[if(arch = "arm64")] fun arch() -> str "arm64"

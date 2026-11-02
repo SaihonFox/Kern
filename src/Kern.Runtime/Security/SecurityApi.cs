@@ -24,12 +24,12 @@ public static class SecurityApi
 	/// <summary><c>sha3_256(text)</c>: hex SHA3-256.</summary>
 	[KernMember]
 	[KernName("sha3_256")]
-	public static string Sha3_256(string text) => Hex(SHA3_256.HashData(Utf8.GetBytes(text)));
+	public static string Sha3_256(string text) => Hex(Sha3Hash.Sha3_256(Utf8.GetBytes(text)));
 
 	/// <summary><c>sha3_512(text)</c>: hex SHA3-512.</summary>
 	[KernMember]
 	[KernName("sha3_512")]
-	public static string Sha3_512(string text) => Hex(SHA3_512.HashData(Utf8.GetBytes(text)));
+	public static string Sha3_512(string text) => Hex(Sha3Hash.Sha3_512(Utf8.GetBytes(text)));
 
 	/// <summary><c>hmac_sha512(key, text)</c>: hex HMAC-SHA-512.</summary>
 	[KernMember]
