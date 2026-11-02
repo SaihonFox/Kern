@@ -23,6 +23,7 @@ public sealed partial class CodeGenerator
 	private readonly Stack<LoopContext> _loops = new();
 	private List<int> _code = [];
 	private FunctionDef _current = null!;
+	private FunctionSymbol? _currentSymbol;
 	private SourceText? _source;
 	private SourceBundle? _bundle;
 
@@ -160,6 +161,12 @@ public sealed partial class CodeGenerator
 				break;
 
 			case BoundReturn ret:
+				// `ret f(...)`: хвостовой саморекурсивный вызов переиспользует кадр.
+				if (ret.Expression is not null && CanTail(ret.Expression))
+				{
+					EmitTail(ret.Expression);
+					break;
+				}
 				if (ret.Expression is null)
 					Emit(OpCode.PushVoid);
 				else
@@ -570,13 +577,15 @@ public sealed partial class CodeGenerator
 		Patch(jump, target);
 	}
 
-	private void EmitIf(BoundIfExpression conditional)
+	private void EmitIf(BoundIfExpression conditional) => EmitIf(conditional, tail: false);
+
+	private void EmitIf(BoundIfExpression conditional, bool tail)
 	{
 		EmitExpression(conditional.Condition);
 		if (conditional.Else is null)
 		{
 			var endJump = EmitJump(OpCode.JmpIfNot);
-			EmitExpression(conditional.Then);
+			EmitTailBranch(conditional.Then, tail);
 			var skipJump = EmitJump(OpCode.Jmp);
 			Patch(endJump, Position);
 			Emit(OpCode.PushVoid);
@@ -585,10 +594,10 @@ public sealed partial class CodeGenerator
 		}
 
 		var elseJump = EmitJump(OpCode.JmpIfNot);
-		EmitExpression(conditional.Then);
+		EmitTailBranch(conditional.Then, tail);
 		var end = EmitJump(OpCode.Jmp);
 		Patch(elseJump, Position);
-		EmitExpression(conditional.Else);
+		EmitTailBranch(conditional.Else, tail);
 		Patch(end, Position);
 	}
 

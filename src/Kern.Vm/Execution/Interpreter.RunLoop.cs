@@ -307,6 +307,33 @@ public sealed partial class Interpreter
 							stackBase = start.StackBase;
 							break;
 						}
+					// Хвостовая саморекурсия (spec §6, раунд 27): аргументы уже на стеке,
+					// новый кадр не создаётся — переиспользуются текущий кадр и его база.
+					case OpCode.TailCall:
+						{
+							int calleeIndex = code[pc++];
+							int argc = code[pc++];
+							FunctionDef callee = _module.FunctionPool[calleeIndex];
+							if (!ReferenceEquals(callee, function))
+								throw new KernPanic(
+									$"TailCall: цель '{callee.Name}' не совпадает с текущей функцией '{function.Name}'");
+							if (argc != callee.ParamCount)
+								throw new KernPanic(
+									$"TailCall '{callee.Name}': argc={argc}, параметров {callee.ParamCount}");
+							if (stack.Count - argc != stackBase)
+								throw new KernPanic(
+									$"нарушен баланс стека перед TailCall в '{callee.Name}': " +
+									$"глубина {stack.Count}, ожидалось {stackBase + argc}");
+
+							KValue[] calleeLocals = AllocateLocals(callee);
+							stack.CopyTo(stackBase, calleeLocals, argc);
+							stack.Truncate(stackBase);
+							locals = calleeLocals;
+							function = callee;
+							code = callee.Code;
+							pc = 0;
+							break;
+						}
 					case OpCode.Ret:
 						{
 							KValue result = stack.Pop();
@@ -488,29 +515,8 @@ public sealed partial class Interpreter
 							break;
 						}
 					case OpCode.ListSet:
-						{
-							// spec §5: стек [list/array, индекс i32, значение]; запись на месте,
-							// на стек ничего не остаётся. Отрицательный индекс считается с конца.
-							KValue value = stack.Pop();
-							KValue indexValue = stack.Pop();
-							KValue receiver = stack.Pop();
-							if (indexValue.Kind != ValueKind.I32)
-								throw new KernPanic($"ListSet: ожидался индекс i32, получено {indexValue.TypeName}");
-							int index = indexValue.AsI32;
-							switch (receiver.Ref)
-							{
-								case KList list:
-									list[NormalizeIndex(index, list.Count)] = value;
-									break;
-								case KArray array:
-									array[NormalizeIndex(index, array.Length)] = value;
-									break;
-								default:
-									throw new KernPanic(
-										$"ListSet: ожидался list или array, получено {receiver.TypeName}");
-							}
-							break;
-						}
+						ListSet(ref stack);
+						break;
 					case OpCode.StrGet:
 						{
 							// B5b2: стек [str, индекс i32]; выход — char. Отрицательный индекс

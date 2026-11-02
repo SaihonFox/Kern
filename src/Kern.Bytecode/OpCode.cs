@@ -174,6 +174,9 @@ public enum OpCode
 
 	// --- запись по встроенному индексу (spec §5) ---
 	ListSet,          // нет операндов: [list/array, индекс i32, значение] -> пусто; отрицательный индекс с конца
+
+	// --- хвостовая саморекурсия (spec §6, раунд 27) ---
+	TailCall,         // functionIdx, argc: как Call, но переиспользует текущий кадр (только сама функция)
 }
 
 /// <summary>Раскладка операндов и вспомогательные проверки для <see cref="OpCode"/>.</summary>
@@ -192,7 +195,8 @@ public static class OpCodeInfo
 			or OpCode.Slice or OpCode.TupleGet => 1,
 		OpCode.PushI64 or OpCode.PushF64 or OpCode.Call or OpCode.CallVirtual
 			or OpCode.NewList or OpCode.NewArray or OpCode.NewDict
-			or OpCode.MakeClosure or OpCode.NewObjectGeneric or OpCode.CallBase => 2,
+			or OpCode.MakeClosure or OpCode.NewObjectGeneric or OpCode.CallBase
+			or OpCode.TailCall => 2,
 		_ => 0,
 	};
 
@@ -202,7 +206,7 @@ public static class OpCodeInfo
 	public static bool IsJump(OpCode op) => op is OpCode.Jmp or OpCode.JmpIf or OpCode.JmpIfNot;
 
 	/// <summary>Известен ли номер опкода (защита от мусора в .kbc).</summary>
-	public static bool IsDefined(int value) => value >= 0 && value <= (int)OpCode.ListSet;
+	public static bool IsDefined(int value) => value >= 0 && value <= (int)OpCode.TailCall;
 
 	public static bool IsDefined(OpCode op) => IsDefined((int)op);
 }

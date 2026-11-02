@@ -12,6 +12,7 @@ public sealed partial class CodeGenerator
 	private void EmitFunction(BoundFunction function)
 	{
 		_current = _module.FunctionPool[_functionIndices[function.Symbol]];
+		_currentSymbol = function.Symbol;
 		_code = [];
 		_current.LineTable = [];
 		if (_bundle is not null)
@@ -32,7 +33,9 @@ public sealed partial class CodeGenerator
 		EmitConstructorEntry(function);
 		var body = function.Body;
 		var leavesValue = body.Value is not null;
-		EmitBlock(body, leavesValue);
+		// Хвостовая саморекурсия — только у функций, возвращающих значение (не async/ctor:
+		// это проверяет IsSelfRecursive).
+		EmitBlock(body, leavesValue, tailPosition: leavesValue && !IsVoid(function.ReturnType));
 
 		if (IsVoid(function.ReturnType))
 		{
@@ -54,7 +57,11 @@ public sealed partial class CodeGenerator
 		_current.Code = [.. _code];
 	}
 
-	private void EmitBlock(BoundBlock block, bool leaveValue, bool loopBody = false)
+	private void EmitBlock(
+		BoundBlock block,
+		bool leaveValue,
+		bool loopBody = false,
+		bool tailPosition = false)
 	{
 		PushDisposeFrame(loopBody);
 		try
@@ -68,14 +75,30 @@ public sealed partial class CodeGenerator
 					index == block.Statements.Count - 1 &&
 					statement is BoundExpressionStatement expressionStatement &&
 					ReferenceEquals(expressionStatement.Expression, block.Value);
-				EmitStatement(statement, isTailValue);
+				if (isTailValue &&
+					tailPosition &&
+					statement is BoundExpressionStatement tailStatement &&
+					CanTail(tailStatement.Expression))
+				{
+					EmitTail(tailStatement.Expression);
+				}
+				else
+				{
+					EmitStatement(statement, isTailValue);
+				}
+
 				valueEmittedByTail |= isTailValue;
 			}
 
 			// Блок-выражение из одного выражения (например, accessor `get $x * 2`) не имеет statements:
 			// значение нужно сгенерировать явно, иначе функция вернёт пустоту.
 			if (leaveValue && block.Value is not null && !valueEmittedByTail)
-				EmitExpression(block.Value);
+			{
+				if (tailPosition && CanTail(block.Value))
+					EmitTail(block.Value);
+				else
+					EmitExpression(block.Value);
+			}
 
 			// use: обычный выход из блока освобождает переменные в обратном порядке объявления.
 			if (block.FallsThrough)

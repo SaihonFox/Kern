@@ -1,6 +1,11 @@
 # STATUS
 
 ## Now
+- **TCO implemented (2026-11-02, owner request):** append-only `TailCall` opcode; codegen emits it
+  for direct self-recursion in return position (last expression, `ret`, `if`/`match`/block tails);
+  the VM reuses the frame without pushing. Virtual/async/ctor calls and mutual recursion are not
+  optimized. `TailCallTests` recurse 200 000 deep; mutual recursion still overflows. Suite
+  **461/461**; build/style clean.
 - **Backend package: `kern.auth` + OpenAPI + versioned migrations (2026-11-02, owner request):**
   `kern.auth` native module (Base32 secrets, RFC 4226/6238 HOTP/TOTP, `totp_url`, Base64URL
   tokens, `constant_time_eq`); `Kern.Lib.Db` gained `migration`/`migrator` with a

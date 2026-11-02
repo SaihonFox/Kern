@@ -169,7 +169,7 @@ public static class KbcModuleValidator
 				or OpCode.CallValue or OpCode.TypeOfSig or OpCode.IsType
 				or OpCode.NewList or OpCode.NewArray or OpCode.NewDict
 				or OpCode.MakeClosure or OpCode.Call or OpCode.CallVirtual or OpCode.TupleGet
-				or OpCode.NewObjectGeneric or OpCode.CallBase => code[at + 1],
+				or OpCode.NewObjectGeneric or OpCode.CallBase or OpCode.TailCall => code[at + 1],
 			_ => -1,
 		};
 
@@ -190,7 +190,7 @@ public static class KbcModuleValidator
 			case OpCode.Jmp or OpCode.JmpIf or OpCode.JmpIfNot:
 				// цели проверяются после обхода кода (нужны все границы инструкций)
 				break;
-			case OpCode.Call or OpCode.CallVirtual or OpCode.CallBase:
+			case OpCode.Call or OpCode.CallVirtual or OpCode.CallBase or OpCode.TailCall:
 				{
 					int argc = code[at + 2];
 					if ((uint)arg >= (uint)module.FunctionPool.Count)

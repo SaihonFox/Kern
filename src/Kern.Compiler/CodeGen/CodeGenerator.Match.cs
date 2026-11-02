@@ -14,7 +14,9 @@ public sealed partial class CodeGenerator
 	/// Если ни одна ветвь не совпала, <see cref="OpCode.MatchFail"/> даёт панику (покрытие
 	/// диагностируется отдельно, см. Q12).
 	/// </summary>
-	private void EmitMatch(BoundMatchExpression match)
+	private void EmitMatch(BoundMatchExpression match) => EmitMatch(match, tail: false);
+
+	private void EmitMatch(BoundMatchExpression match, bool tail)
 	{
 		int? targetSlot = null;
 		if (match.Target is not null)
@@ -37,7 +39,7 @@ public sealed partial class CodeGenerator
 				nextArmJumps.Add(EmitJump(OpCode.JmpIfNot));
 			}
 
-			EmitExpression(arm.Body);
+			EmitTailBranch(arm.Body, tail);
 			endJumps.Add(EmitJump(OpCode.Jmp));
 
 			foreach (var jump in nextArmJumps)

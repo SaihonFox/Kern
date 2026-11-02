@@ -38,6 +38,12 @@ public sealed partial class CodeGenerator
 	/// <summary><c>ret value</c> в правой ветви Elvis: значение, очистка use-кадров, возврат.</summary>
 	private void EmitReturnExpression(BoundReturnExpression ret)
 	{
+		if (ret.Value is not null && CanTail(ret.Value))
+		{
+			EmitTail(ret.Value);
+			return;
+		}
+
 		if (ret.Value is null)
 			Emit(OpCode.PushVoid);
 		else
