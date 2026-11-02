@@ -46,6 +46,22 @@ internal static class NativeCompiler
 		ArgumentNullException.ThrowIfNull(session);
 		TargetModel target = session.Workspace.DefaultAppTarget()
 			?? throw new BuildException("в build.kern нет app-цели для --native");
+		string directory = output is null
+			? Path.Combine(session.Root, "dist", "native")
+			: Path.GetFullPath(output);
+		return BuildProjectInto(session, target, directory, options, stderr);
+	}
+
+	/// <summary>Собрать выбранную app-цель в указанный каталог одним исполняемым файлом.</summary>
+	public static string BuildProjectInto(
+		BuildSession session,
+		TargetModel target,
+		string directory,
+		CliOptions options,
+		TextWriter stderr)
+	{
+		ArgumentNullException.ThrowIfNull(session);
+		ArgumentNullException.ThrowIfNull(target);
 		if (target.IsLibrary)
 			throw new BuildException($"цель '{target.Name}' — библиотека; --native требует app-цель");
 
@@ -57,10 +73,7 @@ internal static class NativeCompiler
 			throw new BuildException($"цель '{target.Name}' не скомпилировалась");
 		try
 		{
-			string outputDirectory = output is null
-				? Path.Combine(session.Root, "dist", "native")
-				: Path.GetFullPath(output);
-			return Publish(temporary, target.Name, outputDirectory, options, stderr);
+			return Publish(temporary, target.Name, Path.GetFullPath(directory), options, stderr);
 		}
 		finally
 		{

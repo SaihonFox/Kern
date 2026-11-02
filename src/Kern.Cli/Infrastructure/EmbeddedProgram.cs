@@ -1,3 +1,5 @@
+using System.Reflection;
+using System.Text;
 using Kern.Binding.Catalog;
 using Kern.Binding.Resolution;
 using Kern.Bytecode;
@@ -54,7 +56,7 @@ internal static class EmbeddedProgram
 			return 1;
 		}
 
-		var catalog = NativeCatalog.Scan(typeof(CoreModule).Assembly);
+		var catalog = NativeCatalog.Scan(RuntimeAssemblies());
 		FunctionDef entry = module.FunctionPool[module.EntryPoint];
 		try
 		{
@@ -72,14 +74,39 @@ internal static class EmbeddedProgram
 		}
 	}
 
-	private static byte[]? ReadResource()
-	{
+	private static byte[]? ReadResource()	{
 		using Stream? stream = typeof(EmbeddedProgram).Assembly.GetManifestResourceStream(FileName);
 		if (stream is null)
 			return null;
 		using MemoryStream buffer = new();
 		stream.CopyTo(buffer);
 		return buffer.ToArray();
+	}
+
+	/// <summary>
+	/// Ядро + внешние <c>Kern.Lib.*.dll</c> из <c>libs/</c> рядом с хостом. Без этого
+	/// программа, собранная <c>exe</c>/<c>dist</c>, не видела библиотеки (kern.db и др.).
+	/// </summary>
+	private static Assembly[] RuntimeAssemblies()
+	{
+		var assemblies = new List<Assembly> { typeof(CoreModule).Assembly };
+		string libraries = Path.Combine(AppContext.BaseDirectory, "libs");
+		if (!Directory.Exists(libraries))
+			return [.. assemblies];
+		var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+		foreach (string file in Directory.EnumerateFiles(libraries, "Kern.Lib.*.dll", SearchOption.AllDirectories))
+		{
+			if (!seen.Add(Path.GetFileName(file)))
+				continue;
+			try
+			{
+				assemblies.Add(Assembly.LoadFrom(file));
+			}
+			catch (Exception exception) when (exception is IOException or BadImageFormatException)
+			{
+			}
+		}
+		return [.. assemblies];
 	}
 
 	private static KValue Wait(Interpreter interpreter, KValue value)

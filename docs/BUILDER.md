@@ -16,7 +16,8 @@ then write the problem + options to `DECISIONS_NEEDED.md` (do not silently chang
   Entry = module `main` (`main.kern`, containing `fun main`). Project name = folder name. Kind = `app` if a `main` exists, otherwise `lib`.
 - Module name = path relative to the source dir without extension, dots for separators (`geometry/shapes.kern` → `geometry.shapes`), or an explicit first line `project a.b:`.
 - Outputs: `<dir>/out/<name>.kbc` (`build`, `dll`; for a library the same file has no entry point and embedded
-  `kern.stub` interface sources, so `t.kbc(...)` works without a separate `dll` command), `<dir>/dist/<name>[.exe]` (`exe`). Source paths inside `.kbc` are relative to the project dir.
+  `kern.stub` interface sources, so `t.kbc(...)` works without a separate `dll` command), `<dir>/dist/<name>[.exe]` (`exe`),
+  `<dir>/dist/<name>/` (`dist`: host + `program.kbc` + `libs/`). Source paths inside `.kbc` are relative to the project dir.
 - Project kinds are the C# ones: `app` (aliases `exe`, `console`) is executable, `lib` (aliases `library`, `classlib`)
   is a library; `kernc new` accepts both spellings and writes `t.kind` explicitly.
 
@@ -65,7 +66,7 @@ as `.kbc` and link through stubs (ask owner before adding).
 - `workspace`: `name`, `version`, `compiler` (`optimize`, `warnings_as_errors`, `macros`, `debug_info`), `include(path)`, `lib_path(path)`, `profile(name, fun)`, `target(name, fun)`, `task(name, after, fun)`, `env(name) -> str?` (process env), `root` (absolute path).
 - `target`: `name`, `kind`, `src`, `entry`, `deps`, `kbc(path)`, `lib(module)`, `lib_path(path)`, `args`, `env` (dict), `task(name, fun)`, per-target `compiler` override.
 - `profile`: `optimize`, `warnings_as_errors`, `env` dict; built-in profiles `debug` (default, `-O1`) and `release` (`-O2`).
-- Built-in tasks per target: `compile`, `run`, `exe`, `dll`, `check`, `dis`, `clean`. Workspace: `build` (all targets), `clean`, plus user tasks. (No `test` task in stage 1.)
+- Built-in tasks per target: `compile`, `run`, `exe`, `dist`, `dll`, `check`, `dis`, `clean`. Workspace: `build` (all targets), `clean`, plus user tasks. (No `test` task in stage 1.)
 - **Up-to-date check:** skip recompilation when the hash of sources + dependency targets + `.kbc` deps + compiler settings + profile + kernc version is unchanged (the old implementation forgot `.kbc` deps in the hash - don't).
 - **Native output:** `kernc build --native [--target <rid>]` builds `.kbc` and publishes it *inside* a self-contained single-file host (VM + std + bytecode resource), so no installed .NET is needed; result `<project>/dist/native/<name>[.exe]`. `--target linux-x64|win-x64|osx-arm64` selects the RID. This is embedding the VM with bytecode, not NativeAOT (see `DECISIONS_NEEDED.md`).
 - Task ordering: `after` list = prerequisite tasks (topological, cycle → clear error).

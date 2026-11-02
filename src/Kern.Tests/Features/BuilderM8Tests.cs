@@ -119,6 +119,22 @@ public sealed class BuilderM8Tests : IDisposable
 	}
 
 	[Fact]
+	public void Dist_writes_a_portable_folder()
+	{
+		string root = Create(("src/main.kern", "fun main { println(\"dist\") }"));
+
+		(int code, string stdout, string stderr) = Run("dist", root);
+
+		Assert.Equal(0, code);
+		Assert.Equal(string.Empty, stderr);
+		string name = Path.GetFileName(root);
+		string folder = Path.Combine(root, "dist", name);
+		Assert.True(File.Exists(Path.Combine(folder, "program.kbc")));
+		Assert.True(File.Exists(Path.Combine(folder, OperatingSystem.IsWindows() ? name + ".exe" : name)));
+		Assert.Contains(folder, stdout, StringComparison.Ordinal);
+	}
+
+	[Fact]
 	public void Run_honours_profile_environment_and_target_args()
 	{
 		string root = Create(

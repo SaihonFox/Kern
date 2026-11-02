@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using Kern.Cli;
 using Xunit;
 
@@ -40,28 +41,31 @@ public sealed class CliWorkingDirectoryTests
 	}
 
 	/// <summary>
-	/// Разрешает символические ссылки в компонентах пути: на macOS временный каталог
-	/// возвращается как <c>/var/…</c>, а <c>getcwd()</c> в программе — уже как
-	/// <c>/private/var/…</c>. Без этого сравнение падало только в CI macOS.
+	/// Канонический путь: на macOS <c>/var</c> — символическая ссылка на
+	/// <c>/private/var</c>, а <c>getcwd()</c> в программе возвращает уже реальный путь.
+	/// <c>realpath(3)</c> разрешает все компоненты; на Windows достаточно GetFullPath.
 	/// </summary>
 	private static string Canonical(string path)
 	{
-		string full = Path.GetFullPath(path);
-		if (!OperatingSystem.IsMacOS() && !OperatingSystem.IsLinux())
-			return full;
-		string root = Path.GetPathRoot(full)!;
-		string current = root;
-		foreach (string part in full[root.Length..].Split(
-			[Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],
-			StringSplitOptions.RemoveEmptyEntries))
+		if (OperatingSystem.IsWindows())
+			return Path.GetFullPath(path);
+
+		IntPtr resolved = realpath(path, IntPtr.Zero);
+		if (resolved == IntPtr.Zero)
+			return Path.GetFullPath(path);
+		try
 		{
-			current = Path.Combine(current, part);
-			FileSystemInfo info = Directory.Exists(current)
-				? new DirectoryInfo(current)
-				: new FileInfo(current);
-			if (info.LinkTarget is { } target)
-				current = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(current)!, target));
+			return Marshal.PtrToStringUTF8(resolved) ?? Path.GetFullPath(path);
 		}
-		return current;
+		finally
+		{
+			free(resolved);
+		}
 	}
+
+	[DllImport("libc", SetLastError = true, EntryPoint = "realpath")]
+	private static extern IntPtr realpath(string path, IntPtr resolved);
+
+	[DllImport("libc", EntryPoint = "free")]
+	private static extern void free(IntPtr pointer);
 }

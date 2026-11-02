@@ -8,7 +8,9 @@
 - `.kbc` v3: LEB128 + Brotli, без дублирующего канонического текста; старые v2 читаются.
   Пример 17: 136 КБ → 12 КБ. Добавлены `file.read_bytes/write_bytes`, `text.to_utf8/from_utf8`.
 - Виды проектов: `kernc new app|exe|console|lib|library|classlib|service`; `kernc build`
-  для lib-цели пишет готовый `.kbc` без entry и с `kern.stub`.
+  для lib-цели пишет готовый `.kbc` без entry и с `kern.stub`. `kernc dist` (и задача
+  `<цель>:dist`) собирает переносимый `dist/<имя>/` с хостом, `program.kbc` и `libs/`;
+  `dist --native` — один самодостаточный файл.
 - Язык: цепочки сравнений `0 < x < 10` (один раз средний операнд), `#[if(os/arch/target)]`,
   `#[allow(...)]`, `#[memo]`, связанные места диагностики (`примечание:`),
   `--deny-warnings`; `kern run --profile` (функции + горячие строки);

@@ -49,7 +49,7 @@ internal static class TasksCommand
 
 		PrintIncluded(session, stdout, "");
 
-		stdout.WriteLine("встроенные задачи: <цель>:compile|run|exe|dll|check|dis|test, :compile, :clean");
+		stdout.WriteLine("встроенные задачи: <цель>:compile|run|exe|dist|dll|check|dis|test, :compile, :clean");
 		return 0;
 	}
 

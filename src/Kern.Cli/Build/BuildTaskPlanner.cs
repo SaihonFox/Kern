@@ -25,6 +25,9 @@ internal sealed record RunStep(string Id, TargetModel? Target) : BuildStep(Id);
 /// <summary>Встроенная <c>:exe</c> — собрать dist/&lt;имя&gt;[.exe].</summary>
 internal sealed record ExeStep(string Id, TargetModel? Target) : BuildStep(Id);
 
+/// <summary>Встроенная <c>:dist</c> — переносимый каталог dist/&lt;имя&gt;/.</summary>
+internal sealed record DistStep(string Id, TargetModel? Target) : BuildStep(Id);
+
 /// <summary>Встроенная <c>:dll</c> — собрать .kbc с интерфейсными исходниками.</summary>
 internal sealed record DllStep(string Id, TargetModel? Target) : BuildStep(Id);
 
@@ -42,7 +45,7 @@ internal static class BuildTaskPlanner
 {
 	private static readonly HashSet<string> Builtins = new(StringComparer.Ordinal)
 	{
-		"compile", "run", "test", "exe", "dll", "check", "dis", "clean",
+		"compile", "run", "test", "exe", "dist", "dll", "check", "dis", "clean",
 	};
 
 	public static IReadOnlyList<BuildStep> Plan(BuildSession session, string id)
@@ -133,6 +136,8 @@ internal static class BuildTaskPlanner
 				return new RunStep(id, target);
 			case "exe":
 				return new ExeStep(id, target);
+			case "dist":
+				return new DistStep(id, target);
 			case "dll":
 				return new DllStep(id, target);
 			case "dis":
@@ -142,7 +147,7 @@ internal static class BuildTaskPlanner
 			default:
 				throw new BuildException(
 					$"встроенная задача '{id}' пока не реализована; доступны: <цель>:compile, :compile, " +
-					"<цель>:run, <цель>:exe, <цель>:dll, <цель>:check, <цель>:dis, <цель>:test, :clean");
+					"<цель>:run, <цель>:exe, <цель>:dist, <цель>:dll, <цель>:check, <цель>:dis, <цель>:test, :clean");
 		}
 	}
 
@@ -209,6 +214,10 @@ internal static class BuildTaskRunner
 				case ExeStep exe:
 					if (RunExe(session, exe, stdout, stderr) is { } exeFailure)
 						return exeFailure;
+					break;
+				case DistStep dist:
+					if (RunDist(session, dist, stdout, stderr) is { } distFailure)
+						return distFailure;
 					break;
 				case DllStep dll:
 					if (RunDll(session, dll, stdout, stderr) is { } dllFailure)
@@ -357,8 +366,21 @@ internal static class BuildTaskRunner
 		}
 	}
 
-	private static int? RunDll(BuildSession session, DllStep step, TextWriter stdout, TextWriter stderr)
+	private static int? RunDist(BuildSession session, DistStep step, TextWriter stdout, TextWriter stderr)
 	{
+		try
+		{
+			stdout.WriteLine(DistCompiler.Build(session, step.Target, new CliOptions(), stderr));
+			return null;
+		}
+		catch (BuildException exception)
+		{
+			stderr.WriteLine($"ошибка: {exception.Message}");
+			return 1;
+		}
+	}
+
+	private static int? RunDll(BuildSession session, DllStep step, TextWriter stdout, TextWriter stderr)	{
 		try
 		{
 			stdout.WriteLine(DllCompiler.Build(session, step.Target, output: null));

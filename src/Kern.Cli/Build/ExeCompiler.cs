@@ -16,23 +16,37 @@ internal static class ExeCompiler
 			?? throw new BuildException("в build.kern нет app-цели для exe");
 		if (selected.IsLibrary)
 			throw new BuildException($"цель '{selected.Name}' — библиотека; exe требует app-цель");
+		return BuildInto(session, selected, Path.Combine(session.Root, "dist"));
+	}
 
-		string dist = Path.Combine(session.Root, "dist");
+	/// <summary>
+	/// Собрать приложение в указанный каталог: <c>&lt;dir&gt;/program.kbc</c>, хост
+	/// <c>&lt;dir&gt;/&lt;имя&gt;[.exe]</c> и внешние библиотеки в <c>&lt;dir&gt;/libs</c>.
+	/// Используется <c>exe</c>, <c>dist</c> и встроенными задачами.
+	/// </summary>
+	public static string BuildInto(BuildSession session, TargetModel selected, string directory)
+	{
+		ArgumentNullException.ThrowIfNull(session);
+		ArgumentNullException.ThrowIfNull(selected);
+		if (selected.IsLibrary)
+			throw new BuildException($"цель '{selected.Name}' — библиотека; exe/dist требует app-цель");
+
 		try
 		{
-			Directory.CreateDirectory(dist);
+			Directory.CreateDirectory(directory);
 		}
 		catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
 		{
-			throw new BuildException($"не удалось создать {dist}: {exception.Message}");
+			throw new BuildException($"не удалось создать {directory}: {exception.Message}");
 		}
 
-		string program = Path.Combine(dist, "program.kbc");
+		string program = Path.Combine(directory, "program.kbc");
 		BuildTargetResult compiled = BuildTargetCompiler.Compile(session, selected, program, write: true);
 		if (!compiled.Compile.Success)
 			throw new BuildException(Describe(compiled.Compile, selected));
-		CopyHost(dist, HostName(selected.Name));
-		return Path.Combine(dist, HostName(selected.Name));
+		CopyHost(directory, HostName(selected.Name));
+		CopyLibraries(session, selected, directory);
+		return Path.Combine(directory, HostName(selected.Name));
 	}
 
 	private static string HostName(string project) =>
@@ -56,6 +70,28 @@ internal static class ExeCompiler
 		if (!File.Exists(host))
 			throw new BuildException($"не найден хост kernc рядом с CLI: {host}");
 		File.Copy(host, Path.Combine(dist, hostName), overwrite: true);
+	}
+
+	private static void CopyLibraries(BuildSession session, TargetModel target, string directory)
+	{
+		IReadOnlyList<System.Reflection.Assembly> libraries = LibraryResolver.Resolve(session, target);
+		foreach (System.Reflection.Assembly assembly in libraries)
+		{
+			string? source = Path.GetDirectoryName(assembly.Location);
+			if (string.IsNullOrEmpty(source) || !Directory.Exists(source))
+				continue;
+			string name = Path.GetFileName(source);
+			CopyDirectory(source, Path.Combine(directory, "libs", name));
+		}
+	}
+
+	private static void CopyDirectory(string source, string target)
+	{
+		Directory.CreateDirectory(target);
+		foreach (string file in Directory.EnumerateFiles(source))
+			File.Copy(file, Path.Combine(target, Path.GetFileName(file)), overwrite: true);
+		foreach (string child in Directory.EnumerateDirectories(source))
+			CopyDirectory(child, Path.Combine(target, Path.GetFileName(child)));
 	}
 
 	private static string Describe(CompileResult result, TargetModel target)
