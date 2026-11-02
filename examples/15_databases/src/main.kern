@@ -24,13 +24,13 @@ fun demo_sqlite {
 fun demo_postgres(str url) {
 	match postgres.connect(url) {
 		Err(e) => println(f"postgres недоступен: ${e}")
-		Ok(db) => {
-			table<User> users = orm.table<User>(db)
+		Ok(conn) => {
+			table<User> users = orm.table<User>(conn)
 			users.create()
 			users.insert(User(0, "Аня", 25))
-			db.begin()
-			db.exec("update users set age = age + ? where name = ?", <object>[1, "Аня"])
-			db.commit()
+			conn.begin()
+			conn.exec("update users set age = age + ? where name = ?", <object>[1, "Аня"])
+			conn.commit()
 			match users.all() {
 				Ok(rows) => println(f"postgres: ${rows}")
 				Err(e) => println(f"postgres: ошибка ${e}")
@@ -42,11 +42,11 @@ fun demo_postgres(str url) {
 async fun demo_mysql(str url) {
 	match mysql.connect(url) {
 		Err(e) => println(f"mysql недоступен: ${e}")
-		Ok(db) => {
-			table<User> users = orm.table<User>(db)
+		Ok(conn) => {
+			table<User> users = orm.table<User>(conn)
 			users.create()
 			users.insert(User(0, "Борис", 31))
-			match await db.query_async("select name, age from users where age > ?", [20]) {
+			match await conn.query_async("select name, age from users where age > ?", [20]) {
 				Ok(rows) => println(f"mysql: ${rows}")
 				Err(e) => println(f"mysql: ошибка ${e}")
 			}

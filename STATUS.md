@@ -1,6 +1,15 @@
 # STATUS
 
 ## Now
+- **Backend package: `kern.auth` + OpenAPI + versioned migrations (2026-11-02, owner request):**
+  `kern.auth` native module (Base32 secrets, RFC 4226/6238 HOTP/TOTP, `totp_url`, Base64URL
+  tokens, `constant_time_eq`); `Kern.Lib.Db` gained `migration`/`migrator` with a
+  `kern_migrations` history table, ordered `up()` in per-migration transactions, `pending`/
+  `applied`; `Kern.Lib.Backend` gained `a.openapi(path[, title, version])`,
+  `a.openapi_document(...)` and a self-contained `a.openapi_ui(path[, json_path])` building
+  OpenAPI 3.1 from HTTP routes (WebSocket/SSE skipped, path params typed). `sqlite`/`postgres`/
+  `mysql` now declare the common `db` parent. Tests: **459/459** (33 new); libs and main
+  solutions build clean; style clean.
 - **Four workstreams approved (2026-11-02, owner request), contract fixed:** (1) `kern.log`/`kern.cli`/
   `kern.config`/`kern.process` tool modules, (2) LSP server, (3) backend package (OpenAPI + auth +
   versioned migrations), (4) generators/`seq<T>` + TCO. The exact API of the four std modules is now

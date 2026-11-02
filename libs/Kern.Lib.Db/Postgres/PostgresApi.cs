@@ -7,7 +7,7 @@ using Npgsql;
 
 namespace Kern.Lib.Db.Postgres;
 
-[KernType("postgres")]
+[KernType("postgres", Parent = "db")]
 public sealed class KernPostgres : IKernDb, IDisposable
 {
 	private readonly DbCore _core;

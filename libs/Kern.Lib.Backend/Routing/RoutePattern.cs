@@ -5,8 +5,26 @@ internal sealed class RoutePattern
 {
 	private readonly string[] _segments;
 
-	public RoutePattern(string pattern) =>
+	public RoutePattern(string pattern)
+	{
 		_segments = pattern.Trim('/').Split('/', StringSplitOptions.RemoveEmptyEntries);
+		var parameters = new List<(string Name, bool CatchAll)>();
+		foreach (string segment in _segments)
+		{
+			if (segment.StartsWith("{*", StringComparison.Ordinal) && segment.EndsWith('}') && segment.Length > 3)
+				parameters.Add((segment[2..^1], true));
+			else if (IsParam(segment))
+				parameters.Add((segment[1..^1], false));
+		}
+
+		Parameters = parameters;
+	}
+
+	/// <summary>Path-параметры шаблона в порядке появления (<c>{name}</c>/<c>{*rest}</c>).</summary>
+	public IReadOnlyList<(string Name, bool CatchAll)> Parameters { get; }
+
+	/// <summary>Только имена path-параметров в порядке появления.</summary>
+	public IReadOnlyList<string> ParameterNames => [.. Parameters.Select(parameter => parameter.Name)];
 
 	/// <summary>Чем больше литералов, тем специфичнее маршрут.</summary>
 	public int Specificity =>
