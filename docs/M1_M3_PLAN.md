@@ -1,5 +1,7 @@
 # M1–M3 completion plan (new working regime, 2026-10-31)
 
+> **Исторический документ.** План закрыт; актуальное состояние — `STATUS.md` и `docs/ROADMAP.md`.
+
 Owner request: finish M1–M3 completely, restart the test suite (old suite archived), write tests
 only after a batch of **five** implemented functions, and let subagents work in parallel.
 

@@ -1,6 +1,17 @@
 # STATUS
 
 ## Now
+
+### Открытый объём (2026-11-02)
+
+Не реализовано:
+- UI: `kern.ui` / `libs/Kern.Lib.Ui` отсутствует, `examples/19_gui` не запускается.
+- Библиотеки: `kern.net`, `kern.ansi`, `kern.toml`, `kern.ini`, часовые пояса `kern.time`.
+- M14-структуры: `span<T>`, `frozen_list/frozen_dict/frozen_set`, `deque`, `priority_queue`, `sorted_dict`, `sorted_set`, `bitset`, `ring_buffer`, `lazy<T>`.
+- Инструменты: `kernc wasm`, `kernc new`, `kernc doc`, `kernc run --watch`, package fetching (M13), отладчик, архитектурные примеры.
+- Язык: `use dotnet.X[...]`, `in/ref/out`, identity для `unit`, запись через пользовательский `op []`, шаг срезов, пользовательский `op in`, async-генераторы, `seq.len`/повторный обход.
+- Известные ограничения: `fail` из `kern.test` — `void`, не `never`; предел кадров VM 65 536 (спека: 10 000, настраиваемый); `regex.try_new` только без квалификации; `define_type` без generics/родителей/методов; `instantiate()` атрибута нет; макросы не раскрываются в одиночном `CompileCore`; LSP видит только каталог `Kern.Runtime`.
+
 - **`kern.random` added (2026-11-02, owner request):** internal std module with crypto-strong
   `i32/i64([min,] max)`, `f64`, `bool`, `bytes(n) -> list<u8>`, `hex(n)`, `choice<T>`,
   `shuffle<T>`, `sample<T>`, plus deterministic `random.rng(seed)` (`rng`:
@@ -49,10 +60,11 @@
 - **Four workstreams approved (2026-11-02, owner request), contract fixed:** (1) `kern.log`/`kern.cli`/
   `kern.config`/`kern.process` tool modules, (2) LSP server, (3) backend package (OpenAPI + auth +
   versioned migrations), (4) generators/`seq<T>` + TCO. The exact API of the four std modules is now
-  fixed in spec §16 "Библиотеки" and `docs/LIBRARIES.md`. Slice (1) is **implemented**:
-  `src/Kern.Runtime/{Logging,Cli,Config,Processes}` + `StdToolModulesTests` (6 tests); suite
-  **426/426**, style clean. Known gaps: module property assignment (`log.level = …`) does not bind
-  (use `log.set_level`), `to_file -> result<void, str>`. Slices (2)–(4) are not started.
+  fixed in spec §16 "Библиотеки" and `docs/LIBRARIES.md`. All four slices are implemented:
+  tool modules (`src/Kern.Runtime/{Logging,Cli,Config,Processes}` + `StdToolModulesTests`), the LSP
+  MVP (`src/Kern.Lsp`), the backend package (auth/OpenAPI/versioned migrations), and
+  generators/`seq<T>` + TCO. Known gap retained: module property assignment (`log.level = …`)
+  does not bind (use `log.set_level`); `to_file -> result<void, str>`.
 - **Backend WebSocket diagnosis (2026-11-02, owner bug report):** a plain HTTP request to a
   WebSocket-only path now returns `426 Upgrade Required` with `Upgrade: websocket` instead of the
   misleading `405 метод не поддерживается`; a real WebSocket handshake still works. Example 27
@@ -293,5 +305,4 @@
 - **`result`/`Ok`/`Err` (2026-10-31, M2/M3):** `result<T, E>` resolves to the union of the built-in `Ok<T>`/`Err<E>` units (`value`/`error`), `Ok(v)`/`Err(e)` construct without a synthesized ctor, `match Ok(v)`/`Err(e)` and coverage work, branches unify into a result union, and a discarded value warns `KRN2305`. New append-only `NewObjectGeneric` opcode reifies generic arguments (`typeIdx`, signature-list index) — `NewObject` alone lost `<i32>` and `match` never matched. Labels `result<T[ok], E[error]>`, `ok<T>`/`error<E>` synonyms, diagnostics print `result<T, E>`. `Binder.Expressions.cs` split (`Binder.CallBinding.cs`) to stay under the 800-line style limit. Verified: `logs/res.kern` prints `5`/`negative`, `logs/res_labels.kern` prints `ok=7`/`42`/`беда`, suite 16/16, style clean.
 - **Examples status 2026-10-31 (after tuples + Batch 1):** `kernc check` clean for **01, 02, 03, 04, 05, 08, 10** (7/31; at the start of the day it was 1/31). Examples 01, 02, 03, 04, 05 and 08 also `kernc run` end-to-end; 02's `expected.out` was re-saved with correct Cyrillic. Remaining 24 fail on the M1–M3 gaps tracked in `docs/M1_M3_CHECKLIST.md` (`result`/`Ok`/`Err`, inheritance/reflection, std libraries, stage-2 libs).
 - **Batch 2 (2026-10-31):** cells (mutable captures), unit destructuring, `Point a(...)` declarations, generic constructor inference, dict/str iteration, loop expressions; tests `Features/BatchTwoTests.cs` (6 facts); suite 16/16.
-- **Next:** Batch 1 tail — lambdas (agent running), local functions, generic constructor inference; then the Batch 1 test file and the next audit. Batch 2 after that (`await`, `result`/`Ok`/`Err`, imports M3-F, inheritance, extension members), Batch 3 (flow edges, `stop`/`next` in expressions, repeat operator, attributes on symbols, reflection stubs). M4 starts only after `docs/M1_M3_CHECKLIST.md` has no ❌/🟡 left.
-- **Std library map (2026-11-01):** docs/STDLIB_STATUS.md lists implemented/partial modules, the missing M7 surface, every failing example's first blocker and the recommended order (regex → json/env/file → M6 generic native types/collection → time/csv/yaml/events/di → M8 builder → M9 reflection/macros).
+

@@ -194,7 +194,7 @@ Recommendation: option 1 in the next `kern.regex` slice; option 3 now.
 ## Decided — owner answers (2026-10-31, M1–M3 push)
 - **Q27:** names of tuple members come from the expected type (`(i32 x, i32 y) p = (1, 2)`); no `(x = 1, …)` literal syntax for now.
 - **Tests batching:** only language-level features count toward the batch of five; std modules and opcodes do not count, tests are written at batch boundaries.
-- **Stage-2 examples (13, 15, 19, 20, 25–28):** add **stub libraries** (native types/members with panics) so the examples compile; running them stays out of scope.
+- **Stage-2 examples (13, 15, 19, 20, 25–28):** add **stub libraries** (native types/members with panics) so the examples compile; running them stays out of scope. **Updated 2026-11-02:** 13/15/20/25/26/27/31 use real `libs/` and run; only 19 (UI) remains unimplemented.
 - **`main`:** support both `fun main` and `fun main() -> i32` (the value becomes the process exit code); `void` `main` exits 0.
 - **M3 scope:** loop-as-expression (list result) and iteration over `dict` (keys) and `str` (chars) are part of M1–M3.
 - **Tuples:** structural `==`, hash and `compare` are required (tuples become valid hashable values).

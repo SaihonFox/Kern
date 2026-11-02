@@ -15,17 +15,17 @@
 | 10 | Format spec in interpolation `${x:08d}` `${x:.2f}` `${x:<10}` | support align `< > ^`, width, fill, `d x X b o f e` , precision; invalid = compile error when constant |
 | 11 | `a == b` between different numeric types | numeric promotion then compare; `i32 == f64` allowed |
 | 12 | ~~Shadowing~~ **ANSWERED**: allowed (warning) | — |
-| 13 | Recursion limit | default depth 10_000 frames then panic "переполнение стека" (not a crash); configurable (round 27) |
+| 13 | Recursion limit | spec says default depth 10_000 frames and configurable; code currently uses `Interpreter.MaxCallDepth = 65_536` and it is not configurable (see `KNOWN_ISSUES.md`) |
 | 14 | ~~Generics for unions (`type Option<T> = [Some<T>, None]`)~~ **ANSWERED** (round 27, DECISIONS §J): variants are separate units; the alias lists them | — |
 | 15 | `unit` identity (spec §9 "not defined yet") | none (skip) |
 | 16 | `in/ref/out` parameters | deferred by owner; do not implement |
-| 17 | Exact members of round-27 `seq<T>`, frozen collections, data structures and `kern.*` libraries | names per `DECISIONS.md` §J; use the common collection protocol where applicable; design each API in its M14 slice before implementing |
+| 17 | Exact members of round-27 data structures (`span<T>`, `frozen_*`, `deque`, `priority_queue`, `sorted_dict`, `sorted_set`, `bitset`, `ring_buffer`, `lazy<T>`) and the remaining `kern.*` libraries | names per `DECISIONS.md` §J; design each API in its M14 slice before implementing. `seq<T>` is done (2026-11-02) |
 
 ## Std / API gaps
-- `use dotnet.X[...]` interop (способ C in ARCHITECTURE §6): implement after M7 if budget allows (M6.5); otherwise move to stage 2 and tell the owner.
+- `use dotnet.X[...]` interop (способ C in ARCHITECTURE §6) is **not implemented**; no M6.5 slice was taken.
 - Names of std modules not listed in the spec: follow the reference (`kern.core, kern.text, kern.collections, kern.numerics, kern.math, kern.io, kern.json, kern.time, kern.regex, kern.csv, kern.yaml, kern.xml, kern.crypto, kern.uuid, kern.compress, kern.http, kern.events, kern.tasks, kern.pipes, kern.threading, kern.reflection, kern.test, kern.build, kern.macro`) plus round-27 `kern.process, kern.path, kern.net, kern.log, kern.cli, kern.config, kern.ansi, kern.toml, kern.ini, kern.auth, kern.random`.
-- `kern.server` / `kern.web` (HTTP server) is a stage-2 thing (together with backend); stage 1 only has the **client**.
+- `kern.server` / `kern.web` names do not exist; the HTTP server is the external `libs/Kern.Lib.Backend` (`kern.backend` + `kern.backend.server.*`). The client is `kern.http`.
 
 ## Process gaps
-- CI: **wanted** (GitHub Actions on 3 OS). Agents do not run git; the owner pushes the folder to GitHub at M12; activate `ci.yml` then.
-- UI deferred; architecture examples deferred; LSP deferred.
+- CI: GitHub Actions runs on Windows/Ubuntu/macOS (`.github/workflows/ci.yml`); fixes for the first runs are in `66fcc80` (canceled-task completion, `check-style` path separators, `.gitattributes` CRLF).
+- UI and architecture examples are still deferred; LSP MVP is implemented (`docs/LSP.md`).

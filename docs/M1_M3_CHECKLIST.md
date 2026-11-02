@@ -1,5 +1,7 @@
 # M1–M3 completion checklist (verified 2026-10-31)
 
+> **Исторический документ.** M1–M3 и M6–M12 закрыты; актуальное состояние — `STATUS.md` и `docs/ROADMAP.md`.
+
 Purpose: the owner asked to "finish M1–M3 and then re-check everything". Every ROADMAP
 acceptance bullet is listed with an honest status and the evidence. Statuses: ✅ done and
 exercised · 🟡 partial / works for stage-1 examples but a named gap remains · ❌ missing.

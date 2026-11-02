@@ -1,7 +1,7 @@
 # Kern — архитектура (целевая, для реализации агентами)
 
 > Целевая архитектура новой реализации с нуля. Отличия от старой попытки (`reference/`): нет `kern.toml` (всё в `build.kern`, `docs/BUILDER.md`);
-> потоки с общей памятью (не изолированные VM); `never`-тип; async-комбинаторы и отмена входят в базовый этап; UI и внешние библиотеки (transpile — второй этап; db, di, backend, ffi реализованы в `libs/`, см. `docs/LIBRARIES.md`).
+> потоки с общей памятью (не изолированные VM); `never`-тип; async-комбинаторы и отмена входят в базовый этап; UI — второй этап; внешние библиотеки db, di, backend, ffi и transpile реализованы в `libs/` (см. `docs/LIBRARIES.md`).
 > Структура проектов первого этапа — `docs/CONVENTIONS.md`.
 
 Решения заказчика (Saihon): байткод + VM; reified generics; GUI на Avalonia (внешняя библиотека); выход `kernc exe` = `.kbc` + VM-хост;
@@ -21,8 +21,8 @@
 | Kern.Runtime | `Kern.Runtime.<Домен>` | Binding | Реализации std по доменам: Build, Collections (+Containers: collection/set/queue/stack/observable), Compression, Core, Crypto, Env, Events, IO, Json, Math, Net, Numerics, Random, Reflection, Regex, Serialization.{Xml,Yaml,Csv}, Testing, Text, Threading, Time, Uuid, Web |
 | Kern.Compiler | `Kern.Compiler.*` | Core, Bytecode, Binding | Lexing, Syntax (AST), Parsing, Semantics, CodeGen, Optimization (ConstantFolder, PeepholeOptimizer), Formatting (`kernc fmt`) |
 | Kern.Std | — | — | `.kern` исходники std (сейчас `collections.kern` — протоколы `iter`/`async_iter`, и `server.kern`), EmbeddedResource `std/**` |
-| libs/* (**второй этап**) | `Kern.Lib.*` | Runtime | внешние библиотеки: Db, Di, Backend, Ffi реализованы; Ui, Transpile — замысел |
-| Kern.Cli | `Kern.Cli` | Runtime, Compiler, Vm, Binding | `kernc`: run, check, build, exe, dll, dis, fmt, repl, clean, tasks, do, help, version (без `test` в первом этапе); соглашения проекта и сценарии `build.kern` (`docs/BUILDER.md`); поиск внешних библиотек (`LibraryLoader`) |
+| libs/* | `Kern.Lib.*` | Runtime | внешние библиотеки: Db, Di, Backend, Ffi, Transpile реализованы; Ui — замысел |
+| Kern.Cli | `Kern.Cli` | Runtime, Compiler, Vm, Binding | `kernc`: run, check, test, build, exe, dll, dis, fmt, repl, clean, tasks, do, help, version; соглашения проекта и сценарии `build.kern` (`docs/BUILDER.md`); поиск внешних библиотек (`LibraryResolver`) |
 | Kern.Tests | `Kern.Tests.*` | все | C#-тесты + прогон `*.kern` тестов |
 
 Правило папок: НЕ класть много файлов в одну папку; один домен = одна подпапка = один namespace.
@@ -132,8 +132,7 @@ public sealed class Counter
 
 Avalonia. Модель — один тип `widget` с фабриками `ui.label/button/input/checkbox/slider/progress/list/column/row/window`, свойствами
 (`text`, `value`, `enabled`, `visible`…) и событиями `on_click/on_change/on_close`; `ui.run(window)` запускает цикл. Декларативный Compose-стиль
-(`state<T>`, recomposition), роутинг и мобильный/web-бэкенды — планируются. Хост `Kern.Lib.Ui.Hosting.GuiHost` строит Avalonia-контролы лениво;
-события возвращаются в VM через планировщик.
+(`state<T>`, recomposition), роутинг и мобильный/web-бэкенды — планируются. `libs/Kern.Lib.Ui` в текущем репозитории отсутствует: хост `GuiHost` остаётся замыслом из `reference/libs`.
 
 ## 11. Тесты и документация
 

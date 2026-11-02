@@ -1,8 +1,8 @@
 # Kern LSP (MVP)
 
 `src/Kern.Lsp` is a language server for Kern over JSON-RPC 2.0 on stdio (LSP base
-protocol, `Content-Length` framing). It is a stage-2 tool: the compiler and runtime
-are unchanged.
+protocol, `Content-Length` framing). It is an implemented tool (part of the stage-2
+scope): the compiler and runtime are unchanged.
 
 ## Build and run
 

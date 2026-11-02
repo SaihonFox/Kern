@@ -6,7 +6,7 @@ Language details live in `docs/spec/kern.en.md`; this file is the index of *why*
 ## A. Project process (agents era, 2026-10-18)
 - [FINAL] Build **from scratch by the spec**; old code is `reference/` (copy piece by piece, only after verifying; see `KNOWN_ISSUES.md`).
 - [FINAL] Instructions in English; **code comments and diagnostics in Russian**; no git required for agents.
-- [FINAL] First pass scope = **core + std + CLI** (see `ROADMAP.md`). Stage-2 = external libraries, UI, LSP, architecture examples.
+- [FINAL] First pass scope = **core + std + CLI** (see `ROADMAP.md`). Stage-2 = external libraries, UI, architecture examples; LSP MVP implemented 2026-11-02.
 - [FINAL] Correctness bar: **examples are golden tests + xunit tests**.
 - [FINAL] When a decision proves bad → **stop and ask the owner** (`DECISIONS_NEEDED.md`), do not silently redesign.
 - [FINAL] Permissions: agents may run `dotnet` and edit files in the project folder; anything else → ask.
@@ -15,13 +15,13 @@ Language details live in `docs/spec/kern.en.md`; this file is the index of *why*
 - [FINAL] Budget ≈ 60M tokens total; agent decides how to spend (`TOKEN_BUDGET.md`).
 
 ## B. Architecture (rounds 1–2)
-- [FINAL] Bytecode + VM (stack machine); `kernc exe` = `.kbc` + VM host. Interpreter now; Kern→C# translator exists only as a stage-2 external library.
+- [FINAL] Bytecode + VM (stack machine); `kernc exe` = `.kbc` + VM host. Interpreter now; the Kern→C#/Kotlin translator is the external library `libs/Kern.Lib.Transpile` (implemented 2026-11-02).
 - [FINAL] Reified generics: `typeof<T>()` and `typeof(str name)` coexist as overloads.
 - [FINAL] Several csproj in one `Kern.slnx`; **namespaces match folder paths**; no flat folders with many files; no single `KernLang` namespace.
 - [FINAL] Std binding: **C# classes with attributes** (`[KernType]`, `[KernMember]`, `[KernProperty]`, `[KernStatic]`, `[KernCtor]`, …) plus interop `use dotnet.X[...]`.
   FORBIDDEN: ExternRegistry style, `#[extern]` on every member, string registries like `"len.get"`, merging overloads/generics/return types. Real property/setter/overload/generic support is required.
 - [FINAL] Console is always UTF-8 (the old bug: Russian text printed as `?`).
-- [FINAL] Libraries beyond BCL (stage 2): web server/backend, DB/ORM (SQLite/PostgreSQL/MySQL), ui, ffi, transpiler, DI. They are **external** libs (not built into the language, no extra DLLs in kernc output). DB/ORM, DI, backend and FFI are implemented in `libs/` (2026-11-02); ui/transpiler remain external stage-2. Std stage-1 still has xml/yaml/csv, json, regex, crypto, uuid, compression, http client, time, test+mocks.
+- [FINAL] Libraries beyond BCL (stage 2): web server/backend, DB/ORM (SQLite/PostgreSQL/MySQL), ui, ffi, transpiler, DI. They are **external** libs (not built into the language, no extra DLLs in kernc output). DB/ORM, DI, backend, FFI and transpiler are implemented in `libs/` (2026-11-02); UI remains planned. Std stage-1 still has xml/yaml/csv, json, regex, crypto, uuid, compression, http client, time, test+mocks.
 
 ## C. Language (see spec for syntax)
 - [FINAL] `snake_case` for everything; short names (`len`, `is_empty`, `first`, `last`); prefer properties over getters (`stack.size`).
@@ -41,7 +41,7 @@ Language details live in `docs/spec/kern.en.md`; this file is the index of *why*
 - [FINAL] `use T x = e` disposes (calls `dispose()`) on block exit incl. `ret/stop/next`, not on panic. The same mechanism is the **lock**: `use var g = m.guard()` (no `lock` keyword).
 - [FINAL] Events/delegates merged without new keywords: `event<T>`, `signal` with `+=`/`-=`/`emit`; `observable<T>`; ordinary function types for single delegates.
 - [FINAL] Attributes on properties/fields/params; **the compiler must emit attributes into bytecode** (types, functions, fields, properties) — reflection and DI depend on it.
-- [FINAL] Unified collection interface: `collection<T>` root, inheriting derived from the C# class hierarchy for native types (`set<T>`, `queue<T>`, `stack<T>`, `observable<T>`); builtin `list/array/str/dict/range` get the parent by a compiler rule + runtime adapters. Kern types do NOT inherit native types.
+- [FINAL] Unified collection interface: `collection<T>` root, inheriting derived from the C# class hierarchy for native types (`set<T>`, `queue<T>`, `stack<T>`, `observable<T>`); builtin `list/array/str/dict` get the parent by the compiler rule `Conversions.TryCollectionUpcast` (no separate `range` type). Kern types do NOT inherit native types.
 - [FINAL] Reflection Kotlin+C# style at runtime (`kern.reflection`) **and** compile-time (`name_of<T>()`, `field_names<T>()`…); dynamic types (`reflect.define_type`).
 - [FINAL] Macros (compile-time codegen): macro = Kern function over a description of the AST, expanded **as text before parsing**; v1: add members, generate types/functions, expression macros `f!(…)`, compile diagnostics.
 - [DEFERRED] `in/ref/out`; identity semantics for `unit`. Generics for unions are **answered** in §J (round 27).
@@ -78,7 +78,7 @@ Language details live in `docs/spec/kern.en.md`; this file is the index of *why*
 ## G. UI, architecture examples, tooling (stage 2)
 - [DEFERRED] UI is NOT in the first pass. Wishes: own UI base (not Avalonia-only), desktop + mobile + web, React-like routing, widget hierarchy (`button/label/…` with a common base), Compose-style state. Avalonia may be one backend.
 - [DEFERRED] Architecture examples: mvvm, mvc, mvp, mvi, viper, state.
-- [DEFERRED] transpiler (Kern → C# and Kotlin, user mapping scripts, external library); LSP MVP implemented 2026-11-02 (`src/Kern.Lsp`, `docs/LSP.md`). DB/ORM (`kern.db*`), DI (`kern.di`), backend (`kern.backend*`) and FFI (`kern.ffi`) are implemented 2026-11-02.
+- Transpiler `libs/Kern.Lib.Transpile` (Kern → C#/Kotlin, user mapping scripts) implemented 2026-11-02; LSP MVP implemented 2026-11-02 (`src/Kern.Lsp`, `docs/LSP.md`). DB/ORM (`kern.db*`), DI (`kern.di`), backend (`kern.backend*`) and FFI (`kern.ffi`) are implemented 2026-11-02. Remaining stage-2: UI and architecture examples.
 - Design of stage-2 libraries is documented in `docs/spec/kern.en.md` (rounds 13–21) and `docs/LIBRARIES.md`.
 
 ## H. Owner preferences (apply always)
@@ -107,7 +107,7 @@ Language details live in `docs/spec/kern.en.md`; this file is the index of *why*
 - [FINAL, revised 2026-11-01] **`result` and the `ok`/`error` markers:** `result<T, E>` takes any types (union of the built-in variants `Ok<T>`/`Err<E>`; constructors `Ok(v)`/`Err(e)`; patterns unchanged). The labelled form `result<T[ok], E[error]>` is the **constrained** form: `[ok]` requires `T` to inherit the marker base type `ok`, `[error]` requires `E` to inherit the marker base type `error`; user variants are written `type SomeOK[ok]` / `type SomeError[error]`. Labels are allowed only in `result` arguments (first must be `ok`, second `error`); `ok`/`error` without arguments are the marker types, while `ok<T>`/`error<E>` remain aliases of the built-in variants. This revises the 2026-10-26 note that labels were mere parameter labels.
 - [FINAL] **`span<T>`:** mutable, stack-only view like C# `Span<T>`; not stored in fields/closures; copies share elements. Frozen collections are `frozen_list<T>`, `frozen_dict<K,V>`, `frozen_set<T>`.
 - [FINAL] **Data structures:** `deque<T>`, `priority_queue<T>`, `sorted_dict<K,V>`, `sorted_set<T>`, `bitset`, `ring_buffer<T>`, `lazy<T>`; where applicable they follow the common collection protocol.
-- [FINAL] **Libraries:** `kern.process`, `kern.path`, `kern.net`, `kern.log`, `kern.cli`, `kern.config`, `kern.ansi`, `kern.time` (including time zones), plus separate `kern.toml`/`kern.ini`. Exact members are not fixed yet.
+- [FINAL] **Libraries:** `kern.process`, `kern.path`, `kern.net`, `kern.log`, `kern.cli`, `kern.config`, `kern.ansi`, `kern.time` (including time zones), plus separate `kern.toml`/`kern.ini`. Implemented 2026-11-02: `kern.process`, `kern.path`, `kern.log`, `kern.cli`, `kern.config`, `kern.random`, `kern.auth`; still planned: `kern.net`, `kern.ansi`, `kern.toml`, `kern.ini`, time zones.
 - [FINAL] **Nesting protection:** both compiler and VM limits; defaults 256 levels and 10,000 frames; both are configurable; exceeding a limit is a diagnostic/panic, not a process crash.
 - [FINAL] **Documentation:** `///` is Markdown attached to a declaration; fenced `kern` code blocks are doctests (compile + run; exact output checked only with a `// expect:` marker); `kernc doc` emits Markdown.
 - [FINAL] **Tooling:** `kernc wasm` targets WASI; `kernc new app|lib|service` creates conventional projects; `kernc run --watch` rebuilds and restarts on changes (not hot module reload).

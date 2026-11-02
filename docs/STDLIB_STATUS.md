@@ -1,6 +1,6 @@
 # STDLIB_STATUS — библиотеки и что они разблокируют
 
-Карта на 2026-11-01: языковое ядро M1–M3 закрыто, дальше идут библиотеки (M6/M7) и CLI/builder (M8).
+Карта на 2026-11-02: языковое ядро M1–M3 и этапы M6–M12 закрыты. Открыты M13 (package fetching) и часть M14: структуры данных, doc/CLI-инструменты, `kern.net`/`kern.ansi`/`kern.toml`/`kern.ini`, часовые пояса, UI.
 Таблица помогает выбирать следующий срез по эффекту на `examples/`.
 
 ## Реализовано (частично)
@@ -8,7 +8,7 @@
 | Модуль | Что есть | Ограничения |
 |---|---|---|
 | `kern.core` | `print`, `println`, `eprintln`, `panic`, `delay`, `exit`, `format`, `to_str`, `typeof`, `name_of` | — |
-| `kern.io` | `streamwriter`/`streamreader` (`write`, `write_line`, `read_line`, `read_all`, `read_text`, `close`, `dispose`, `is_open`, `at_end`), `ConsoleModule` | файловые `file.*` ещё не добавлены |
+| `kern.io` | `streamwriter`/`streamreader` (`write`, `write_line`, `read_line`, `read_all`, `read_text`, `close`, `dispose`, `is_open`, `at_end`), `ConsoleModule` | — (файловые `file.*` — в строке ниже) |
 | `kern.test` | `assert`, `assert_eq`, `assert_ne`, `assert_near`, `assert_nil`, `assert_not_nil`, `fail` | `fail` типизирован `void`, а не `never` |
 | `kern.math` | базовые функции | — |
 | `kern.collections` | нативные `list`/`array`/`dict` (включая `first/last/get/set/map/filter/keys/values/get_or`), члены `str`/`char`; generic-контейнеры `set<T>`, `queue<T>`, `stack<T>`, `observable<T>` (add/remove/clear/on_change); общий протокол `collection<T>` (len/is_empty/contains/to_list) с адаптерами и итерацией | — |
@@ -23,16 +23,22 @@
 | `kern.crypto` / `kern.uuid` | sha1/sha256/sha512/md5, hmac_sha256, base64, random_hex, hash_password/verify_password; `uuid.new()` | — |
 | `kern.time` | `duration` (parse/from_*/total_*/арифметика/сравнения/печать), `datetime` (of/now/поля/weekday/format/add_months/±/сравнения), `stopwatch` (запускается сразу), `time.sleep/measure/unix_*` | нативные параметры по умолчанию не поддерживаются: `datetime.of` требует все 6 аргументов |
 | `kern.reflection` / `kern.macro` | `type` (`name/full_name/args/parents/fields/properties/methods/constructors/attributes`, `is_*`, `enum_names`, `get_*/get/set/create/is_instance/is_assignable_from`), `field_info/property_info/method_info/param_info/attribute_info`, `reflect.*`, `define_type`; `macro_ctx` + `#[macro]`/`#[macro("expr")]`/`#[derive]`/`name!(...)` | `define_type` без generics/родителей/методов; `instantiate()` атрибута нет; макросы не раскрываются в одиночном `CompileCore` |
-| `kern.db.*` / `kern.db` | внешняя `libs/Kern.Lib.Db`: `sqlite`, `postgres`, `mysql` (`exec/query/scalar/begin/commit/rollback`, async, `last_id`, `close`), `orm.table<T>` (`create/drop/migrate/insert/update/delete/all/where/find/count`, `name`), JSON-поля, `belongs_to`/`has_many` | SQLite/PostgreSQL/MySQL проверены живыми CRUD/boolean/транзакциями (`DbLiveTests`); миграции без версий/истории; связи без каскадов/eager-loading |
+| `kern.db.*` / `kern.db` | внешняя `libs/Kern.Lib.Db`: `sqlite`, `postgres`, `mysql` (`exec/query/scalar/begin/commit/rollback`, async, `last_id`, `close`), `orm.table<T>` (`create/drop/migrate/insert/update/delete/all/where/find/count`, `name`), JSON-поля, `belongs_to`/`has_many`, версионные `migration`/`migrator` | SQLite/PostgreSQL/MySQL проверены живыми CRUD/boolean/транзакциями (`DbLiveTests`); связи без каскадов/eager-loading |
 | `kern.ffi` | внешняя `libs/Kern.Lib.Ffi`: `native_lib`/`native_fn`, загрузка `.dll/.so/.dylib`, `fn(symbol, "i32(i32, str)")`, `call([...])`, `has`, `close`; cdecl, типы void/bool/i8…u64/f32/f64/ptr/str | только cdecl; без callbacks/struct/массивов; возвращённые строки/указатели освобождает C-код |
 | `kern.di` | внешняя `libs/Kern.Lib.Di`: `container` (`singleton/transient/scoped`, `*_as`, `instance`, `scan`, `get/try_get/has/create/inject/scope/dispose`, `count`) | фабрики требуют явного типа результата лямбды (`fun -> T`); атрибуты библиотеки теперь известны компилятору (без `KRN2307`) |
-| `kern.backend` / `kern.backend.server` | внешняя `libs/Kern.Lib.Backend`: `app`/`route_group`/`ctx`/`res`/`res_writer`/`chain`/`middleware`/`jwt`/`session`/`claims`/`socket`/`sse`/`work`; маршруты, middleware, контроллеры (`#[controller]`, `#[get]`, `#[auth]`, `#[roles]`), DI-scope на запрос, JWT HS256, сессии (в памяти/файле), WebSocket, SSE с replay, static files с ETag/Range, `res.stream`, `await a.serve()` | `kern.backend.server.*` — импорт модуля; `serve` объявлен членом `app`; rate limit/SSE-буфер в памяти; сервер на `HttpListener`; отмена потокового ответа кооперативная |
+| `kern.backend` / `kern.backend.server` | внешняя `libs/Kern.Lib.Backend`: `app`/`route_group`/`ctx`/`res`/`res_writer`/`chain`/`middleware`/`jwt`/`session`/`claims`/`socket`/`sse`/`work`; маршруты, middleware, контроллеры (`#[controller]`, `#[get]`, `#[auth]`, `#[roles]`), DI-scope на запрос, JWT HS256, сессии (в памяти/файле), WebSocket, SSE с replay, static files с ETag/Range, `res.stream`, OpenAPI (`a.openapi`), `await a.serve()` | `kern.backend.server.*` — импорт модуля; `serve` объявлен членом `app`; rate limit/SSE-буфер в памяти; сервер на `HttpListener`; отмена потокового ответа кооперативная |
 | `kern.transpile` | внешняя `libs/Kern.Lib.Transpile`: `transpiler("csharp"\|"kotlin")`, `map_script`, `text/file/project` → `result`; цели C#/Kotlin, `KResult`-runtime, подстановки `map_type/map_call/map_member` | сгенерированный C# проверяется сборкой (`TranspileTests`); Kotlin — только текстом (нет `kotlinc`); сложные конструкции упрощаются с предупреждением |
+| `kern.log` / `kern.cli` / `kern.config` / `kern.process` | внутренние std-модули (2026-11-02): уровни/файл логов; парсер аргументов; JSON/YAML/`.env`/`key=value`; `run/run_in/shell/spawn/which` | присваивание свойства модуля (`log.level = …`) не связывается — есть `set_level`; `to_file -> result<void, str>` |
+| `kern.auth` / `kern.random` | внутренние std-модули (2026-11-02): TOTP/HOTP/токены; криптостойкие числа/байты и детерминированный `rng(seed)` | TOTP — HMAC-SHA1; `rng` — xorshift64 и хранит состояние (продолжает последовательность) |
+| LSP | `src/Kern.Lsp` (`kern-lsp`, JSON-RPC over stdio): диагностика, completion, hover, definition, symbols, formatting | только каталог `Kern.Runtime` (внешние `Kern.Lib.*` не подгружаются); hover/definition синтаксические |
 
-## Отсутствует (stage-2 и другие этапы)
+## Отсутствует (M13/M14 и UI)
 
-`kern.ui`, `kern.mod`,
-`kern.stub`, `kern.web`/`kern.server` (stage-2).
+- `kern.ui` (Avalonia, `libs/Kern.Lib.Ui` отсутствует; `examples/19_gui` не запускается).
+- `kern.net`, `kern.ansi`, `kern.toml`, `kern.ini`, часовые пояса `kern.time`.
+- Структуры данных M14: `span<T>`, `frozen_list/frozen_dict/frozen_set`, `deque`, `priority_queue`, `sorted_dict`, `sorted_set`, `bitset`, `ring_buffer`, `lazy<T>`.
+- Инструменты: `kernc wasm`, `kernc new`, `kernc doc`, `kernc run --watch`; package fetching (M13); архитектурные примеры; отладчик.
+- Языковые ограничения: `use dotnet.X[...]`, `in/ref/out`, identity для `unit`, запись через пользовательский `op []`, шаг срезов, `op in`, async-генераторы.
 
 M7 закрыт 2026-11-01: `kern.events`, `kern.compress`, `kern.http` (оба варианта), `kern.threading`,
 `kern.tasks`, `kern.parallel`, `kern.pipes`, моки `kern.test.mock`, базовая рефлексия
@@ -44,9 +50,9 @@ M9 закрыт 2026-11-01: полная рантайм-поверхность �
 `parent_names`, а также `kern.macro` и текстовый конвейер макросов (`#[macro]`,
 `#[macro("expr")]`, `#[derive(name)]`, `name!(...)`, KRN1502/1503).
 
-M12 почти закрыт: эталоны 09/18/23 и 04_flow, форматтер проверяется на идемпотентность
+M12 закрыт: эталоны 09/18/23 и 04_flow, форматтер проверяется на идемпотентность
 по всем примерам, `.compile-only` примеры 16/17/31-mathx проверяются отдельным тестом.
-Остался только реальный прогон CI после push владельца.
+CI запускался; исправления первого прогона — `66fcc80` (async-отмена, пути в style-check, CRLF).
 
 ## Блокеры примеров (1 из 31 не проходит `kernc check`; 30 чистых — на 2026-11-02)
 
@@ -54,11 +60,11 @@ M12 почти закрыт: эталоны 09/18/23 и 04_flow, форматт�
 |---|---|---|
 | 07_async_errors | ✅ clean+run 2026-11-01 (async_iter + корутины) | — |
 | 09_collections_json | ✅ clean+run 2026-11-01 | — |
-| 11_workspace | `build.kern`/`workspace` | M8 builder |
+| 11_workspace | ✅ clean+run 2026-11-01 (M8 builder) | — |
 | 12_text_data | ✅ clean+run 2026-11-01 | — |
 | 13_db_web | ✅ clean+run 2026-11-02 (`kern.backend` + `kern.db`; SQLite/ORM/HTTP) | — |
 | 14_threads_compress | ✅ clean+run 2026-11-01 | — |
-| 15_databases | ✅ clean+run 2026-11-02 (`kern.db.sqlite` + ORM); PostgreSQL/MySQL — compile-only | нужны живые серверы для PG/MySQL |
+| 15_databases | ✅ clean+run 2026-11-02 (`kern.db.sqlite` + ORM); PostgreSQL/MySQL проверены `DbLiveTests` | для повторного live-прогона нужны `KERN_PG_URL`/`KERN_MYSQL_URL` |
 | 16_mocks | ✅ `kernc test` 2026-11-01 (2 теста); `kernc run` печатает подсказку | — |
 | 17_http_clients | ✅ clean+run 2026-11-01 (оба клиента) | — |
 | 18_time | ✅ clean+run 2026-11-01 | — |
@@ -72,22 +78,13 @@ M12 почти закрыт: эталоны 09/18/23 и 04_flow, форматт�
 | 26_di | ✅ clean+run 2026-11-02 (`kern.di`) | — |
 | 27_backend | ✅ clean+run 2026-11-02 (`kern.backend` + `kern.di`: контроллеры, JWT, middleware, SSE, WebSocket, `/stop`) | — |
 | 28_macros | ✅ clean+run 2026-11-01 (M9 macros) | — |
-| 29_async | ✅ clean+run 2026-11-01 | — |
+| 29_async | ✅ clean+run 2026-11-02 (исправлена отмена awaited-задач, CI-флак) | — |
 | 30_threads | ✅ clean+run 2026-11-01 | — |
 | 31_kbc | ✅ clean+run 2026-11-02 (`kernc check` контейнера + `prebuild.txt`; `kernc dll mathx` → `kernc run app`) | — |
-
-## Рекомендуемый порядок
-
-1. `kern.regex` + lowering литералов → пример 21.
-2. `kern.json`, `kern.env`, `file.*` → пример 09 после контейнеров.
-3. M6 generic native types + `collection<T>`/`iter`/`async_iter` адаптеры → примеры 23/09/07/12.
-4. `kern.time`, `kern.csv`/`yaml`, `kern.events`, `kern.di` → примеры 18/12/22/26.
-5. M8 `build.kern`/workspace/`exe`/`dll` → примеры 11/13/25/31.
-6. M9 рефлексия/макросы, `kern.http`/`db`/`threading`/`compress` — по остаточным примерам.
 
 ## Технические долги, влияющие на библиотеки
 
 - **Native generic types** (`set<T>`, `queue<T>`, `stack<T>`, `observable<T>`, `collection<T>`): механизм закрыт в M6 — `[KernType(..., GenericArity = 1)]`, регистрация generic-символов, `[KernCtor]`-фабрики возвращают контейнер, `T` подставляется в членах; `collection<T>` — общий протокол с адаптерами.
 - **Native inheritance/adapters**: родители берутся из C#-иерархии (`streamwriter/streamreader -> stream`), upcast и `is` сохраняют runtime-тип; `collection<T>` обслуживает list/array/dict/str/set/queue/stack/observable.
-- **`iter<T>`/`async_iter<T>`** протоколы: sync-цикл реализован; async — M5.
-- `PropertyDef` не эмитится в `.kbc` (атрибуты свойств на аксессорах).
+- **`iter<T>`/`async_iter<T>`** протоколы: и sync-, и async-циклы реализованы (M5/M7); `seq<T>` — нативный источник `iter<T>`.
+- `PropertyDef` эмитится в `.kbc` (атрибуты свойств также копируются на аксессоры).

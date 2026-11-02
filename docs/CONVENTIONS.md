@@ -14,7 +14,7 @@ src/
   Kern.Cli/         Kern.Cli.{Commands,Build,Kbc,Macros,Infrastructure}
   Kern.Tests/       Kern.Tests.{Harness,Parsing,Binding,Execution,Examples,…}
 examples/  docs/  tools/  logs/  reference/ (read-only)
-libs/   (stage 2 only)
+libs/   (external libraries; implemented except Kern.Lib.Ui)
 ```
 Dependencies only point downward: Core ← Bytecode ← Vm ← Binding ← Runtime; Compiler → Core, Bytecode, Binding; Cli → all; Tests → all.
 

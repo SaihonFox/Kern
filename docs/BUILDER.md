@@ -73,7 +73,7 @@ as `.kbc` and link through stubs (ask owner before adding).
 ## 6. Library discovery (external `Kern.Lib.*.dll`) [FINAL: no toml]
 Search order: env `KERN_LIBS` (`;` on Windows, `:` elsewhere) → `libs` next to `kernc` → `libs/_out` upward from kernc → `~/.kern/libs` → project `libs` →
 `w.lib_path(...)` / `t.lib_path(...)`. A root is a folder (DLLs in it or in first-level subfolders) or a `.dll` itself. Dependencies (e.g. `Npgsql.dll`) are resolved next to the library.
-(The libraries themselves are stage 2, but discovery + `t.lib("name")` are part of the builder now.)
+(External libraries are implemented in `libs/`; discovery + `t.lib("name")` load them into the native catalogue.)
 
 ## 7. Profiles and environment [FINAL: wanted]
 `kernc build -p release`, `kernc run -p release …`. `p.env[...]`/`t.env[...]` are exported to the program's process env for `run` and to tasks.
