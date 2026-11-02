@@ -268,7 +268,7 @@ public static class KbcModuleValidator
 			case OpCode.TypeOfSig or OpCode.IsType:
 				ValidateSigIndex(module, arg, where, "типа");
 				break;
-			case OpCode.Slice:
+			case OpCode.Slice or OpCode.SliceStep:
 				// B5b2: операнд — только флаг включительного конца (1/0).
 				if (code[at + 1] is not (0 or 1))
 					throw new KbcFormatException(

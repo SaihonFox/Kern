@@ -286,9 +286,9 @@ public sealed partial class Binder
 	}
 
 	/// <summary>
-	/// B5b2: срез <c>target[start..end]</c>/<c>target[start..=end]</c> (spec §3, round 27).
-	/// Шаг в срезе не поддержан — KRN2101; границы приводятся к <c>i32</c> (несовпадение —
-	/// KRN2102 из <see cref="Convert"/>). Некорректный диапазон проверяет VM (паника).
+	/// B5b2: срез <c>target[start..end]</c>/<c>target[start..=end]</c> и шаг
+	/// <c>target[start..end:step]</c> (spec §3, round 27). Границы/шаг приводятся к
+	/// <c>i32</c> (несовпадение — KRN2102); положительность шага и границы проверяет VM.
 	/// </summary>
 	private BoundExpression BindSlice(
 		IndexExpression index,
@@ -296,12 +296,6 @@ public sealed partial class Binder
 		RangeExpression range,
 		KernType resultType)
 	{
-		if (range.Step is not null)
-		{
-			Report("KRN2101", "Шаг в срезе пока не поддержан", range.Span);
-			return new BoundErrorExpression(index.Span);
-		}
-
 		var start = Convert(BindExpression(range.Start), PrimitiveType.I32, range.Start.Span);
 		if (IsError(start.Type))
 			return new BoundErrorExpression(index.Span);
@@ -310,7 +304,15 @@ public sealed partial class Binder
 		if (IsError(end.Type))
 			return new BoundErrorExpression(index.Span);
 
-		return new BoundSliceExpression(target, start, end, range.IsInclusive, resultType, index.Span);
+		BoundExpression? step = null;
+		if (range.Step is not null)
+		{
+			step = Convert(BindExpression(range.Step), PrimitiveType.I32, range.Step.Span);
+			if (IsError(step.Type))
+				return new BoundErrorExpression(index.Span);
+		}
+
+		return new BoundSliceExpression(target, start, end, range.IsInclusive, resultType, index.Span, step);
 	}
 
 	/// <summary>

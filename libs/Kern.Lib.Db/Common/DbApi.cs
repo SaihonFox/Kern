@@ -6,10 +6,10 @@ using Kern.Vm.Values;
 namespace Kern.Lib.Db.Common;
 
 /// <summary>
-/// Общий тип <c>db</c> для действий миграций (<c>fun (db d) { … }</c>): те же члены, что у
+/// Общий тип <c>db</c> для действий миграций (<c>fun (database d) { … }</c>): те же члены, что у
 /// <c>sqlite</c>/<c>postgres</c>/<c>mysql</c>, но без привязки к конкретному драйверу.
 /// </summary>
-[KernType("db")]
+[KernType("database")]
 public static class DbApi
 {
 	[KernMember]

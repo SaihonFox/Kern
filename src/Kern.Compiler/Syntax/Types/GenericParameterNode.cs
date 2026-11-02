@@ -8,8 +8,11 @@ public sealed record GenericParameterNode(
 	string Name,
 	IReadOnlyList<TypeSyntax> Constraints,
 	bool HasCtorConstraint,
-	TextSpan Span) : SyntaxNode(Span)
+	TextSpan Span,
+	IReadOnlyList<TypeSyntax>? CtorArguments = null) : SyntaxNode(Span)
 {
+	public IReadOnlyList<TypeSyntax> DeclaredCtorArguments { get; } = CtorArguments ?? [];
+
 	public override string ToString()
 	{
 		if (Constraints.Count == 0 && !HasCtorConstraint)
@@ -22,7 +25,9 @@ public sealed record GenericParameterNode(
 		{
 			if (Constraints.Count > 0)
 				builder.Append(',');
-			builder.Append("ctor()");
+			builder.Append("ctor(");
+			builder.AppendJoin(',', DeclaredCtorArguments);
+			builder.Append(')');
 		}
 		builder.Append(']');
 		return builder.ToString();

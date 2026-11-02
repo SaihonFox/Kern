@@ -237,6 +237,18 @@ public sealed partial class Binder
 		if (IsError(left.Type) || IsError(right.Type))
 			return new BoundErrorExpression(span);
 
+		// `in`/`!in`: сначала пользовательский `op in(T)` на ПРАВОМ операнде (spec §16:
+		// «a in b» — оператор b), иначе встроенные контейнеры.
+		if (symbol is "in" or "!in")
+		{
+			if (TryBindUserOperator("in", right, left, span) is { } membershipOperator)
+			{
+				return symbol == "in"
+					? membershipOperator
+					: new BoundUnaryExpression("!", membershipOperator, PrimitiveType.Bool, span);
+			}
+		}
+
 		// Пользовательские/расширяющие операторы (spec §12) — до встроенных, если объявлены.
 		if (symbol is not ("&&" or "||" or "==" or "!=" or "<" or ">" or "<=" or ">=" or "?:" or "in" or "!in") &&
 			TryBindUserOperator(symbol, left, right, span) is { } userOperator)

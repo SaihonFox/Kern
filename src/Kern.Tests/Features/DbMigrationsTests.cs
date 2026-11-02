@@ -27,10 +27,10 @@ public sealed class DbMigrationsTests
 
 		fun apply_all(sqlite db) -> str {
 			var mg = migrator(db)
-			mg.add(migration("2", "insert", fun (db d) {
+			mg.add(migration("2", "insert", fun (database d) {
 				d.exec("insert into items(name) values ('b')")
 			}))
-			mg.add(migration("1", "create", fun (db d) {
+			mg.add(migration("1", "create", fun (database d) {
 				d.exec("create table items(id integer primary key, name text)")
 			}))
 			match mg.up() {
@@ -41,10 +41,10 @@ public sealed class DbMigrationsTests
 
 		fun apply_again(sqlite db) -> str {
 			var mg = migrator(db)
-			mg.add(migration("2", "insert", fun (db d) {
+			mg.add(migration("2", "insert", fun (database d) {
 				d.exec("insert into items(name) values ('b')")
 			}))
-			mg.add(migration("1", "create", fun (db d) {
+			mg.add(migration("1", "create", fun (database d) {
 				d.exec("create table items(id integer primary key, name text)")
 			}))
 			match mg.up() {
@@ -55,10 +55,10 @@ public sealed class DbMigrationsTests
 
 		fun pending_versions(sqlite db) -> str {
 			var mg = migrator(db)
-			mg.add(migration("2", "insert", fun (db d) {
+			mg.add(migration("2", "insert", fun (database d) {
 				d.exec("insert into items(name) values ('b')")
 			}))
-			mg.add(migration("1", "create", fun (db d) {
+			mg.add(migration("1", "create", fun (database d) {
 				d.exec("create table items(id integer primary key, name text)")
 			}))
 			versions(mg.pending())
@@ -83,13 +83,13 @@ public sealed class DbMigrationsTests
 
 		fun fail_apply(sqlite db) -> str {
 			var mg = migrator(db)
-			mg.add(migration("1", "ok", fun (db d) {
+			mg.add(migration("1", "ok", fun (database d) {
 				d.exec("create table counter(n integer)")
 			}))
-			mg.add(migration("2", "bad", fun (db d) {
+			mg.add(migration("2", "bad", fun (database d) {
 				panic("бум")
 			}))
-			mg.add(migration("3", "later", fun (db d) {
+			mg.add(migration("3", "later", fun (database d) {
 				d.exec("insert into counter(n) values (1)")
 			}))
 			match mg.up() {
@@ -100,7 +100,7 @@ public sealed class DbMigrationsTests
 
 		fun apply_later(sqlite db) -> str {
 			var mg = migrator(db)
-			mg.add(migration("3", "later", fun (db d) {
+			mg.add(migration("3", "later", fun (database d) {
 				d.exec("insert into counter(n) values (1)")
 			}))
 			match mg.up() {

@@ -556,6 +556,9 @@ public sealed partial class Binder
 
 	private BoundStatement BindFieldAssignment(AssignmentStatement assignment, MemberAccessExpression member)
 	{
+		if (TryBindModulePropertyAssignment(assignment, member) is { } moduleProperty)
+			return moduleProperty;
+
 		// `a.b.c = v`: цепь записи (Q13/M3-D4) — копирование unit и возврат наружу.
 		if (IsNestedStoreTarget(member))
 			return BindChainStore(assignment, member);

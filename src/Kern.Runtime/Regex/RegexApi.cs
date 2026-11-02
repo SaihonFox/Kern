@@ -221,3 +221,19 @@ public static class RegexModule
 	[KernMember]
 	public static KernRegex? TryNew(string pattern, string flags) => KernRegex.TryCreate(pattern, flags);
 }
+
+/// <summary>
+/// Статические члены типа <c>regex</c>: позволяют писать <c>regex.try_new(…)</c> наряду
+/// с модульной формой <c>try_new(…)</c> (spec §18c).
+/// </summary>
+[KernType("regex")]
+public static class RegexStaticApi
+{
+	[KernStatic]
+	[KernName("try_new")]
+	public static KernRegex? TryNew(string pattern) => KernRegex.TryCreate(pattern, "");
+
+	[KernStatic]
+	[KernName("try_new")]
+	public static KernRegex? TryNew(string pattern, string flags) => KernRegex.TryCreate(pattern, flags);
+}

@@ -7,7 +7,7 @@ using Microsoft.Data.Sqlite;
 
 namespace Kern.Lib.Db.Sqlite;
 
-[KernType("sqlite", Parent = "db")]
+[KernType("sqlite", Parent = "database")]
 public sealed class KernSqlite : IKernDb, IDisposable
 {
 	private readonly DbCore _core;

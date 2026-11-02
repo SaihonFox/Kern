@@ -180,6 +180,9 @@ public enum OpCode
 
 	// --- генераторы (spec §6, раунд 27) ---
 	Yield,            // нет операндов: снять значение и приостановить состояние до следующего next()
+
+	// --- срез с шагом (spec §3, раунд 27) ---
+	SliceStep,        // inclusive: стек [list/array/str, start i32, end i32, step i32] -> новый срез
 }
 
 /// <summary>Раскладка операндов и вспомогательные проверки для <see cref="OpCode"/>.</summary>
@@ -195,7 +198,7 @@ public static class OpCodeInfo
 			or OpCode.LoadStatic or OpCode.StoreStatic
 			or OpCode.NewTuple or OpCode.MakeFunc or OpCode.LoadCapture
 			or OpCode.CallValue or OpCode.TypeOfSig or OpCode.IsType
-			or OpCode.Slice or OpCode.TupleGet => 1,
+			or OpCode.Slice or OpCode.SliceStep or OpCode.TupleGet => 1,
 		OpCode.PushI64 or OpCode.PushF64 or OpCode.Call or OpCode.CallVirtual
 			or OpCode.NewList or OpCode.NewArray or OpCode.NewDict
 			or OpCode.MakeClosure or OpCode.NewObjectGeneric or OpCode.CallBase
@@ -209,7 +212,7 @@ public static class OpCodeInfo
 	public static bool IsJump(OpCode op) => op is OpCode.Jmp or OpCode.JmpIf or OpCode.JmpIfNot;
 
 	/// <summary>Известен ли номер опкода (защита от мусора в .kbc).</summary>
-	public static bool IsDefined(int value) => value >= 0 && value <= (int)OpCode.Yield;
+	public static bool IsDefined(int value) => value >= 0 && value <= (int)OpCode.SliceStep;
 
 	public static bool IsDefined(OpCode op) => IsDefined((int)op);
 }

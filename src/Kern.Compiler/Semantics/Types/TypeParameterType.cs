@@ -6,12 +6,19 @@ namespace Kern.Compiler.Semantics.Types;
 /// </summary>
 public sealed record TypeParameterType : KernType
 {
-	public TypeParameterType(string name, IReadOnlyList<KernType> constraints, bool requiresConstructor = false)
+	public TypeParameterType(
+		string name,
+		IReadOnlyList<KernType> constraints,
+		bool requiresConstructor = false,
+		IReadOnlyList<KernType>? constructorParameters = null)
 		: base(TypeKind.TypeParameter)
 	{
 		Name = name;
 		Constraints = StructuralList<KernType>.From(constraints);
 		RequiresConstructor = requiresConstructor;
+		ConstructorParameters = constructorParameters is null
+			? []
+			: StructuralList<KernType>.From(constructorParameters);
 	}
 
 	public string Name { get; }
@@ -23,6 +30,9 @@ public sealed record TypeParameterType : KernType
 	/// (для классов) не быть абстрактным. Проверяется в <c>GenericInference</c>.
 	/// </summary>
 	public bool RequiresConstructor { get; }
+
+	/// <summary>Типы аргументов <c>ctor(i32, str)</c>; пусто — достаточно любого конструктора.</summary>
+	public IReadOnlyList<KernType> ConstructorParameters { get; }
 
 	/// <summary>
 	/// Параметр удовлетворяет ограничению, если оно универсальное числовое

@@ -18,7 +18,9 @@ public sealed partial class DeclarationCollector
 		{
 			CheckGenericParameter(parameter, seen, ownerDescription);
 			var constraints = parameter.Constraints.Select(constraint => _resolver.Resolve(constraint, scope)).ToArray();
-			var typeParameter = new TypeParameterType(parameter.Name, constraints, parameter.HasCtorConstraint);
+			var ctorArguments = parameter.DeclaredCtorArguments.Select(argument => _resolver.Resolve(argument, scope)).ToArray();
+			var typeParameter = new TypeParameterType(
+				parameter.Name, constraints, parameter.HasCtorConstraint, ctorArguments);
 			scope = scope.Add(typeParameter);
 			resolved.Add(typeParameter);
 		}
@@ -41,7 +43,9 @@ public sealed partial class DeclarationCollector
 		{
 			CheckGenericParameter(parameter, seen, ownerDescription);
 			var constraints = parameter.Constraints.Select(constraint => _resolver.Resolve(constraint, scope)).ToArray();
-			var typeParameter = new TypeParameterType(parameter.Name, constraints, parameter.HasCtorConstraint);
+			var ctorArguments = parameter.DeclaredCtorArguments.Select(argument => _resolver.Resolve(argument, scope)).ToArray();
+			var typeParameter = new TypeParameterType(
+				parameter.Name, constraints, parameter.HasCtorConstraint, ctorArguments);
 			scope = scope.Add(typeParameter);
 			resolved.Add(typeParameter);
 		}

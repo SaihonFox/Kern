@@ -598,6 +598,9 @@ public sealed partial class Interpreter
 
 							break;
 						}
+					case OpCode.SliceStep:
+						SliceStep(ref stack, code[pc++] != 0);
+						break;
 					case OpCode.NewArray:
 						{
 							KType elementType = _types.FromSig(_module.TypeSigPool[code[pc++]]);

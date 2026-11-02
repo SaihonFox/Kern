@@ -19,8 +19,23 @@ public sealed partial class Interpreter
 {
 	private const int InitialStack = 64;
 	private const int InitialFrames = 64;
-	private const int MaxCallDepth = 65536;
+	/// <summary>Предел глубины кадров по умолчанию (spec: 10 000, настраивается).</summary>
+	public const int DefaultMaxCallDepth = 10_000;
+
 	private static readonly TimeSpan AsyncWaitTimeout = TimeSpan.FromSeconds(30);
+	private readonly int _maxCallDepth = ReadMaxCallDepth();
+
+	/// <summary>
+	/// Предел глубины кадров этого интерпретатора. Задаётся переменной окружения
+	/// <c>KERN_MAX_CALL_DEPTH</c> (положительное целое) при создании VM.
+	/// </summary>
+	public int MaxCallDepth => _maxCallDepth;
+
+	private static int ReadMaxCallDepth()
+	{
+		string? text = Environment.GetEnvironmentVariable("KERN_MAX_CALL_DEPTH");
+		return int.TryParse(text, out int value) && value > 0 ? value : DefaultMaxCallDepth;
+	}
 
 	private readonly KbcModule _module;
 	private readonly TypeFactory _types;
@@ -497,33 +512,6 @@ public sealed partial class Interpreter
 	/// (паника). Слишком большой отрицательный индекс остаётся отрицательным и паникует.
 	/// </summary>
 	private static int NormalizeIndex(int index, int count) => index < 0 ? index + count : index;
-
-	/// <summary>
-	/// B4b2: копия диапазона <c>start..end</c> (конец не включён) из коллекции длины
-	/// <paramref name="count"/>. Некорректный диапазон — паника.
-	/// </summary>
-	private static KValue[] SliceItems(int count, Func<int, KValue> itemAt, int start, int end)
-	{
-		if (start < 0 || end < start || end > count)
-			throw new KernPanic($"ListSlice: диапазон {start}..{end} вне длины {count}");
-		KValue[] items = new KValue[end - start];
-		for (int i = start; i < end; i++)
-			items[i - start] = itemAt(i);
-		return items;
-	}
-
-	/// <summary>
-	/// B5b2: границы среза <c>start..end</c> (spec round 27): отрицательные считаются с конца,
-	/// включительный конец увеличивается на 1. Некорректный диапазон — паника.
-	/// </summary>
-	private static (int Start, int End) NormalizeSlice(int start, int end, bool inclusive, int count)
-	{
-		int from = NormalizeIndex(start, count);
-		int to = NormalizeIndex(end, count) + (inclusive ? 1 : 0);
-		if (from < 0 || to < from || to > count)
-			throw new KernPanic($"Slice: диапазон {start}..{end} вне длины {count}");
-		return (from, to);
-	}
 
 	/// <summary>
 	/// Является ли значение типа <paramref name="actual"/> экземпляром

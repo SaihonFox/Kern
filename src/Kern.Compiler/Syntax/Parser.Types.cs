@@ -207,6 +207,7 @@ public sealed partial class Parser
 			var name = Advance();
 			var constraints = new List<TypeSyntax>();
 			var hasCtorConstraint = false;
+			IReadOnlyList<TypeSyntax> ctorConstraintArguments = [];
 			if (Current.Kind == TokenKind.LeftBracket)
 			{
 				Advance();
@@ -217,8 +218,18 @@ public sealed partial class Parser
 					if (Current.Kind == TokenKind.Ctor)
 					{
 						Advance();
-						if (Current.Kind == TokenKind.LeftParen)
-							SkipBalancedParentheses();
+						var ctorArguments = new List<TypeSyntax>();
+						if (Match(TokenKind.LeftParen))
+						{
+							while (!AtEnd && Current.Kind != TokenKind.RightParen)
+							{
+								ctorArguments.Add(ParseTypeSyntax());
+								if (!Match(TokenKind.Comma))
+									break;
+							}
+							Consume(TokenKind.RightParen, "Ожидалась ) после аргументов ctor");
+						}
+						ctorConstraintArguments = ctorArguments;
 						hasCtorConstraint = true;
 					}
 					else
@@ -229,7 +240,7 @@ public sealed partial class Parser
 				Consume(TokenKind.RightBracket, "Ожидалась ] после ограничений generic-параметра");
 			}
 			parameters.Add(new GenericParameterNode(name.Text, constraints, hasCtorConstraint,
-				new TextSpan(start, Math.Max(0, Previous.Span.End - start))));
+				new TextSpan(start, Math.Max(0, Previous.Span.End - start)), ctorConstraintArguments));
 			if (!Match(TokenKind.Comma))
 				break;
 		}

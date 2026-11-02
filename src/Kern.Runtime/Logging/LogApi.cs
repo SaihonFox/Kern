@@ -93,12 +93,12 @@ public static class LogApi
 	}
 
 	/// <summary>
-	/// <c>log.to_file(path) -&gt; result&lt;void, str&gt;</c>: дозапись в файл (создаётся при
-	/// отсутствии). Ошибка открытия — <c>Err</c> с русским текстом, а не паника.
+	/// <c>log.to_file(path) -&gt; result&lt;bool, str&gt;</c>: дозапись в файл (создаётся при
+	/// отсутствии). <c>Ok(true)</c> — файл открыт; ошибка открытия — <c>Err</c>.
 	/// </summary>
 	[KernName("to_file")]
 	[KernMember]
-	[KernReturn("result<void, str>")]
+	[KernReturn("result<bool, str>")]
 	public static KValue ToFile(string path, Interpreter interpreter)
 	{
 		lock (Gate)
@@ -109,7 +109,7 @@ public static class LogApi
 				var stream = new FileStream(path, FileMode.Append, FileAccess.Write, FileShare.Read);
 				_file = new StreamWriter(stream, Utf8) { AutoFlush = true };
 				_target = LogTarget.File;
-				return KernResults.Ok(interpreter, interpreter.Types.Prim(PrimKind.Void), KValue.Void);
+				return KernResults.Ok(interpreter, interpreter.Types.Prim(PrimKind.Bool), KValue.Bool(true));
 			}
 			catch (Exception error) when (error is IOException
 				or UnauthorizedAccessException

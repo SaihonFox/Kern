@@ -220,7 +220,8 @@ public sealed record BoundSliceExpression(
 	BoundExpression End,
 	bool Inclusive,
 	KernType Type,
-	TextSpan Span) : BoundExpression(Type, Span);
+	TextSpan Span,
+	BoundExpression? Step = null) : BoundExpression(Type, Span);
 
 /// <summary>Чтение поля; <see cref="Receiver"/> = null означает неявный <c>$</c>.</summary>
 public sealed record BoundFieldExpression(

@@ -63,7 +63,8 @@ internal static class GenericInference
 			if (!substitution.TryGetValue(parameter.Name, out var actual))
 				return false;
 
-			if (parameter.RequiresConstructor && !HasUsableConstructor(actual))
+			if (parameter.RequiresConstructor &&
+				!HasUsableConstructor(actual, parameter.ConstructorParameters))
 				return false;
 
 			foreach (var constraint in parameter.Constraints)
@@ -243,7 +244,7 @@ internal static class GenericInference
 	/// Ограничение <c>ctor()</c> (spec §14): нужен нестатический конструктор; класс не должен
 	/// быть абстрактным. Встроенные (<c>list&lt;T&gt;</c>) и статические типы не подходят.
 	/// </summary>
-	private static bool HasUsableConstructor(KernType actual)
+	private static bool HasUsableConstructor(KernType actual, IReadOnlyList<KernType> required)
 	{
 		if (actual is ErrorType)
 			return true;
@@ -257,7 +258,26 @@ internal static class GenericInference
 		if (symbol is null || symbol.IsAbstract || symbol.IsStatic)
 			return false;
 
-		return symbol.Members.Constructors.Any(constructor => !constructor.IsStatic);
+		return symbol.Members.Constructors.Any(constructor =>
+			!constructor.IsStatic &&
+			(required.Count == 0 || MatchesConstructor(constructor, required)));
+	}
+
+	/// <summary>
+	/// <c>ctor(i32, str)</c>: арность и совместимость типов параметров. Каждый
+	/// объявленный аргумент должен приводиться к типу параметра конструктора.
+	/// </summary>
+	private static bool MatchesConstructor(FunctionSymbol constructor, IReadOnlyList<KernType> required)
+	{
+		if (constructor.Parameters.Count != required.Count)
+			return false;
+		for (var index = 0; index < required.Count; index++)
+		{
+			if (!Conversions.TryClassify(required[index], constructor.Parameters[index].Type, out _))
+				return false;
+		}
+
+		return true;
 	}
 
 	private static bool SatisfiesUniversal(KernType actual, PrimitiveKind universal)

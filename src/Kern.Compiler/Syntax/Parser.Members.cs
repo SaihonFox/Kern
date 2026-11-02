@@ -501,7 +501,7 @@ public sealed partial class Parser
 			return "[]";
 		}
 
-		var symbol = Current.Kind == TokenKind.Operator
+		var symbol = Current.Kind is TokenKind.Operator or TokenKind.In
 			? Advance()
 			: Consume(TokenKind.Identifier, "Ожидался символ оператора");
 		return symbol.Text;

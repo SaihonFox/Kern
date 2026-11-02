@@ -7,7 +7,7 @@ using MySqlConnector;
 
 namespace Kern.Lib.Db.Mysql;
 
-[KernType("mysql", Parent = "db")]
+[KernType("mysql", Parent = "database")]
 public sealed class KernMysql : IKernDb, IDisposable
 {
 	private readonly DbCore _core;

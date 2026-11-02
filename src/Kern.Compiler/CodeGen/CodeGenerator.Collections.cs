@@ -140,7 +140,14 @@ public sealed partial class CodeGenerator
 		EmitExpression(slice.Target);
 		EmitExpression(slice.Start);
 		EmitExpression(slice.End);
-		Emit(OpCode.Slice, slice.Inclusive ? 1 : 0);
+		if (slice.Step is null)
+		{
+			Emit(OpCode.Slice, slice.Inclusive ? 1 : 0);
+			return;
+		}
+
+		EmitExpression(slice.Step);
+		Emit(OpCode.SliceStep, slice.Inclusive ? 1 : 0);
 	}
 
 	/// <summary>
