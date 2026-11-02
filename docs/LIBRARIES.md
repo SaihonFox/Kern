@@ -107,7 +107,7 @@
 
 Нативные модули в `src/Kern.Runtime` (не внешние библиотеки), контракт — spec §16 «Библиотеки».
 
-- **`kern.log`** (`src/Kern.Runtime/Logging`): глобальный логгер процесса. `log.level` (свойство), `set_level`, `to_stderr`, `to_stdout`, `to_file(path) -> result<unit, str>`, `close`, `log(level, msg)`, `trace/debug/info/warn/error(msg)`. Формат: ISO-8601 UTC + уровень + текст; уровень по умолчанию `info`.
+- **`kern.log`** (`src/Kern.Runtime/Logging`): глобальный логгер процесса. `log.level` (свойство), `set_level`, `to_stderr`, `to_stdout`, `to_file(path) -> result<void, str>`, `close`, `log(level, msg)`, `trace/debug/info/warn/error(msg)`. Формат: ISO-8601 UTC + уровень + текст; уровень по умолчанию `info`.
 - **`kern.cli`** (`src/Kern.Runtime/Cli`): `args()`, `parser(name, description)` → `cli_parser` с `flag/option/parse/usage`, результат — `cli_values` с `flag/option/positional/has/help_requested`. Поддержка `--name value`, `--name=value`, `-n value`, `-nvalue`, `--`.
 - **`kern.config`** (`src/Kern.Runtime/Config`): `load(path)`, `from_str(text, format)`, `empty()` → `config`; чтение `get/get_or/get_i64/get_f64/get_bool/get_list`, `has/keys/set/merge/to_str`. Форматы: JSON, YAML, `.env`, `key=value`; вложенные ключи через `.`.
 - **`kern.process`** (`src/Kern.Runtime/Processes`): `run/run_in/shell` → `result<process_output, str>`, `spawn` → `process_handle` (`pid/wait/kill/try_wait/stdout_read_line/stderr_read_line/write_stdin/close_stdin`), `which(name)`.

@@ -4,8 +4,10 @@
 - **Four workstreams approved (2026-11-02, owner request), contract fixed:** (1) `kern.log`/`kern.cli`/
   `kern.config`/`kern.process` tool modules, (2) LSP server, (3) backend package (OpenAPI + auth +
   versioned migrations), (4) generators/`seq<T>` + TCO. The exact API of the four std modules is now
-  fixed in spec §16 "Библиотеки" and `docs/LIBRARIES.md`; implementation of slice (1) is in progress.
-  Other slices are not started. Suite baseline **420/420**.
+  fixed in spec §16 "Библиотеки" and `docs/LIBRARIES.md`. Slice (1) is **implemented**:
+  `src/Kern.Runtime/{Logging,Cli,Config,Processes}` + `StdToolModulesTests` (6 tests); suite
+  **426/426**, style clean. Known gaps: module property assignment (`log.level = …`) does not bind
+  (use `log.set_level`), `to_file -> result<void, str>`. Slices (2)–(4) are not started.
 - **Backend WebSocket diagnosis (2026-11-02, owner bug report):** a plain HTTP request to a
   WebSocket-only path now returns `426 Upgrade Required` with `Upgrade: websocket` instead of the
   misleading `405 метод не поддерживается`; a real WebSocket handshake still works. Example 27
