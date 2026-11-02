@@ -1,0 +1,55 @@
+{
+	"name": "kern-language",
+	"displayName": "Kern Language",
+	"description": "Kern language support through the bundled kernc LSP server.",
+	"version": "0.1.0",
+	"publisher": "kern",
+	"engines": {
+		"vscode": "^1.85.0"
+	},
+	"categories": [
+		"Programming Languages"
+	],
+	"activationEvents": [
+		"onLanguage:kern"
+	],
+	"main": "./extension.js",
+	"contributes": {
+		"languages": [
+			{
+				"id": "kern",
+				"aliases": [
+					"Kern",
+					"kern"
+				],
+				"extensions": [
+					".kern"
+				],
+				"configuration": "./language-configuration.json"
+			}
+		],
+		"configuration": {
+			"title": "Kern",
+			"properties": {
+				"kern.lsp.command": {
+					"type": "string",
+					"default": "kernc",
+					"description": "Команда запуска сервера. Укажите полный путь к kernc, если его нет в PATH."
+				},
+				"kern.lsp.args": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"default": [
+						"lsp"
+					],
+					"description": "Аргументы команды сервера (по умолчанию: lsp)."
+				}
+			}
+		}
+	},
+	"dependencies": {
+		"vscode-languageclient": "^9.0.1"
+	}
+}

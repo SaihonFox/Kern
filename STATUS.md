@@ -21,6 +21,9 @@
 - Бутстраппинг: `string_builder` (эффективная сборка строк) и `use dotnet.System.IO[File, Path]`
   (способ C: статические методы/свойства BCL, работают и в `.kbc`-хосте через рефлексию по
   ключу `dotnet:<тип>`). `file.read_bytes/write_bytes`, `text.to_utf8/from_utf8` — уже были.
+- Инструменты: `kernc lsp` (сервер на stdio) и минимальное расширение VS Code
+  `editors/vscode` (`npm install`, F5) — диагностика, completion, hover, definition,
+  document symbols, formatting; см. `docs/LSP.md`.
 - Отчёт по бутстраппингу — `docs/BOOTSTRAP.md`; `in/ref/out` без ключевых слов —
   `docs/IN_REF_OUT.md`. `docs/TOKEN_BUDGET.md` удалён.
 

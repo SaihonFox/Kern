@@ -55,6 +55,7 @@ public static class KernCli
 			"fmt" => FmtCommand.Run(args[1..], stdout, stderr),
 			"repl" => ReplCommand.Run(args[1..], stdout, stderr),
 			"dis" => DisCommand.Run(args[1..], stdout, stderr),
+			"lsp" => LspCommand.Run(args[1..], stdout, stderr),
 			"explain-type" => ExplainTypeCommand.Run(args[1..], stdout, stderr),
 			_ => Unknown(command, stderr),
 		};
@@ -98,6 +99,6 @@ public static class KernCli
 
 	private static bool KnownCommand(string command) => command is
 		"help" or "version" or "run" or "check" or "test" or "build" or "dll" or "exe" or
-		"dist" or "tasks" or "do" or "clean" or "new" or "doc" or "fmt" or "repl" or "dis" or "explain-type" or
+		"dist" or "tasks" or "do" or "clean" or "new" or "doc" or "fmt" or "repl" or "dis" or "explain-type" or "lsp" or
 		"-h" or "--help" or "-v" or "--version";
 }

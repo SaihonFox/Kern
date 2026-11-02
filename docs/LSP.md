@@ -9,7 +9,44 @@ scope): the compiler and runtime are unchanged.
     dotnet build src/Kern.Lsp/Kern.Lsp.csproj
     src/Kern.Lsp/bin/Debug/net10.0/kern-lsp.exe
 
-Point a generic LSP client at `kern-lsp.exe` and open a `.kern` file.
+Или через основной CLI (рекомендуется):
+
+    dotnet build src/Kern.Cli/Kern.Cli.csproj -c Release
+    src/Kern.Cli/bin/Release/net10.0/kernc.exe lsp
+
+`kernc lsp` и `kern-lsp` — один и тот же сервер: JSON-RPC 2.0 на stdin/stdout с
+`Content-Length`. Сервер не печатает ничего, кроме протокола, поэтому его можно запускать
+из любого редактора.
+
+## VS Code
+
+В VS Code нет встроенной поддержки LSP «из коробки» — нужен клиент. В репозитории есть
+готовое минимальное расширение `editors/vscode`:
+
+```powershell
+cd editors/vscode
+npm install
+# откройте editors/vscode в VS Code и нажмите F5 (Run Extension)
+```
+
+По умолчанию оно запускает `kernc lsp`. Если `kernc` не в `PATH`, укажите путь в настройках:
+
+```json
+{
+	"kern.lsp.command": "C:/Users/ILNAR/Desktop/KernDS/src/Kern.Cli/bin/Release/net10.0/kernc.exe",
+	"kern.lsp.args": ["lsp"]
+}
+```
+
+Установка как обычного расширения: `vsce package` → `code --install-extension
+kern-language-0.1.0.vsix`. Можно также взять любой универсальный LSP-клиент и прописать ему
+команду `kernc lsp` (stdio).
+
+## Why LSP
+
+LSP даёт редактору то, чего не даёт обычный текстовый файл: ошибки компилятора прямо при
+наборе, подсказки, переход к объявлению, список символов и форматирование. Сервер использует
+тот же `ProjectCompiler`, что и `kernc check`, поэтому диагностика совпадает со сборкой.
 
 ## Capabilities
 

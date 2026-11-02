@@ -24,6 +24,7 @@
 	</ItemGroup>
 	<ItemGroup>
 		<ProjectReference Include="../Kern.Compiler/Kern.Compiler.csproj" />
+		<ProjectReference Include="../Kern.Lsp/Kern.Lsp.csproj" />
 		<ProjectReference Include="../Kern.Runtime/Kern.Runtime.csproj" />
 		<ProjectReference Include="../Kern.Vm/Kern.Vm.csproj" />
 		<ProjectReference Include="../Kern.Binding/Kern.Binding.csproj" />
