@@ -24,3 +24,4 @@ examples/**/*.db
 /demo23.txt
 /hello.txt
 libs/_out/
+.vscode/
