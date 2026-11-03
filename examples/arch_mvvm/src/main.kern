@@ -1,0 +1,33 @@
+// MVVM: ViewModel готовит данные для View и не знает, как они отрисовываются.
+// View не обращается к Model напрямую.
+
+type counter_model(i32 value = 0) {
+	fun increment() { $value += 1 }
+
+	fun decrement() { $value -= 1 }
+}
+
+type counter_view_model(counter_model model) {
+	fun increment() { $model.increment() }
+
+	fun decrement() { $model.decrement() }
+
+	fun label() -> str f"MVVM count=${$model.value}"
+}
+
+type counter_view() {
+	fun show(counter_view_model viewModel) { println(viewModel.label()) }
+}
+
+fun main {
+	counter_model model()
+	counter_view_model viewModel(model)
+	counter_view view()
+
+	view.show(viewModel)
+	viewModel.increment()
+	viewModel.increment()
+	view.show(viewModel)
+	viewModel.decrement()
+	view.show(viewModel)
+}

@@ -1,0 +1,32 @@
+// MVI: однонаправленный поток. Intent попадает в Store, Store меняет State,
+// View только читает State и не меняет его.
+
+type counter_state(i32 count = 0, list<str> intents = <str>[])
+
+type counter_store(counter_state state) {
+	fun dispatch(str intent) {
+		$state.intents.add(intent)
+		if intent == "increment" {
+			$state.count += 1
+		} else if intent == "decrement" {
+			$state.count -= 1
+		} else if intent == "reset" {
+			$state.count = 0
+		}
+	}
+
+	fun render() -> str f"MVI count=${$state.count}, intents=${$state.intents.join(",")}"
+}
+
+fun main {
+	counter_state state()
+	counter_store store(state)
+
+	println(store.render())
+	store.dispatch("increment")
+	store.dispatch("increment")
+	store.dispatch("decrement")
+	println(store.render())
+	store.dispatch("reset")
+	println(store.render())
+}

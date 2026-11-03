@@ -1,13 +1,14 @@
-// out-параметры (*T/out) для «нескольких результатов» и ref для замены значения.
+// «out»-результаты выражаются через *T: функция пишет по месту вызывающего.
+// Отдельного синтаксиса out нет — это тот же *T (spec §6).
 
-fun try_parse(&str text, out i32 value) -> bool {
+fun try_parse(&str text, *i32 value) -> bool {
 	i32? parsed = text.to_i32()
 	if parsed == nil { ret false }
 	value = parsed!
 	true
 }
 
-fun min_max(&list<i32> values, out i32 minimum, out i32 maximum) {
+fun min_max(&list<i32> values, *i32 minimum, *i32 maximum) {
 	minimum = values[0]
 	maximum = values[0]
 	loop var value in values {
@@ -23,16 +24,16 @@ fun reset(*list<i32> values, i32 value) {
 
 fun main {
 	i32 parsed = 0
-	bool ok = try_parse(&"42", out parsed)
+	bool ok = try_parse(&"42", *parsed)
 	println(f"parse: ${ok},${parsed}")
 
-	bool bad = try_parse(&"nope", out parsed)
+	bool bad = try_parse(&"nope", *parsed)
 	println(f"bad: ${bad},${parsed}")
 
 	list<i32> numbers = [3, -1, 7, 2]
 	i32 minimum = 0
 	i32 maximum = 0
-	min_max(&numbers, out minimum, out maximum)
+	min_max(&numbers, *minimum, *maximum)
 	println(f"minmax: ${minimum},${maximum}")
 
 	list<i32> repeated = [1, 2, 3]

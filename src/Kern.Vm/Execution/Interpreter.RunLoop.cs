@@ -27,6 +27,15 @@ public sealed partial class Interpreter
 				instruction = pc;
 				OpCode op = (OpCode)code[pc++];
 				Profiler?.Sample(function, instruction);
+				if (Debugger is { } debugger &&
+					debugger.ShouldPause(function, instruction, function.LineAt(instruction), frameCount))
+				{
+					if (!debugger.Pause(CreateDebugPause(function, instruction, locals, frames, frameCount)))
+					{
+						CloseConstructionWindows(frames, frameCount);
+						throw new DebugAbortedException();
+					}
+				}
 				switch (op)
 				{
 					// ---------- стек ----------
@@ -81,36 +90,8 @@ public sealed partial class Interpreter
 						break;
 
 					// ---------- in/ref-параметры (spec §6) ----------
-					case OpCode.LoadRef:
-						{
-							KValue cellValue = stack.Pop();
-							if (cellValue.Ref is not IValueCell cell)
-								throw new KernPanic($"LoadRef: ожидалась ячейка значения, получено {cellValue.TypeName}");
-							stack.Push(cell.Get());
-							break;
-						}
-					case OpCode.StoreRef:
-						{
-							KValue value = stack.Pop();
-							KValue cellValue = stack.Pop();
-							if (cellValue.Ref is not IValueCell cell)
-								throw new KernPanic($"StoreRef: ожидалась ячейка значения, получено {cellValue.TypeName}");
-							cell.Set(value);
-							break;
-						}
-					case OpCode.RefLocal:
-						stack.Push(KValue.Obj(new LocalValueCell(locals, code[pc++])));
-						break;
-					case OpCode.RefField:
-						{
-							KValue receiverValue = stack.Pop();
-							if (receiverValue.Ref is not KObject target)
-								throw new KernPanic($"RefField: ожидался объект, получено {receiverValue.TypeName}");
-							stack.Push(KValue.Obj(new FieldValueCell(target, code[pc++])));
-							break;
-						}
-					case OpCode.RefStatic:
-						stack.Push(KValue.Obj(new StaticValueCell(_statics, code[pc++])));
+					case OpCode.LoadRef or OpCode.StoreRef or OpCode.RefLocal or OpCode.RefField or OpCode.RefStatic:
+						RefOp(op, ref stack, ref pc, code, locals);
 						break;
 
 					// ---------- арифметика ----------
@@ -792,6 +773,11 @@ public sealed partial class Interpreter
 			}
 			// Паника могла случиться в середине конструктора unit!: снимаем все окна
 			// создания не вернувшихся кадров, иначе объект останется записываемым навсегда.
+			CloseConstructionWindows(frames, frameCount);
+			throw;
+		}
+		catch (DebugAbortedException)
+		{
 			CloseConstructionWindows(frames, frameCount);
 			throw;
 		}

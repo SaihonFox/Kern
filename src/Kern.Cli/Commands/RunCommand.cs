@@ -19,18 +19,23 @@ internal static class RunCommand
 {
 	private const int AsyncWaitTimeoutMs = 30_000;
 
-	public static int Run(string[] args, TextWriter stdout, TextWriter stderr)
+	public static int Run(
+		string[] args,
+		TextWriter stdout,
+		TextWriter stderr,
+		IDebugHook? debugger = null,
+		string commandName = "run")
 	{
-		if (args.Contains("--watch"))
+		if (commandName == "run" && args.Contains("--watch"))
 			return WatchCommand.Run(args, stdout, stderr);
 		if (!SourceArguments.TryParse(
-			args, "run", allowOutput: false, allowProgramArguments: true, stderr,
+			args, commandName, allowOutput: false, allowProgramArguments: true, stderr,
 			out string path, out SourceKind kind, out _, out IReadOnlyList<string> programArguments,
 			out CliOptions options))
 			return 2;
 
 		if (kind == SourceKind.Project && File.Exists(Path.Combine(path, BuildSession.ScriptName)))
-			return RunProject(path, programArguments, options, stdout, stderr);
+			return RunProject(path, programArguments, options, stdout, stderr, debugger);
 
 		CompileResult result = SourceCompiler.Compile(path, kind, options.Apply(CompileOptions.Default));
 		SourceCompiler.Report(result, stderr);
@@ -40,7 +45,7 @@ internal static class RunCommand
 		string workingDirectory = kind == SourceKind.Project
 			? Path.GetFullPath(path)
 			: Path.GetDirectoryName(Path.GetFullPath(path)) ?? Environment.CurrentDirectory;
-		return Execute(result.Program!, kind, programArguments, stdout, stderr, workingDirectory: workingDirectory, profile: options.RunProfile);
+		return Execute(result.Program!, kind, programArguments, stdout, stderr, workingDirectory: workingDirectory, profile: options.RunProfile, debugger: debugger);
 	}
 
 	/// <summary><c>run</c> проекта с <c>build.kern</c>: компилирует app-цель без записи .kbc.</summary>
@@ -49,7 +54,8 @@ internal static class RunCommand
 		IReadOnlyList<string> programArguments,
 		CliOptions options,
 		TextWriter stdout,
-		TextWriter stderr)
+		TextWriter stderr,
+		IDebugHook? debugger)
 	{
 		BuildTargetResult built;
 		IReadOnlyDictionary<string, string> environment;
@@ -86,7 +92,8 @@ internal static class RunCommand
 			stderr,
 			environment,
 			workingDirectory: projectRoot,
-			profile: options.RunProfile);
+			profile: options.RunProfile,
+			debugger: debugger);
 	}
 
 	/// <summary>Выполнить уже скомпилированный проект (встроенная задача <c>:run</c>).</summary>
@@ -106,7 +113,8 @@ internal static class RunCommand
 		TextWriter stderr,
 		IReadOnlyDictionary<string, string>? environment = null,
 		string? workingDirectory = null,
-		bool profile = false)
+		bool profile = false,
+		IDebugHook? debugger = null)
 	{
 		int entry = program.Module.EntryPoint;
 		if (entry < 0)
@@ -138,6 +146,8 @@ internal static class RunCommand
 			var interpreter = new Interpreter(program.Module, new NativeResolver(program.Catalog));
 			if (profile)
 				interpreter.Profiler = new Profiler();
+			if (debugger is not null)
+				interpreter.Debugger = debugger;
 			KValue[] mainArguments = entryPoint.ParamCount == 1
 				? [KValue.Obj(new KList(interpreter.Types.Prim(PrimKind.Str), programArguments.Select(KValue.Str)))]
 				: [];
@@ -151,6 +161,11 @@ internal static class RunCommand
 		{
 			stderr.WriteLine($"ошибка выполнения: {panic.Message}");
 			return 1;
+		}
+		catch (DebugAbortedException)
+		{
+			stderr.WriteLine("отладка прервана");
+			return 130;
 		}
 		finally
 		{

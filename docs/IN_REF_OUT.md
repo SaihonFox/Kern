@@ -1,143 +1,96 @@
-# `in`, `ref`, `out` без новых ключевых слов
+# `in` / `ref` / `out` в Kern
 
-В Kern нет (и не планируется) ключевых слов `in`/`ref`/`out`: те же задачи решаются
-существующими средствами языка. Ниже — рабочие шаблоны; они не меняют синтаксис и не
-требуют атрибутов.
+В Kern **нет** ключевых слов `in`/`ref`/`out`, но есть маркеры типа параметра:
 
-## 1. `in` — передача по значению только для чтения
+| Задача | Синтаксис | Вызов |
+|---|---|---|
+| только читать значение | `&T` | `f(&x)` или `f(x)` |
+| изменить значение вызывающего | `*T` | `f(*x)` |
+| «out»-параметр | `*T` | `f(*x)` |
 
-Параметры Kern и так передаются по значению; `unit!` дополнительно неизменяем. Для
-больших данных используйте `frozen_list`/`frozen_dict`/`frozen_set` (их нельзя изменить)
-или `span<T>` для временного окна без копии.
+`out` отдельным синтаксисом не существует: его роль выполняет `*T` (функция пишет
+значение по месту вызывающего). Отдельного анализа «присвоено ли значение» нет.
+
+## 1. `&T` — только чтение
 
 ```kern
-unit! Point(i32 x, i32 y)
-
-// Значение читается, но изменение копии не видно вызывающему.
-fun distance2(Point p) -> i32 p.x * p.x + p.y * p.y
-
-fun total(frozen_list<i32> xs) -> i32 {
+fun total(&list<i32> values) -> i32 {
 	i32 sum = 0
-	loop x in xs { sum += x }
+	loop value in values { sum += value }
 	sum
 }
+
+fun main {
+	list<i32> xs = [1, 2, 3]
+	println(total(&xs))
+	println(total(xs)) // & на вызове необязателен
+}
 ```
 
-Если нужен именно запрет записи на уровне API, принимайте `unit!`, `frozen_*` или
-`span<T>` — компилятор не даст изменить такое значение.
+`&T` передаётся по значению (unit копируется), но присваивание самому параметру
+запрещено (`KRN2106`). Для неизменяемых данных по-прежнему удобны `unit!`, `frozen_*`
+и `span<T>`.
 
-## 2. `ref` — ссылочная семантика через `type`
-
-`type` (класс) — ссылочный: изменения видны вызывающему. Это аналог `ref`-параметра,
-только без нового ключевого слова.
+## 2. `*T` — изменяемая ссылка на место
 
 ```kern
-type Counter {
-	i32 value = 0
+fun add_into(*i32 target, i32 delta) {
+	target += delta
 }
 
-fun bump(Counter c) {
-	c.value += 1
+fun swap(*i32 left, *i32 right) {
+	i32 temporary = left
+	left = right
+	right = temporary
 }
 
 fun main {
-	Counter c()
-	bump(c)
-	println(c.value) // 1
+	i32 x = 10
+	add_into(*x, 5)
+	println(x) // 15
+
+	i32 a = 1
+	i32 b = 2
+	swap(*a, *b)
+	println(f"${a},${b}") // 2,1
 }
 ```
 
-Для `unit` работает правило copy-out/copy-back (spec §9): запись в цепочку полей
-возвращается в исходное значение.
+`*T` принимает локальную переменную, поле экземпляра, статическое поле и переменную,
+захваченную замыканием. Алиасы работают: `add_both(*x, *x)` увеличит `x` дважды.
+На вызове `*` обязателен; `*T` нельзя использовать в `async`/генераторах, лямбдах,
+основном конструкторе и нельзя задавать значение по умолчанию.
+
+## 3. «out»-параметры — это `*T`
 
 ```kern
-unit Pair(i32 left, i32 right)
-
-type Holder {
-	Pair pair
-}
-
-fun move_right(Holder h) {
-	h.pair.right += 1 // h.pair — unit: читается копия, затем пишется обратно
-}
-```
-
-## 3. `out` — результат через возврат, кортеж или объект-приёмник
-
-### Вариант A: `result` / кортеж (рекомендуется)
-
-```kern
-// bool — успех, i32 — значение (второй элемент осмыслен только при true).
-fun try_parse(str text) -> (bool ok, i32 value) {
-	match text.to_i32() {
-		nil => (false, 0)
-		var parsed => (true, parsed)
-	}
+fun try_parse(&str text, *i32 value) -> bool {
+	i32? parsed = text.to_i32()
+	if parsed == nil { ret false }
+	value = parsed!
+	true
 }
 
 fun main {
-	var parsed = try_parse("42")
-	if parsed.ok { println(parsed.value) }
-}
-```
-
-### Вариант B: объект-приёмник (аналог `out`-параметра)
-
-```kern
-type Out<T> {
-	T value
-}
-fun read_count(Out<i32> target) {
-	target.value = 42
-}
-
-fun main {
-	Out<i32> result()
-	read_count(result)
-	println(result.value)
-}
-```
-
-### Вариант C: `result<T, E>` для ошибок
-
-```kern
-fun divide(i32 a, i32 b) -> result<i32, str> {
-	if b == 0 { Err("деление на ноль") } else { Ok(a / b) }
-}
-
-fun main {
-	match divide(10, 0) {
-		Ok(value) => println(value)
-		Err(message) => println(message)
+	i32 parsed = 0
+	if try_parse(&"42", *parsed) {
+		println(parsed) // 42
 	}
 }
 ```
 
-## 4. `ref` для нескольких значений: класс-контекст
+Функция обязана записать значение сама — компилятор не проверяет определённое
+присваивание. Если нужен более явный API, возвращайте `result<T, E>` или кортеж.
 
-```kern
-type ParseState {
-	str text
-	i32 position
-	bool ok
-}
+## 4. Когда что выбрать
 
-fun consume(ParseState state, char expected) {
-	if state.position >= state.text.len || state.text[state.position] != expected {
-		state.ok = false
-		return
-	}
-	state.position += 1
-}
-```
-
-## 5. Что выбрать
-
-| Задача | Идиома Kern |
+| Задача | Идиома |
 |---|---|
-| только читать значение | обычный параметр (плюс `unit!`/`frozen_*`/`span<T>`) |
-| изменить значение вызывающего | `type` (ссылка) |
-| изменить поле `unit` | цепочка полей + copy-back (spec §9) |
+| только читать значение | обычный параметр или `&T` |
+| изменить значение вызывающего | `*T` |
 | вернуть одно значение и признак успеха | `(bool, T)` или `result<T, E>` |
-| «out»-параметр | `type Out<T> { T value }` |
 | вернуть несколько значений | кортеж/именованный кортеж или `unit` |
+| изменить поле `type` | обычный параметр (классы ссылочные) |
+| изменить поле `unit` | `*unit`, цепочка полей + copy-back (spec §9) |
+
+Полное описание — spec §6.

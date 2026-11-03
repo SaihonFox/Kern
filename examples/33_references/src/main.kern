@@ -20,8 +20,8 @@ fun double_in_place(*i32 value) {
 	value *= 2
 }
 
-// out — тот же *T: функция обязана записать значение до возврата (проверка — на совести кода).
-fun set(out i32 value, i32 replacement) {
+// «out» — тот же *T: функция обязана записать значение до возврата (проверка — на совести кода).
+fun set(*i32 value, i32 replacement) {
 	value = replacement
 }
 
@@ -72,7 +72,7 @@ fun main {
 	println(f"double: ${a}")
 
 	i32 answer = 0
-	set(out answer, 7)
+	set(*answer, 7)
 	println(f"out: ${answer}")
 
 	list<i32> values = [1, 2, 3, 4]

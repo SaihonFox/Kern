@@ -38,13 +38,26 @@ $cache = Join-Path $homeDir "dist\$version\kern-$rid"
 $exe = Join-Path $cache "kernc.exe"
 if (-not (Test-Path -LiteralPath $exe)) {
     New-Item -ItemType Directory -Force -Path $cache | Out-Null
-    $url = "https://github.com/SaihonFox/Kern/releases/download/v$version/kern-$rid.zip"
+    $base = if ($env:KERNW_BASE_URL) { $env:KERNW_BASE_URL.TrimEnd("/") } else { "https://github.com/SaihonFox/Kern/releases/download" }
+    $url = "$base/v$version/kern-$rid.zip"
+    if ($url -notmatch "^https://") {
+        if ($url -notmatch "^http://" -or $env:KERNW_ALLOW_HTTP -ne "1") {
+            throw "kernw: http разрешён только при KERNW_ALLOW_HTTP=1 (для локальных тестов/зеркал)"
+        }
+    }
     $zip = Join-Path ([System.IO.Path]::GetTempPath()) ("kernw-" + [guid]::NewGuid().ToString("N") + ".zip")
     try {
         Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile $zip
         $expected = if ($shaRid) { $shaRid } else { $shaAny }
         if ($expected) {
-            $actual = (Get-FileHash -Algorithm SHA256 -LiteralPath $zip).Hash.ToLowerInvariant()
+            $stream = [System.IO.File]::OpenRead($zip)
+            try {
+                $sha = [System.Security.Cryptography.SHA256]::Create()
+                try { $bytes = $sha.ComputeHash($stream) }
+                finally { $sha.Dispose() }
+            }
+            finally { $stream.Dispose() }
+            $actual = ([System.BitConverter]::ToString($bytes) -replace "-", "").ToLowerInvariant()
             if ($actual -ne $expected.ToLowerInvariant()) {
                 throw "kernw: SHA-256 не совпадает (ожидался $expected, получен $actual)"
             }
@@ -53,6 +66,9 @@ if (-not (Test-Path -LiteralPath $exe)) {
     }
     finally {
         Remove-Item -LiteralPath $zip -Force -ErrorAction SilentlyContinue
+    }
+    if (-not (Test-Path -LiteralPath $exe)) {
+        throw "kernw: архив не содержит kernc ($url)"
     }
 }
 

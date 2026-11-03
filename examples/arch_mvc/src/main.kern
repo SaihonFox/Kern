@@ -1,0 +1,32 @@
+// MVC: Model хранит состояние, View рисует, Controller принимает действия.
+
+type counter_model(i32 value = 0) {
+	fun increment() { $value += 1 }
+
+	fun decrement() { $value -= 1 }
+}
+
+type counter_view() {
+	fun render(counter_model model) -> str f"MVC count=${model.value}"
+}
+
+type counter_controller(counter_model model, counter_view view) {
+	fun increment() { $model.increment() }
+
+	fun decrement() { $model.decrement() }
+
+	fun show() -> str $view.render($model)
+}
+
+fun main {
+	counter_model model()
+	counter_view view()
+	counter_controller controller(model, view)
+
+	println(controller.show())
+	controller.increment()
+	controller.increment()
+	println(controller.show())
+	controller.decrement()
+	println(controller.show())
+}

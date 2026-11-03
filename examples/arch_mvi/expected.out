@@ -1,0 +1,3 @@
+MVI count=0, intents=
+MVI count=1, intents=increment,increment,decrement
+MVI count=0, intents=increment,increment,decrement,reset

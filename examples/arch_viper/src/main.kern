@@ -1,0 +1,52 @@
+// VIPER: Entity / Interactor / Presenter / View / Router — роли разделены.
+// Router отвечает только за навигацию, Interactor — за бизнес-правила.
+
+type viper_entity(i32 value = 0) {
+	fun increment() { $value += 1 }
+
+	fun decrement() { $value -= 1 }
+}
+
+type viper_interactor(viper_entity entity) {
+	fun increment() { $entity.increment() }
+
+	fun decrement() { $entity.decrement() }
+
+	fun value() -> i32 $entity.value
+}
+
+type viper_view() {
+	fun show(str text) { println(text) }
+}
+
+type viper_presenter(viper_interactor interactor, viper_view view) {
+	fun increment() {
+		$interactor.increment()
+		$render()
+	}
+
+	fun decrement() {
+		$interactor.decrement()
+		$render()
+	}
+
+	fun render() { $view.show(f"VIPER count=${$interactor.value()}") }
+}
+
+type viper_router() {
+	fun route(str destination) { println(f"router: ${destination}") }
+}
+
+fun main {
+	viper_entity entity()
+	viper_interactor interactor(entity)
+	viper_view view()
+	viper_presenter presenter(interactor, view)
+	viper_router router()
+
+	presenter.render()
+	presenter.increment()
+	presenter.increment()
+	presenter.decrement()
+	router.route("done")
+}

@@ -1,0 +1,42 @@
+// MVP: Presenter управляет Model и общается с View через абстрактный интерфейс.
+
+@type counter_view {
+	@fun show(str text)
+}
+
+type console_counter_view() [counter_view] {
+	~fun show(str text) println(text)
+}
+
+type counter_model(i32 value = 0) {
+	fun increment() { $value += 1 }
+
+	fun decrement() { $value -= 1 }
+}
+
+type counter_presenter(counter_model model, counter_view view) {
+	fun increment() {
+		$model.increment()
+		$publish()
+	}
+
+	fun decrement() {
+		$model.decrement()
+		$publish()
+	}
+
+	fun publish() { $view.show(f"MVP count=${$model.value}") }
+}
+
+fun main {
+	counter_model model()
+	console_counter_view view()
+	counter_presenter presenter(model, view)
+
+	presenter.publish()
+	presenter.increment()
+	presenter.increment()
+	presenter.publish()
+	presenter.decrement()
+	presenter.publish()
+}

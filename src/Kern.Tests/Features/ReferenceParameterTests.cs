@@ -102,13 +102,13 @@ public sealed class ReferenceParameterTests
 			x
 		}
 
-		fun set_with_out(out i32 value) {
+		fun set_with_ref(*i32 value) {
 			value = 7
 		}
 
-		fun out_keyword() -> i32 {
+		fun ref_out_style() -> i32 {
 			i32 x = 0
-			set_with_out(out x)
+			set_with_ref(*x)
 			x
 		}
 
@@ -168,7 +168,7 @@ public sealed class ReferenceParameterTests
 		Assert.Equal(KValue.I32(42), StdPipeline.Run(Source, "out_style"));
 		Assert.Equal(KValue.I32(2), StdPipeline.Run(Source, "aliasing"));
 		Assert.Equal(KValue.I32(2), StdPipeline.Run(Source, "static_field"));
-		Assert.Equal(KValue.I32(7), StdPipeline.Run(Source, "out_keyword"));
+		Assert.Equal(KValue.I32(7), StdPipeline.Run(Source, "ref_out_style"));
 		Assert.Equal(KValue.I32(3), StdPipeline.Run(Source, "captured_ref"));
 	}
 

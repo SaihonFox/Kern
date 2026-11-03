@@ -4,18 +4,23 @@
 
 ### Батч 2026-11-03 (owner request): `seq.len`, in/ref/out, M13
 
-Сделано и проверено (build 0 errors, тесты 595/595, style clean):
+Сделано и проверено (build 0 errors, тесты 607/607, style clean):
 - `seq.len` и повторная итерация: элементы кэшируются в общем ядре, `iter()` даёт независимый
   курсор, `loop`/`to_list` начинают с начала; `next()` остаётся одноразовым. Тесты
   `GeneratorTests` (+2).
-- Параметры `&T` (in), `*T` (ref) и `out T` (синоним `*T`): ячейки `IValueCell`,
+- Параметры `&T` (in) и `*T` (ref): ячейки `IValueCell`,
   опкоды `LoadRef`/`StoreRef`/`RefLocal`/`RefField`/`RefStatic`; алиасы, поля, статика и
-  захваты работают. Тесты `ReferenceParameterTests` (8), примеры `33_references` и
-  `34_out_parameters`.
+  захваты работают. Отдельного `out T` нет — его роль выполняет `*T`. Тесты
+  `ReferenceParameterTests` (8), примеры `33_references` и `34_out_parameters`.
 - M13: `t.pkg("name", url: …, sha256: …)` — HTTPS, обязательный SHA-256, кэш
   `~/.kern/pkgs/<sha256>/`, распаковка без zip-slip; проект с `build.kern` становится
   include, `.kbc` — зависимостью. `kernw`/`kernw.cmd` + `kern-version` запускают
-  закреплённый `kernc` из GitHub Releases. Тесты `PackageFetchTests` (4).
+  закреплённый `kernc` из GitHub Releases. Тесты `PackageFetchTests` (4), `KernwTests` (2).
+- Отладчик: `kernc debug <файл|папка>` — точки останова по строке/файлу/функции,
+  `step`/`next`/`finish`, `locals`/`stack`/`print`, `quit`; VM-хук `IDebugHook`.
+  Документация `docs/DEBUGGER.md`, тесты `DebuggerTests` (4).
+- Архитектурные примеры `examples/arch_mvc`, `arch_mvvm`, `arch_mvp`, `arch_mvi`,
+  `arch_viper`, `arch_state_machine` — с golden-выводом.
 
 ### Батч 2026-11-03 (owner request): закрытие языковых пробелов
 
@@ -72,8 +77,8 @@ self-contained single-file (не NativeAOT).
 
 Не реализовано:
 - UI: `kern.ui` / `libs/Kern.Lib.Ui` отсутствует, `examples/19_gui` не запускается. Решено (2026-11-03): делать **последним**, когда всё главное готово.
-- Инструменты: `kernc wasm` (решено 2026-11-03 — WASI P2 через **NetWasm**, не реализовано; нужен reflection-free хост и урезанный std — `DECISIONS_NEEDED.md`), отладчик, архитектурные примеры. `kernc new`, `kernc doc` (doctest), `kernc run --watch` реализованы 2026-11-02; package fetching (M13) и `kernw` — 2026-11-03.
-- Язык: префиксы строк `r`/`f`/`x`/`v` в любом порядке (`rf`=`fr`, `xf`=`fx`, `xrf`=`frx`); `use dotnet.X[...]` (только статические члены BCL), identity для `unit`, запись через пользовательский `op []` (решено оставить как в C#: только чтение), async-генераторы. `seq.len`/повторная итерация и параметры `&T`/`*T`/`out T` реализованы 2026-11-03 (пример `examples/33_references`).
+- Инструменты: `kernc wasm` (решено 2026-11-03 — WASI P2 через **NetWasm**, не реализовано; нужен reflection-free хост и урезанный std — `DECISIONS_NEEDED.md`). `kernc new`, `kernc doc` (doctest), `kernc run --watch` реализованы 2026-11-02; package fetching (M13), `kernw`, отладчик `kernc debug` и архитектурные примеры — 2026-11-03.
+- Язык: префиксы строк `r`/`f`/`x`/`v` в любом порядке (`rf`=`fr`, `xf`=`fx`, `xrf`=`frx`); `use dotnet.X[...]` (только статические члены BCL), identity для `unit`, запись через пользовательский `op []` (решено оставить как в C#: только чтение), async-генераторы. `seq.len`/повторная итерация и параметры `&T`/`*T` (роль `out` выполняет `*T`) реализованы 2026-11-03 (примеры `examples/33_references`, `examples/34_out_parameters`).
 - Известные ограничения: `define_type` без методов/свойств (generics/родители и `instantiate()` атрибута есть); макросы не раскрываются в одиночном `CompileCore`; LSP видит только каталог `Kern.Runtime`.
 
 - **Remaining std modules implemented (2026-11-02, owner request):** `kern.ansi` (colors/styles/strip/256/RGB), `kern.ini` (sections ↔ dict), `kern.toml` (tables/arrays/scalars), `kern.net` (hostname/resolve/IP/reachability), time zones in `kern.time` (`time.zone(s)`, `datetime.now_in/in_zone`, `zone_name`); `StdModulesExtraTests` (5).

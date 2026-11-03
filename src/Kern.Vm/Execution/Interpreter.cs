@@ -88,6 +88,9 @@ public sealed partial class Interpreter
 	/// <summary>Профилировщик исполнения; включается <c>kern run --profile</c>.</summary>
 	public Profiler? Profiler { get; set; }
 
+	/// <summary>Хук отладчика (<c>kernc debug</c>); <c>null</c> — обычное исполнение.</summary>
+	public IDebugHook? Debugger { get; set; }
+
 	/// <summary>
 	/// Новый интерпретатор для другого потока: общие модуль, типы и статика, собственные
 	/// планировщик, стек и кадры (DECISIONS §D, общая память).

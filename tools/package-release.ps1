@@ -80,6 +80,13 @@ Get-ChildItem (Join-Path $out "examples") -Recurse -File -Filter "*.db" |
 	Remove-Item -Force
 Get-ChildItem $out -Recurse -File -Filter "*.pdb" | Remove-Item -Force
 
+# Закреплённый запускатель: скачивает kernc этой версии из GitHub Releases.
+Copy-Item (Join-Path $root "kernw") $out
+Copy-Item (Join-Path $root "kernw.cmd") $out
+Copy-Item (Join-Path $root "kern-version") $out
+New-Item -ItemType Directory -Force (Join-Path $out "tools") | Out-Null
+Copy-Item (Join-Path $root "tools/kernw.ps1") (Join-Path $out "tools")
+
 $readme = @"
 Kern — компилятор и VM.
 
@@ -94,6 +101,11 @@ Kern — компилятор и VM.
 
 Переменная KERN_LIBS может задать дополнительные каталоги библиотек
 (через ; на Windows и : на Linux/macOS).
+
+Закреплённый запускатель:
+    kernw.cmd --version
+    ./kernw --version
+Версия берётся из kern-version; архив скачивается в KERN_HOME/dist.
 "@
 Set-Content -Path (Join-Path $out "README.txt") -Value $readme -Encoding utf8
 

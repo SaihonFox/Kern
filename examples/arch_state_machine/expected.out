@@ -1,0 +1,6 @@
+state=idle
+state=running
+state=paused
+state=running
+state=done
+state=done

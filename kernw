@@ -67,9 +67,27 @@ if [ ! -x "$exe" ]; then
 	mkdir -p "$cache"
 	tmp=$(mktemp "${TMPDIR:-/tmp}/kernw.XXXXXX.zip")
 	trap 'rm -f "$tmp"' EXIT HUP INT TERM
-	url="https://github.com/SaihonFox/Kern/releases/download/v$version/kern-$rid.zip"
+	base=${KERNW_BASE_URL:-https://github.com/SaihonFox/Kern/releases/download}
+	url="$base/v$version/kern-$rid.zip"
+	case "$url" in
+		https://*) ;;
+		http://*)
+			if [ "${KERNW_ALLOW_HTTP:-0}" != "1" ]; then
+				echo "kernw: http разрешён только при KERNW_ALLOW_HTTP=1 (для локальных тестов/зеркал)" >&2
+				exit 1
+			fi
+			;;
+		*)
+			echo "kernw: неподдерживаемая схема URL: $url" >&2
+			exit 1
+			;;
+	esac
 	if command -v curl >/dev/null 2>&1; then
-		curl -fL --proto '=https' --proto-redir '=https' --tlsv1.2 "$url" -o "$tmp"
+		if [ "${url#https://}" != "$url" ]; then
+			curl -fL --proto '=https' --proto-redir '=https' --tlsv1.2 "$url" -o "$tmp"
+		else
+			curl -fL "$url" -o "$tmp"
+		fi
 	elif command -v wget >/dev/null 2>&1; then
 		wget -q "$url" -O "$tmp"
 	else
@@ -105,6 +123,10 @@ if [ ! -x "$exe" ]; then
 		exit 1
 	fi
 	chmod +x "$exe" 2>/dev/null || true
+	if [ ! -f "$exe" ]; then
+		echo "kernw: архив не содержит kernc ($url)" >&2
+		exit 1
+	fi
 fi
 
 exec "$exe" "$@"

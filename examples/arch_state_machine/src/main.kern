@@ -1,0 +1,30 @@
+// Конечный автомат: состояние + события; переходы описаны явно.
+
+type state_machine(str state) {
+	fun send(str event) {
+		if $state == "idle" {
+			if event == "start" { $state = "running" }
+		} else if $state == "running" {
+			if event == "pause" { $state = "paused" } else if event == "stop" { $state = "done" }
+		} else if $state == "paused" {
+			if event == "resume" { $state = "running" } else if event == "stop" { $state = "done" }
+		}
+	}
+
+	fun describe() -> str f"state=${$state}"
+}
+
+fun main {
+	state_machine machine("idle")
+	println(machine.describe())
+	machine.send("start")
+	println(machine.describe())
+	machine.send("pause")
+	println(machine.describe())
+	machine.send("resume")
+	println(machine.describe())
+	machine.send("stop")
+	println(machine.describe())
+	machine.send("start")
+	println(machine.describe())
+}

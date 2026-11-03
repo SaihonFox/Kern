@@ -37,7 +37,7 @@ Owner выбрал вариант 3: `seq<T>` кэширует пройденн�
    арности неоднозначна с многомерным чтением `x[a, b]`. Оценка: S, риск путаницы.
 3. **Оставить только чтение:** запись — через явный метод `x.set(i, v)`. Ничего не меняем.
 
-### Параметры `in` / `ref` / `out` — реализовано (2026-11-03)
+### Параметры `in` / `ref` — реализовано (2026-11-03)
 
 Owner выбрал синтаксис, затем попросил реализовать:
 
@@ -45,13 +45,14 @@ Owner выбрал синтаксис, затем попросил реализ�
   `f(&x)` или `f(x)`.
 - `ref` → `*T`: `fun somefun(*str arg) {}` — изменяемая ссылка на место (переменная,
   поле, статическое поле, захват); на вызове обязателен `f(*x)`.
-- `out` → `out T` — синоним `*T` (`fun somefun(out str arg)`), на вызове `f(out x)`;
-  отдельной проверки определённого присваивания нет.
+- Отдельного `out` нет: его роль выполняет `*T`; функция просто пишет значение по месту
+  вызывающего. Проверки определённого присваивания нет.
 
 Реализовано в lexer/parser (`NamedTypeSyntax.IsIn/IsRef`, `ReferenceArgumentExpression`),
 `ParameterSymbol.Passing`, bound-дереве (`BoundReferenceArgumentExpression`), codegen и VM
 (`IValueCell` + `LoadRef/StoreRef/RefLocal/RefField/RefStatic`). Тесты
-`ReferenceParameterTests` (6), пример `examples/33_references`; spec §6 обновлён.
+`ReferenceParameterTests` (8), примеры `examples/33_references`, `examples/34_out_parameters`;
+spec §6 обновлён.
 
 ## Open — разрешения модулей / capabilities (2026-11-02)
 

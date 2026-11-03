@@ -12,8 +12,8 @@ public sealed partial class Parser
 	private TypeSyntax ParseTypeSyntax()
 	{
 		var start = Current.Span.Start;
-		// `&T` (in), `*T`/`out T` (ref) — маркеры параметра (spec §6); допустимы только
-		// там, проверку контекста делает TypeResolver/Collector.
+		// `&T` (in) и `*T` (ref, включая роль out) — маркеры параметра (spec §6); допустимы
+		// только там, проверку контекста делает TypeResolver/Collector.
 		if (Current.Kind == TokenKind.Operator && Current.Text is "&" or "*")
 		{
 			var marker = Advance();
@@ -26,21 +26,6 @@ public sealed partial class Parser
 					Span = new TextSpan(marker.Span.Start, named.Span.End - marker.Span.Start),
 				};
 			Report("PAR003", "Маркер '&' или '*' допустим только перед именованным типом", marker.Span);
-			return inner;
-		}
-
-		// `out T` — синоним `*T` (роль out выполняет изменяемая ссылка, spec §6).
-		if (Current.Kind == TokenKind.Identifier && Current.Text == "out")
-		{
-			var marker = Advance();
-			TypeSyntax inner = ParseTypeSyntax();
-			if (inner is NamedTypeSyntax named)
-				return named with
-				{
-					IsRef = true,
-					Span = new TextSpan(marker.Span.Start, named.Span.End - marker.Span.Start),
-				};
-			Report("PAR003", "Маркер 'out' допустим только перед именованным типом", marker.Span);
 			return inner;
 		}
 
