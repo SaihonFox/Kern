@@ -58,6 +58,48 @@ public sealed class GeneratorTests
 			s.next()
 			s.next() == nil
 		}
+
+		fun seq_len() -> i32 naturals(5).len
+
+		fun len_after_next() -> i32 {
+			seq<i32> s = naturals(4)
+			s.next()
+			s.len
+		}
+
+		fun len_then_loop() -> str {
+			seq<i32> s = naturals(3)
+			i32 n = s.len
+			list<i32> seen = []
+			loop var x in s { seen.add(x) }
+			n.to_str() + ":" + seen.join(",")
+		}
+
+		fun repeat_loop() -> str {
+			seq<i32> s = naturals(3)
+			list<i32> seen = []
+			loop var x in s { seen.add(x) }
+			loop var x in s { seen.add(x) }
+			seen.join(",")
+		}
+
+		fun repeat_to_list() -> str {
+			seq<i32> s = naturals(3)
+			s.to_list().join(",") + "|" + s.to_list().join(",")
+		}
+
+		fun repeat_mapped() -> str {
+			seq<i32> s = naturals(4).map(fun (i32 x) -> i32 x * 2).filter(fun (i32 x) -> bool x % 4 == 0)
+			s.to_list().join(",") + "|" + s.to_list().join(",")
+		}
+
+		fun next_then_loop() -> str {
+			seq<i32> s = naturals(3)
+			s.next()
+			list<i32> seen = []
+			loop var x in s { seen.add(x) }
+			seen.join(",")
+		}
 		""";
 
 	[Fact]
@@ -76,5 +118,22 @@ public sealed class GeneratorTests
 		Assert.Equal(KValue.I32(0), StdPipeline.Run(Source, "lazy_before"));
 		Assert.Equal(KValue.I32(1), StdPipeline.Run(Source, "touch_after"));
 		Assert.Equal(KValue.Bool(true), StdPipeline.Run(Source, "ends_with_nil"));
+	}
+
+	[Fact]
+	public void Seq_len_counts_all_elements_and_keeps_the_cursor()
+	{
+		Assert.Equal(KValue.I32(5), StdPipeline.Run(Source, "seq_len"));
+		Assert.Equal(KValue.I32(4), StdPipeline.Run(Source, "len_after_next"));
+		Assert.Equal(KValue.Str("3:0,1,2"), StdPipeline.Run(Source, "len_then_loop"));
+	}
+
+	[Fact]
+	public void Seq_can_be_iterated_again_from_the_start()
+	{
+		Assert.Equal(KValue.Str("0,1,2,0,1,2"), StdPipeline.Run(Source, "repeat_loop"));
+		Assert.Equal(KValue.Str("0,1,2|0,1,2"), StdPipeline.Run(Source, "repeat_to_list"));
+		Assert.Equal(KValue.Str("0,4|0,4"), StdPipeline.Run(Source, "repeat_mapped"));
+		Assert.Equal(KValue.Str("0,1,2"), StdPipeline.Run(Source, "next_then_loop"));
 	}
 }

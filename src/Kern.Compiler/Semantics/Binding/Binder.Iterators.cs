@@ -36,6 +36,23 @@ public sealed partial class Binder
 		elementType = ErrorType.Instance;
 
 		var produced = protocol.Arguments[0];
+		// seq<T> кэширует элементы и поддерживает несколько курсоров: каждый loop идёт по
+		// свежему iter(), поэтому повторный обход начинается с начала (spec §6).
+		if (iterable.Type is ClassType { Symbol.Name: "seq" })
+		{
+			foreach (var function in NativeMembers(iterable.Type, "iter"))
+			{
+				if ((function.IsStatic && function.NativeSelfType is null) ||
+					function.Parameters.Count != 0)
+					continue;
+				iterable = new BoundCallExpression(function, [], iterable.Type, source.Span, iterable)
+				{
+					Virtual = IsVirtualCall(iterable, function),
+				};
+				break;
+			}
+		}
+
 		// У нативного generic-итератора (`seq<T>`) сигнатура next объявлена через T:
 		// подставляем аргументы получателя, прежде чем сверять с элементом.
 		IReadOnlyDictionary<string, KernType> substitution =

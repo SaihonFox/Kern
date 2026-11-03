@@ -19,14 +19,26 @@ public static class SeqApi
 	public static KValue Next(KNativeBox self) =>
 		Require(self).TryNext(out KValue value) ? value : KValue.Nil;
 
-	/// <summary><c>to_list() -&gt; list&lt;T&gt;</c>: материализовать остаток последовательности.</summary>
+	/// <summary><c>iter() -&gt; seq&lt;T&gt;</c>: независимый курсор для повторного обхода.</summary>
+	[KernMember]
+	[KernName("iter")]
+	[KernReturn("seq<T>")]
+	public static KValue Iter(KNativeBox self) =>
+		KValue.Obj(new KNativeBox(Require(self).Iter()));
+
+	/// <summary><c>len</c>: число элементов; дочитывает последовательность до конца.</summary>
+	[KernProperty]
+	public static int Len(KNativeBox self) => Require(self).Len;
+
+	/// <summary><c>to_list() -&gt; list&lt;T&gt;</c>: материализовать последовательность с начала.</summary>
 	[KernMember]
 	[KernName("to_list")]
 	[KernReturn("list<T>")]
 	public static KValue ToList(KNativeBox self)
 	{
 		var items = new List<KValue>();
-		while (Require(self).TryNext(out KValue item))
+		KSeq view = Require(self).Iter();
+		while (view.TryNext(out KValue item))
 		{
 			if (items.Count == int.MaxValue)
 				throw new KernPanic("seq.to_list: слишком длинная последовательность");
@@ -44,7 +56,7 @@ public static class SeqApi
 		Interpreter interpreter,
 		KNativeBox self,
 		[KernParameterType("fun(T)->U")] KValue function) =>
-		KValue.Obj(new KNativeBox(new KSeq(new MapSource(interpreter, Require(self), function))));
+		KValue.Obj(new KNativeBox(new KSeq(new MapSource(interpreter, Require(self).Iter(), function))));
 
 	/// <summary><c>filter(fun(T) -&gt; bool) -&gt; seq&lt;T&gt;</c>: ленивый отбор.</summary>
 	[KernMember]
@@ -54,19 +66,19 @@ public static class SeqApi
 		Interpreter interpreter,
 		KNativeBox self,
 		[KernParameterType("fun(T)->bool")] KValue function) =>
-		KValue.Obj(new KNativeBox(new KSeq(new FilterSource(interpreter, Require(self), function))));
+		KValue.Obj(new KNativeBox(new KSeq(new FilterSource(interpreter, Require(self).Iter(), function))));
 
 	/// <summary><c>take(n) -&gt; seq&lt;T&gt;</c>: первые <c>n</c> элементов.</summary>
 	[KernMember]
 	[KernReturn("seq<T>")]
 	public static KValue Take(KNativeBox self, int count) =>
-		KValue.Obj(new KNativeBox(new KSeq(new TakeSource(Require(self), count))));
+		KValue.Obj(new KNativeBox(new KSeq(new TakeSource(Require(self).Iter(), count))));
 
 	/// <summary><c>skip(n) -&gt; seq&lt;T&gt;</c>: пропустить первые <c>n</c> элементов.</summary>
 	[KernMember]
 	[KernReturn("seq<T>")]
 	public static KValue Skip(KNativeBox self, int count) =>
-		KValue.Obj(new KNativeBox(new KSeq(new SkipSource(Require(self), count))));
+		KValue.Obj(new KNativeBox(new KSeq(new SkipSource(Require(self).Iter(), count))));
 
 	private static KSeq Require(KNativeBox self) => self.Value switch
 	{
