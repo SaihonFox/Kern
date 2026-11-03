@@ -85,8 +85,9 @@
 - Отчёт по бутстраппингу — `docs/BOOTSTRAP.md`; `in`/`ref` (`&T`/`*T`, роль `out` выполняет `*T`) —
   `docs/IN_REF_OUT.md`. `docs/TOKEN_BUDGET.md` удалён.
 
-Не сделано/ограничения: capabilities/разрешения модулей (`#[needs]`, `--allow`) — вопрос в
-`DECISIONS_NEEDED.md`; `kern.security` без BLAKE/Ed25519/argon2/bcrypt (в .NET нет
+Не сделано/ограничения: path-scope `fs.read("...")`/`fs.write("...")` пока не ограничивает путь
+(проверяется только имя capability), манифест пакета/подпись — отдельное решение;
+`kern.security` без BLAKE/Ed25519/argon2/bcrypt (в .NET нет
 из коробки); `kern.text` без циклов/условий/частичных шаблонов в шаблонизаторе;
 `kern.parse` без комбинаторов/PEG (только базовые разборщики и диагностика);
 `kern.num` без собственных чисел/матричных разложений; «настоящие» C#-генерики не
@@ -98,7 +99,7 @@ self-contained single-file (не NativeAOT).
 Не реализовано:
 - UI: `kern.ui` / `libs/Kern.Lib.Ui` отсутствует, `examples/19_gui` не запускается. Решено (2026-11-03): делать **последним**, когда всё главное готово.
 - Инструменты: `kernc wasm` (решено 2026-11-03 — WASI P2 через **NetWasm**, не реализовано; нужен reflection-free хост и урезанный std — `DECISIONS_NEEDED.md`). `kernc new`, `kernc doc` (doctest), `kernc run --watch` реализованы 2026-11-02; package fetching (M13), `kernw`, отладчик `kernc debug` и архитектурные примеры — 2026-11-03.
-- Язык: префиксы строк `r`/`f`/`x`/`v` в любом порядке (`rf`=`fr`, `xf`=`fx`, `xrf`=`frx`); `use dotnet.X[...]` (только статические члены BCL), identity для `unit`, запись через пользовательский `op []` (решено оставить как в C#: только чтение), async-генераторы. `seq.len`/повторная итерация и параметры `&T`/`*T` (роль `out` выполняет `*T`) реализованы 2026-11-03 (примеры `examples/33_references`, `examples/34_out_parameters`).
+- Язык: префиксы строк `r`/`f`/`x`/`v` в любом порядке (`rf`=`fr`, `xf`=`fx`, `xrf`=`frx`); `use dotnet.X[...]` (только статические члены BCL), запись через пользовательский `op []` (решено оставить как в C#: только чтение). `in`/`ref` (`&T`/`*T`, роль `out` выполняет `*T`), identity для `unit` (`===`/`!==`), async-генераторы (решено не поддерживать), `seq.len`/повторная итерация, инлайнинг/DCE/точный `MaxStack` — реализованы 2026-11-03.
 - Известные ограничения: `define_type` без методов/свойств (generics/родители и `instantiate()` атрибута есть); макросы не раскрываются в одиночном `CompileCore`; LSP видит только каталог `Kern.Runtime`.
 
 - **Remaining std modules implemented (2026-11-02, owner request):** `kern.ansi` (colors/styles/strip/256/RGB), `kern.ini` (sections ↔ dict), `kern.toml` (tables/arrays/scalars), `kern.net` (hostname/resolve/IP/reachability), time zones in `kern.time` (`time.zone(s)`, `datetime.now_in/in_zone`, `zone_name`); `StdModulesExtraTests` (5).
