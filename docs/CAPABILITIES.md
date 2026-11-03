@@ -27,12 +27,12 @@ fun fetch_and_save(url: str, path: str) { … }
 3. **Политика запуска.** `kernc run/debug` принимает:
 
 ```text
-kernc run app --allow net,fs.read --deny fs.write
+kernc run app --deny fs.write
 kernc run app --deny all
 ```
 
-`--allow` — белый список имён; `--deny` важнее `--allow`; без флагов разрешено всё
-(обратная совместимость). Проверка выполняется в VM перед каждым нативным вызовом,
+По умолчанию разрешено всё. `--deny` запрещает перечисленные имена, `all` — все
+capabilities сразу. Проверка выполняется в VM перед каждым нативным вызовом,
 которому нужна capability; запрещённый вызов — `KernPanic` с русским сообщением.
 
 ## Что важно понимать

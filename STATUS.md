@@ -2,6 +2,20 @@
 
 ## Now
 
+### Батч 2026-11-03 (owner request): capabilities — только `--deny`
+
+Сделано и проверено (build 0 errors, тесты 627/627, style clean):
+- Capabilities по умолчанию **разрешены все** — это поведение сохранено и теперь
+  единственное: `CapabilityPolicy` без политики (`null`) ничего не проверяет.
+- `--allow` удалён: `kernc run/debug --allow …` теперь ошибка аргументов с подсказкой.
+- `kernc run/debug --deny fs.write,net` запрещает перечисленные capabilities;
+  `--deny all` запрещает все. Проверка — в VM перед нативным вызовом.
+- `#[needs(...)]` остаётся декларацией функции и compile-time проверкой покрытия
+  (`KRN2401`) только для функций, где он указан.
+- Тесты `CapabilityTests` обновлены: default allow-all, `--deny`, `--deny all`,
+  отказ от `--allow`. Документация: `docs/CAPABILITIES.md`, spec §16,
+  `docs/KNOWN_ISSUES.md`, `DECISIONS_NEEDED.md`.
+
 ### Батч 2026-11-03 (owner request): bootstrap B1 — AST и парсер
 
 Сделано и проверено (`kernc check bootstrap`, `kernc test bootstrap` 12/12):
@@ -48,7 +62,7 @@
 ### Батч 2026-11-03 (owner request): capabilities
 
 Сделано и проверено (build 0 errors, тесты 619/619, style clean):
-- `#[needs(...)]`, `kernc run/debug --allow/--deny`, проверка в binder (`KRN2401`) и VM.
+- `#[needs(...)]`, `kernc run/debug --deny` (в исходном батче был и `--allow`, удалён 2026-11-03), проверка в binder (`KRN2401`) и VM.
 - `[KernCapability]` на нативных модулях/методах; `kern.io` (файлы), `kern.http`,
   `kern.net`, `kern.process` аннотированы. Path-scope парсится, но пока не ограничивает путь.
 - Тесты `CapabilityTests` (5).

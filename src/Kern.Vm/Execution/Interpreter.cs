@@ -91,7 +91,7 @@ public sealed partial class Interpreter
 	/// <summary>Хук отладчика (<c>kernc debug</c>); <c>null</c> — обычное исполнение.</summary>
 	public IDebugHook? Debugger { get; set; }
 
-	/// <summary>Политика capabilities (<c>--allow</c>/<c>--deny</c>); <c>null</c> — разрешено всё.</summary>
+	/// <summary>Политика capabilities (<c>--deny</c>); <c>null</c> — разрешено всё.</summary>
 	public CapabilityPolicy? Capabilities { get; set; }
 
 	/// <summary>

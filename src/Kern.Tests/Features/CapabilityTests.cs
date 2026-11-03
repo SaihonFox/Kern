@@ -9,7 +9,7 @@ namespace Kern.Tests.Features;
 
 /// <summary>
 /// Capabilities (spec §7/§16): <c>#[needs(...)]</c> проверяется binder'ом, а
-/// <c>--allow</c>/<c>--deny</c> — VM-политикой перед нативным вызовом.
+/// <c>--deny</c> — VM-политикой перед нативным вызовом. По умолчанию разрешено всё.
 /// </summary>
 public sealed class CapabilityTests
 {
@@ -60,7 +60,7 @@ public sealed class CapabilityTests
 	}
 
 	[Fact]
-	public void Runtime_policy_allows_and_denies_native_capabilities()
+	public void Runtime_policy_allows_by_default_and_denies_native_capabilities()
 	{
 		string file = Path.Combine(Path.GetTempPath(), "kern-cap-" + Guid.NewGuid().ToString("N") + ".txt");
 		File.WriteAllText(file, "secret");
@@ -78,15 +78,21 @@ public sealed class CapabilityTests
 			var program = StdPipeline.Compile(source);
 			var allowed = new Interpreter(program.Module, new NativeResolver(StdPipeline.Catalog()))
 			{
-				Capabilities = new CapabilityPolicy(["fs.read"], null),
+				Capabilities = CapabilityPolicy.AllowAll,
 			};
 			Assert.Equal(KValue.Str("secret"), allowed.Run("read_it", KValue.Str(file)));
 
 			var denied = new Interpreter(program.Module, new NativeResolver(StdPipeline.Catalog()))
 			{
-				Capabilities = new CapabilityPolicy(null, ["fs.read"]),
+				Capabilities = new CapabilityPolicy(["fs.read"]),
 			};
 			Assert.Throws<KernPanic>(() => denied.Run("read_it", KValue.Str(file)));
+
+			var deniedAll = new Interpreter(program.Module, new NativeResolver(StdPipeline.Catalog()))
+			{
+				Capabilities = new CapabilityPolicy(["all"]),
+			};
+			Assert.Throws<KernPanic>(() => deniedAll.Run("read_it", KValue.Str(file)));
 		}
 		finally
 		{
@@ -95,7 +101,7 @@ public sealed class CapabilityTests
 	}
 
 	[Fact]
-	public void Cli_parses_allow_and_deny_lists()
+	public void Cli_parses_deny_list_and_rejects_removed_allow()
 	{
 		string file = Path.Combine(Path.GetTempPath(), "kern-cap-cli-" + Guid.NewGuid().ToString("N") + ".kern");
 		File.WriteAllText(file, "fun main() {}");
@@ -103,7 +109,7 @@ public sealed class CapabilityTests
 		{
 			var stderr = new StringWriter();
 			bool parsed = SourceArguments.TryParse(
-				["--allow", "net,fs.read", "--deny", "fs.write", file],
+				["--deny", "fs.write,net", file],
 				"run",
 				allowOutput: false,
 				allowProgramArguments: false,
@@ -115,8 +121,22 @@ public sealed class CapabilityTests
 				out CliOptions options);
 
 			Assert.True(parsed, stderr.ToString());
-			Assert.Equal(["net", "fs.read"], options.AllowCapabilities);
-			Assert.Equal(["fs.write"], options.DenyCapabilities);
+			Assert.Equal(["fs.write", "net"], options.DenyCapabilities);
+
+			var allowError = new StringWriter();
+			bool allowParsed = SourceArguments.TryParse(
+				["--allow", "net", file],
+				"run",
+				allowOutput: false,
+				allowProgramArguments: false,
+				allowError,
+				out _,
+				out _,
+				out _,
+				out _,
+				out _);
+			Assert.False(allowParsed);
+			Assert.Contains("--allow удалён", allowError.ToString());
 		}
 		finally
 		{

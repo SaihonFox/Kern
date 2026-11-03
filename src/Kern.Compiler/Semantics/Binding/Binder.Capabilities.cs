@@ -22,7 +22,7 @@ public sealed partial class Binder
 	{
 		// Compile-time проверка строгая только для функций, которые объявили #[needs]:
 		// старый код и обычные приложения без объявления продолжают компилироваться,
-		// а runtime-политика --allow/--deny всё равно проверяет нативные вызовы.
+		// а runtime-политика --deny всё равно проверяет нативные вызовы.
 		if (_declaredCapabilities.Count == 0)
 			return;
 		foreach (string capability in function.NativeCapabilities.Concat(function.DeclaredCapabilities))

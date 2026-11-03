@@ -28,9 +28,6 @@ internal sealed record CliOptions
 	/// <summary><c>--target &lt;rid&gt;</c> для <c>--native</c> (<c>linux-x64</c> и т.п.).</summary>
 	public string? TargetRid { get; init; }
 
-	/// <summary><c>--allow</c> capabilities: белый список (null — не задан).</summary>
-	public IReadOnlyList<string>? AllowCapabilities { get; init; }
-
 	/// <summary><c>--deny</c> capabilities: запрещённые имена.</summary>
 	public IReadOnlyList<string>? DenyCapabilities { get; init; }
 
@@ -134,30 +131,28 @@ internal static class SourceArguments
 				continue;
 			}
 
-			if (argument is "--allow" or "--deny")
+			if (argument == "--allow")
+			{
+				stderr.WriteLine("ошибка: --allow удалён; по умолчанию разрешено всё, ограничивайте через --deny");
+				return false;
+			}
+
+			if (argument == "--deny")
 			{
 				if (index + 1 >= args.Length)
 				{
-					stderr.WriteLine($"ошибка: параметр {argument} требует список capabilities через запятую");
+					stderr.WriteLine("ошибка: параметр --deny требует список capabilities через запятую");
 					return false;
 				}
 
 				string[] names = args[++index].Split(
 					',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-				if (argument == "--allow")
-					options = options with
-					{
-						AllowCapabilities = options.AllowCapabilities is null
-							? names
-							: [.. options.AllowCapabilities, .. names],
-					};
-				else
-					options = options with
-					{
-						DenyCapabilities = options.DenyCapabilities is null
-							? names
-							: [.. options.DenyCapabilities, .. names],
-					};
+				options = options with
+				{
+					DenyCapabilities = options.DenyCapabilities is null
+						? names
+						: [.. options.DenyCapabilities, .. names],
+				};
 				continue;
 			}
 

@@ -49,9 +49,9 @@ internal static class RunCommand
 	}
 
 	private static CapabilityPolicy? Policy(CliOptions options) =>
-		options.AllowCapabilities is null && options.DenyCapabilities is null
-			? null
-			: new CapabilityPolicy(options.AllowCapabilities, options.DenyCapabilities);
+		options.DenyCapabilities is { Count: > 0 } denied
+			? new CapabilityPolicy(denied)
+			: null;
 
 	/// <summary><c>run</c> проекта с <c>build.kern</c>: компилирует app-цель без записи .kbc.</summary>
 	private static int RunProject(

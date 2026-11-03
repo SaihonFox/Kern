@@ -73,8 +73,8 @@ Owner выбрал вариант 1 (compile-time + VM). Реализовано:
 
 - `#[needs(net, fs.read("data/"), fs.write("out/"), process, db)]` на функции; binder
   проверяет покрытие вызовов, если атрибут присутствует (`KRN2401`).
-- `kernc run/debug --allow net,fs.read --deny fs.write`; `deny` важнее, без флагов
-  разрешено всё (обратная совместимость).
+- `kernc run/debug --deny fs.write`; по умолчанию разрешено всё, `--deny all`
+  запрещает все capabilities; `--allow` удалён (2026-11-03).
 - `[KernCapability(...)]` на нативных классах/методах; capability попадает в `.kbc`
   атрибутом `kern.capability` и проверяется VM перед нативным вызовом.
 - Path-scope `fs.read("...")`/`fs.write("...")` парсится, но пока проверяется только
