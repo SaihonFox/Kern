@@ -16,6 +16,9 @@
   `kern-package.sig` (RSA PKCS#1 SHA-256 по байтам манифеста; ключ из
   `KERN_PACKAGE_PUBLIC_KEY`/`KERN_PACKAGE_KEY_FILE`). Имя должно совпадать с `t.pkg`,
   пакеты без манифеста совместимы. Тест `PackageFetchTests` (+1); `docs/BUILDER.md` §8.
+- `str`: графемные члены `graphemes()`, `grapheme_len`, `grapheme_at(i)` и `normalize(form)`;
+  `len`/индексы остаются UTF-16 (spec), `normalize` — no-op при `InvariantGlobalization=true`.
+  Тесты `StringGraphemeTests` (3).
 - Обновлены spec §5/§7, `CHANGELOG_LANG.md`, `DECISIONS_NEEDED.md`.
 
 ### Батч 2026-11-03 (owner request): capabilities — только `--deny`

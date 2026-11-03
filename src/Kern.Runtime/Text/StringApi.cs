@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text;
 using Kern.Binding.Attributes;
 using Kern.Binding.Formatting;
 using Kern.Binding.Values;
@@ -80,6 +81,55 @@ public static class StringApi
 	[KernName("chars")]
 	[KernMember]
 	public static KList<char> Chars(string self) => MakeCharList(self);
+
+	/// <summary><c>s.graphemes()</c>: пользовательские графемные кластеры (Unicode).</summary>
+	[KernMember]
+	public static KList<string> Graphemes(string self)
+	{
+		var items = new List<string>();
+		TextElementEnumerator enumerator = StringInfo.GetTextElementEnumerator(self);
+		while (enumerator.MoveNext())
+			items.Add(enumerator.GetTextElement());
+		return MakeList(items);
+	}
+
+	/// <summary><c>s.grapheme_len</c>: число графемных кластеров.</summary>
+	[KernName("grapheme_len")]
+	[KernProperty]
+	public static int GraphemeLen(string self)
+	{
+		var count = 0;
+		TextElementEnumerator enumerator = StringInfo.GetTextElementEnumerator(self);
+		while (enumerator.MoveNext())
+			count++;
+		return count;
+	}
+
+	/// <summary><c>s.grapheme_at(i)</c>: графема по индексу (отрицательный — с конца).</summary>
+	[KernName("grapheme_at")]
+	[KernMember]
+	public static string GraphemeAt(string self, int index)
+	{
+		var items = new List<string>();
+		TextElementEnumerator enumerator = StringInfo.GetTextElementEnumerator(self);
+		while (enumerator.MoveNext())
+			items.Add(enumerator.GetTextElement());
+		int normalized = index < 0 ? items.Count + index : index;
+		if (normalized < 0 || normalized >= items.Count)
+			throw new Kern.Vm.Execution.KernPanic($"grapheme_at: индекс {index} вне строки из {items.Count} графем");
+		return items[normalized];
+	}
+
+	/// <summary><c>s.normalize(form)</c>: Unicode NFC/NFD/NFKC/NFKD.</summary>
+	[KernMember]
+	public static string Normalize(string self, string form) => form switch
+	{
+		"NFC" => self.Normalize(NormalizationForm.FormC),
+		"NFD" => self.Normalize(NormalizationForm.FormD),
+		"NFKC" => self.Normalize(NormalizationForm.FormKC),
+		"NFKD" => self.Normalize(NormalizationForm.FormKD),
+		_ => throw new Kern.Vm.Execution.KernPanic($"normalize: неизвестная форма '{form}' (NFC, NFD, NFKC, NFKD)"),
+	};
 
 	private static KList<string> MakeList(IEnumerable<string> items) =>
 		new(KValue.Obj(new Kern.Vm.Values.KList(null, items.Select(KValue.Str))));

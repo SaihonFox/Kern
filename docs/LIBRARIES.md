@@ -41,6 +41,7 @@
   `{{#each items}}…{{/each}}` (`{{this}}`, `{{@index}}`, `{{else}}` для пустой коллекции) и
   `{{& key}}` без HTML-экранирования; `template_render_with(template, values, partials)` добавляет
   `{{> partial}}`. Значения по умолчанию экранируются как HTML. `to_utf8`/`from_utf8`.
+  Члены `str` (2026-11-03): `s.graphemes()`, `s.grapheme_len`, `s.grapheme_at(i)`, `s.normalize(form)`; `len`/индексы остаются в UTF-16, `normalize` — no-op при `InvariantGlobalization=true`.
   Эффективная сборка строк — тип `string_builder`: `string_builder([capacity])`, `append(...)`,
   `append_line(...)`, `len`, `is_empty`, `clear()`, `to_str()`.
   *Ограничения:* Markdown — подмножество без таблиц и вложенных списков; шаблонизатор не
