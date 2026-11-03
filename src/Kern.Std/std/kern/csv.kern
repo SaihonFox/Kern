@@ -1,0 +1,123 @@
+// kern.csv — версия на Kern (пилот Kern.Std): RFC 4180-подмножество без table-опций.
+project kern.csv:
+use kern.test[assert_eq]
+
+/// Разобрать CSV в строки ячеек. Поддержаны quoted-поля, `""` внутри кавычек,
+/// запятые/переводы строк внутри кавычек.
+fun parse(str text) -> list<list<str>> {
+	var rows = <list<str>>[]
+	var row = <str>[]
+	var field = string_builder()
+	bool quoted = false
+	i32 index = 0
+	loop index <= text.len {
+		if index == text.len {
+			row.add(field.to_str())
+			rows.add(row)
+			stop
+		}
+
+		char current = text[index]
+		if quoted {
+			if current == '"' {
+				if index + 1 < text.len && text[index + 1] == '"' {
+					field.append('"')
+					index += 2
+					next
+				}
+				quoted = false
+				index += 1
+				next
+			}
+			field.append(current)
+			index += 1
+			next
+		}
+
+		if current == '"' {
+			quoted = true
+			index += 1
+			next
+		}
+		if current == ',' {
+			row.add(field.to_str())
+			field = string_builder()
+			index += 1
+			next
+		}
+		if current == '\r' {
+			index += 1
+			next
+		}
+		if current == '\n' {
+			row.add(field.to_str())
+			rows.add(row)
+			row = <str>[]
+			field = string_builder()
+			index += 1
+			next
+		}
+
+		field.append(current)
+		index += 1
+	}
+	rows
+}
+
+/// Разобрать CSV с заголовком в `list<dict<str, str>>`.
+fun parse_dicts(str text) -> list<dict<str, str>> {
+	list<list<str>> rows = parse(text)
+	list<dict<str, str>> result = <dict<str, str>>[]
+	if rows.len == 0 {
+		ret result
+	}
+	list<str> header = rows[0]
+	loop var row in rows[1..] {
+		var item = <str: str>[]
+		i32 index = 0
+		loop index < header.len && index < row.len {
+			item[header[index]] = row[index]
+			index += 1
+		}
+		result.add(item)
+	}
+	result
+}
+
+/// Записать строки как CSV; ячейки с `,`, `"` или переводом строки берутся в кавычки.
+fun to_str(list<list<str>> rows) -> str {
+	var result = string_builder()
+	loop var row in rows {
+		i32 index = 0
+		loop var cell in row {
+			if index > 0 {
+				result.append(',')
+			}
+			bool needQuotes = cell.contains(",") || cell.contains("\"") || cell.contains("\n")
+			if needQuotes {
+				result.append('"')
+				result.append(cell.replace("\"", "\"\""))
+				result.append('"')
+			} else {
+				result.append(cell)
+			}
+			index += 1
+		}
+		result.append_line()
+	}
+	result.to_str()
+}
+
+#[test]
+fun parses_quotes_and_commas() {
+	list<list<str>> rows = parse("a,b\n\"x,y\",\"z\"\"q\"\n")
+	assert_eq(2, rows.len)
+	assert_eq(2, rows[1].len)
+	assert_eq("x,y", rows[1][0])
+	assert_eq("z\"q", rows[1][1])
+}
+
+#[test]
+fun writes_quotes() {
+	assert_eq("a,\"b,c\"\n", to_str([["a", "b,c"]]))
+}

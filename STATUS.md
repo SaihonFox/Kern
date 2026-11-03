@@ -22,10 +22,14 @@
 - `str`: графемные члены `graphemes()`, `grapheme_len`, `grapheme_at(i)` и `normalize(form)`;
   `len`/индексы остаются UTF-16 (spec), `normalize` — no-op при `InvariantGlobalization=true`.
   Тесты `StringGraphemeTests` (3).
+- `Kern.Std` (пилот): `src/Kern.Std/std/kern/ansi.kern` и `csv.kern` — реальные
+  библиотеки на Kern; `StdSources` читает embedded-ресурсы, `kern.ansi`/`kern.csv`
+  компилируются обычным проектом и доступны через `use`. C#-версии пока остаются для
+  совместимости. Тесты `KernStdTests` (3).
 - Обновлены spec §5/§7/§12.10, `CHANGELOG_LANG.md`, `DECISIONS_NEEDED.md`.
 - Не входит в этот батч (крупные срезы, см. `DECISIONS_NEEDED.md`): настоящие native
-  generics (variant 2/3), автоподключение `Kern.Std` и перенос чистых библиотек на Kern;
-  вложенная деструктуризация кортежей в объявлениях.
+  generics (variant 2/3), автоподключение `Kern.Std` и замена C#-модулей с теми же
+  именами; вложенная деструктуризация кортежей в объявлениях.
 
 ### Батч 2026-11-03 (owner request): capabilities — только `--deny`
 

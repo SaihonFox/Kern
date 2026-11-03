@@ -1,5 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 	<ItemGroup>
-		<None Include="std/**/*.kern" CopyToOutputDirectory="PreserveNewest" />
+		<EmbeddedResource Include="std/**/*.kern">
+			<LogicalName>std/%(RecursiveDir)%(Filename)%(Extension)</LogicalName>
+		</EmbeddedResource>
 	</ItemGroup>
 </Project>

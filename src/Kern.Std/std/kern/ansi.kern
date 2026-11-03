@@ -1,0 +1,59 @@
+// kern.ansi — версия на Kern (пилот Kern.Std).
+// Чистые строковые функции; цвета не включаются при перенаправлении вывода —
+// это делает вызывающая сторона через ansi.supports().
+project kern.ansi:
+use kern.test[assert_eq]
+
+fun escape(str code) -> str "\u001b[" + code + "m"
+
+fun wrap(str code, str text) -> str escape(code) + text + escape("0")
+
+fun red(str text) -> str wrap("31", text)
+fun green(str text) -> str wrap("32", text)
+fun yellow(str text) -> str wrap("33", text)
+fun blue(str text) -> str wrap("34", text)
+fun magenta(str text) -> str wrap("35", text)
+fun cyan(str text) -> str wrap("36", text)
+fun white(str text) -> str wrap("37", text)
+fun bold(str text) -> str wrap("1", text)
+fun dim(str text) -> str wrap("2", text)
+fun italic(str text) -> str wrap("3", text)
+fun underline(str text) -> str wrap("4", text)
+fun reset() -> str escape("0")
+
+fun color256(i32 code, str text) -> str wrap("38;5;" + code.to_str(), text)
+
+fun rgb(i32 red, i32 green, i32 blue, str text) -> str
+	wrap("38;2;" + red.to_str() + ";" + green.to_str() + ";" + blue.to_str(), text)
+
+// Удалить ANSI escape-последовательности вида ESC[...m.
+fun strip(str text) -> str {
+	var builder = string_builder()
+	i32 index = 0
+	loop index < text.len {
+		char current = text[index]
+		if current.code == 27 {
+			index += 1
+			loop index < text.len && text[index] != 'm' {
+				index += 1
+			}
+			if index < text.len {
+				index += 1
+			}
+			next
+		}
+		builder.append(current)
+		index += 1
+	}
+	builder.to_str()
+}
+
+// Терминал обычно определяется окружением; по умолчанию считаем ANSI доступным.
+fun supports() -> bool true
+
+#[test]
+fun wraps_and_strips() {
+	assert_eq("x", strip(red("x")))
+	assert_eq("\u001b[31mx\u001b[0m", red("x"))
+	assert_eq(2, strip("a" + color256(196, "b")).len)
+}
