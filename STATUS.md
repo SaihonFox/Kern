@@ -22,6 +22,12 @@
   `{{#each items}}` с `{{this}}`, `{{@index}}` и `{{else}}` для пустой коллекции,
   `{{& key}}` без экранирования и `template_render_with(template, values, partials)`
   с `{{> partial}}`. Тесты `TextExtrasTests` (+ цикл, ветвление, partial).
+- Std-библиотеки: `kern.num` получил `det`, `inverse`, `matrix_rank([eps])`,
+  `qr -> [Q, R]`, `eigen_symmetric -> [values, vectors]` (Якоби); `kern.security` —
+  BLAKE2b (`blake2b`, `blake2b_keyed`, размер 1..64); `kern.toml` — inline-таблицы,
+  массивы таблиц `[[a]]`, многострочные массивы, hex/oct/bin и `_` в числах,
+  `inf`/`nan`, ISO-даты строками. Тесты `NumModuleTests`, `SecurityModuleTests`,
+  `StdModulesExtraTests` (+4).
 
 ### Батч 2026-11-03 (owner request): capabilities
 

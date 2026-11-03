@@ -24,14 +24,16 @@
 
 Это нативные модули в `src/Kern.Runtime` (не внешние `libs/`), доступны без сборки DLL.
 
-- **`kern.security`**: SHA-3 (`sha3_256`, `sha3_512`), `hmac_sha512`, `aes_gcm_encrypt/decrypt`
+- **`kern.security`**: SHA-3 (`sha3_256`, `sha3_512`), BLAKE2b (`blake2b(text[, size])`,
+  `blake2b_keyed(key, text[, size])`, ключ и дайджест 1..64 байта), `hmac_sha512`,
+  `aes_gcm_encrypt/decrypt`
   (ключ 16/24/32 байта, nonce+tag в Base64), `chacha20_encrypt/decrypt` (32-байтовый ключ),
   `rsa_generate(2048..4096)`, `rsa_public`, `rsa_sign`, `rsa_verify`, `jwt_sign`/`jwt_verify`
   (HS256), `hash_password(pwd, iterations)`/`verify_password` (PBKDF2-SHA256),
   `random_bytes`, `hex_encode/decode`, `constant_time_eq`, тип `secret<str>`
   (`secret<str>("…")`, `reveal()`, маскирующий `to_str()`, `len`). Базовые SHA-2/HMAC-SHA-256
   остаются в `kern.crypto`, TOTP — в `kern.auth` (имена там уже заняты).
-  *Ограничения:* нет BLAKE2/3, Ed25519, argon2/bcrypt (нет в BCL без внешних пакетов);
+  *Ограничения:* нет BLAKE3, Ed25519, argon2/bcrypt (нет в BCL без внешних пакетов);
   `secret` не сериализуется автоматически — раскрытие только через `reveal()`.
 - **`kern.text`** (расширения): `levenshtein`, `fuzzy_contains`, `transliterate`, `slug`,
   `normalize(text, "NFC"|"NFD"|"NFKC"|"NFKD")`, `graphemes`, `escape_html`, `markdown_to_html`,
@@ -48,11 +50,12 @@
   *Ограничения:* комбинаторы (`~>`, `many`, `sep_by`, PEG) ещё не реализованы.
 - **`kern.num`**: `mean`, `median`, `variance([sample])`, `stdev`, `correlation`,
   `regression -> [slope, intercept]`, `dot_product`, `transpose`, `matmul`, `identity`, `solve`,
+  `det`, `inverse`, `matrix_rank([eps])`, `qr -> [Q, R]`, `eigen_symmetric([iterations]) -> [values, vectors]`,
   `interpolate`, `integrate(f, a, b[, steps])` (Симпсон), `root(f, a, b[, iterations])`
   (бисекция), `fft` (re/im парами), тип `complex` (`complex(re, im)`, `re`, `im`, `abs`,
   `conjugate`, операторы `+ - * /`, `to_str`). *Ограничения:* собственные `rational`/векторные
-  типы, собственные числа и разреженные матрицы пока не добавлены; `solve` — Гаусс без
-  выбора полного pivoting.
+  типы и разреженные матрицы пока не добавлены; `eigen_symmetric` — только симметричные
+  матрицы (Якоби), `solve`/`det`/`inverse` — Гаусс с частичным выбором ведущего элемента.
 
 ## `use dotnet.X[...]` (способ C)
 
@@ -174,7 +177,7 @@ f64 absolute = Math.abs(-3.5)
 
 - **`kern.ansi`** — `red/green/yellow/blue/magenta/cyan/white/gray/bold/dim/italic/underline`, `reset`, `strip`, `color256`, `rgb`, свойство `supports` (учитывает перенаправление вывода и `NO_COLOR`).
 - **`kern.ini`** — `ini.parse(text) -> result<dict<str, dict<str, str>>, str>` (секции, глобальные ключи в `""`, комментарии), `ini.to_str(data)`.
-- **`kern.toml`** — `toml.parse(text) -> result<dict<str, object>, str>` и `toml.to_str(value)`; таблицы, массивы, скаляры; без дат/inline-таблиц/массивов таблиц.
+- **`kern.toml`** — `toml.parse(text) -> result<dict<str, object>, str>` и `toml.to_str(value)`; таблицы, массивы (включая многострочные), inline-таблицы `{ … }`, массивы таблиц `[[a]]`, hex/oct/bin и `_` в числах, `inf`/`nan`; даты и время читаются как ISO-строки.
 - **`kern.net`** — `hostname`, `resolve`, `ip_of`, `local_addresses`, `is_reachable(host, port, timeout_ms)`; без сокет-клиента (HTTP — `kern.http`).
 - **`kern.time` time zones** — `time.zone(name)`, `time.zones()`, `time_zone.name/offset_minutes`, `datetime.now_in(tz)`, `dt.in_zone(tz)`, `dt.zone_name`; `datetime` хранит UTC и отображается в поясе.
 - Проверка: `StdModulesExtraTests`.

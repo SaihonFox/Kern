@@ -10,10 +10,10 @@ using Kern.Vm.Values;
 namespace Kern.Runtime.Security;
 
 /// <summary>
-/// <c>kern.security</c>: прикладная безопасность поверх .NET — хеши SHA-2/SHA-3, HMAC,
-/// AES-GCM и ChaCha20-Poly1305, RSA-подписи, JWT HS256, TOTP, PBKDF2, сравнение за
+/// <c>kern.security</c>: прикладная безопасность поверх .NET — хеши SHA-2/SHA-3/BLAKE2b,
+/// HMAC, AES-GCM и ChaCha20-Poly1305, RSA-подписи, JWT HS256, TOTP, PBKDF2, сравнение за
 /// постоянное время и криптостойкие случайные байты. Ключи и данные — UTF-8 строки;
-/// бинарные значения упаковываются в Base64.
+/// бинарные значения упаковываются в Base64 (хеши — в hex).
 /// </summary>
 [KernModule("kern.security")]
 public static class SecurityApi
@@ -30,6 +30,34 @@ public static class SecurityApi
 	[KernMember]
 	[KernName("sha3_512")]
 	public static string Sha3_512(string text) => Hex(Sha3Hash.Sha3_512(Utf8.GetBytes(text)));
+
+	/// <summary><c>blake2b(text)</c>: hex BLAKE2b-512.</summary>
+	[KernMember]
+	public static string Blake2b(string text) => Blake2b(text, 64);
+
+	/// <summary><c>blake2b(text, size)</c>: hex BLAKE2b с дайджестом 1..64 байта.</summary>
+	[KernMember]
+	public static string Blake2b(string text, int size) =>
+		Hex(Blake2bDigest(text, size, key: null));
+
+	/// <summary><c>blake2b_keyed(key, text)</c>: hex BLAKE2b-512 с ключом до 64 байт UTF-8.</summary>
+	[KernMember]
+	public static string Blake2bKeyed(string key, string text) => Blake2bKeyed(key, text, 64);
+
+	/// <summary><c>blake2b_keyed(key, text, size)</c>: keyed BLAKE2b с явным размером дайджеста.</summary>
+	[KernMember]
+	public static string Blake2bKeyed(string key, string text, int size) =>
+		Hex(Blake2bDigest(text, size, key));
+
+	private static byte[] Blake2bDigest(string text, int size, string? key)
+	{
+		if (size is < 1 or > 64)
+			throw new KernPanic("security.blake2b: размер дайджеста должен быть 1..64 байта");
+		byte[] keyBytes = key is null ? [] : Utf8.GetBytes(key);
+		if (keyBytes.Length > 64)
+			throw new KernPanic("security.blake2b_keyed: ключ должен быть не длиннее 64 байт UTF-8");
+		return Blake2bHash.Hash(Utf8.GetBytes(text), size, keyBytes);
+	}
 
 	/// <summary><c>hmac_sha512(key, text)</c>: hex HMAC-SHA-512.</summary>
 	[KernMember]

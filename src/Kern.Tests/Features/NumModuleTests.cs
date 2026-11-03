@@ -69,6 +69,30 @@ public sealed class NumModuleTests
 	}
 
 	[Fact]
+	public void Determinant_inverse_rank_qr_and_eigen()
+	{
+		const string source = """
+			fun determinant() -> f64 det([[1.0, 2.0], [3.0, 4.0]])
+			fun inverse_first() -> f64 inverse([[4.0, 7.0], [2.0, 6.0]])[0][0]
+			fun inverse_second() -> f64 inverse([[4.0, 7.0], [2.0, 6.0]])[1][0]
+			fun rank_of_dependent() -> i32 matrix_rank([[1.0, 2.0], [2.0, 4.0]])
+			fun rank_of_full() -> i32 matrix_rank([[1.0, 2.0], [3.0, 4.0]])
+			fun qr_roundtrip() -> f64 matmul(qr([[1.0, 0.0], [0.0, 1.0]])[0], qr([[1.0, 0.0], [0.0, 1.0]])[1])[1][1]
+			fun eigen_values() -> list<f64> eigen_symmetric([[2.0, 1.0], [1.0, 2.0]])[0]
+			""";
+
+		Assert.Equal(-2.0, (double)StdPipeline.Run(source, "determinant").AsF64, 6);
+		Assert.Equal(0.6, (double)StdPipeline.Run(source, "inverse_first").AsF64, 6);
+		Assert.Equal(-0.2, (double)StdPipeline.Run(source, "inverse_second").AsF64, 6);
+		Assert.Equal(1, StdPipeline.Run(source, "rank_of_dependent").AsI32);
+		Assert.Equal(2, StdPipeline.Run(source, "rank_of_full").AsI32);
+		Assert.Equal(1.0, (double)StdPipeline.Run(source, "qr_roundtrip").AsF64, 6);
+		var values = (Kern.Vm.Values.KList)StdPipeline.Run(source, "eigen_values").Ref!;
+		Assert.Equal(1.0, values[0].AsF64, 6);
+		Assert.Equal(3.0, values[1].AsF64, 6);
+	}
+
+	[Fact]
 	public void Complex_numbers_use_operators()
 	{
 		const string source = """

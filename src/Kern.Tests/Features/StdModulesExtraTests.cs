@@ -53,6 +53,54 @@ public sealed class StdModulesExtraTests
 	}
 
 	[Fact]
+	public void Toml_parses_inline_tables_multiline_arrays_and_table_arrays()
+	{
+		const string source = """
+			fun inline() -> str {
+				match toml.parse("server = { host = \"localhost\", port = 8080 }") {
+					Ok(value) => json.to_str(value)
+					Err(e) => e
+				}
+			}
+			fun multiline() -> str {
+				match toml.parse("values = [\n  1,\n  2,\n]\n") {
+					Ok(value) => json.to_str(value)
+					Err(e) => e
+				}
+			}
+			fun table_array() -> str {
+				match toml.parse("[[servers]]\nname = \"a\"\n[[servers]]\nname = \"b\"\n") {
+					Ok(value) => json.to_str(value)
+					Err(e) => e
+				}
+			}
+			fun numbers_and_date() -> str {
+				match toml.parse("mask = 0xFF\nbig = 1_000\ndate = 1979-05-27T07:32:00Z\n") {
+					Ok(value) => json.to_str(value)
+					Err(e) => e
+				}
+			}
+			fun written() -> str {
+				match toml.parse("[[servers]]\nname = \"a\"\n[[servers]]\nname = \"b\"\n") {
+					Ok(value) => toml.to_str(value)
+					Err(e) => e
+				}
+			}
+			""";
+
+		Assert.Equal(KValue.Str("""{"server":{"host":"localhost","port":8080}}"""),
+			StdPipeline.Run(source, "inline"));
+		Assert.Equal(KValue.Str("""{"values":[1,2]}"""), StdPipeline.Run(source, "multiline"));
+		Assert.Equal(KValue.Str("""{"servers":[{"name":"a"},{"name":"b"}]}"""),
+			StdPipeline.Run(source, "table_array"));
+		Assert.Equal(KValue.Str("""{"mask":255,"big":1000,"date":"1979-05-27T07:32:00Z"}"""),
+			StdPipeline.Run(source, "numbers_and_date"));
+		string written = StdPipeline.Run(source, "written").AsStr;
+		Assert.Contains("[[servers]]", written);
+		Assert.Contains("name = \"a\"", written);
+	}
+
+	[Fact]
 	public void Net_resolves_localhost()
 	{
 		const string source = """

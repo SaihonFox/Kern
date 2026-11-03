@@ -30,6 +30,25 @@ public sealed class SecurityModuleTests
 	}
 
 	[Fact]
+	public void Blake2b_matches_rfc_vectors_and_supports_keys()
+	{
+		Assert.Equal(
+			"ba80a53f981c4d0d6a2797b69f12f6e94c212f14685ac4b74b12bb6fdbffa2d1" +
+			"7d87c5392aab792dc252d5de4533cc9518d38aa8dbf1925ab92386edd4009923",
+			SecurityApi.Blake2b("abc"));
+		Assert.Equal(
+			"bddd813c634239723171ef3fee98579b94964e3bb1cb3e427262c8c068d52319",
+			SecurityApi.Blake2b("abc", 32));
+		Assert.Equal(
+			"786a02f742015903c6c6fd852552d272912f4740e15847618a86e217f71f5419" +
+			"d25e1031afee585313896444934eb04b903a685b1448b755d56f701afe9be2ce",
+			SecurityApi.Blake2b(""));
+		string keyed = SecurityApi.Blake2bKeyed("key", "abc");
+		Assert.Equal(128, keyed.Length);
+		Assert.NotEqual(SecurityApi.Blake2b("abc"), keyed);
+	}
+
+	[Fact]
 	public void Aes_gcm_round_trips_and_rejects_a_wrong_key()
 	{
 		var encrypted = SecurityApi.AesGcmEncrypt("0123456789abcdef", "секрет");

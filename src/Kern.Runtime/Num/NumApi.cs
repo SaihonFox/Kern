@@ -197,6 +197,241 @@ public static class NumApi
 		return Floats(x);
 	}
 
+	/// <summary><c>det(a)</c>: определитель квадратной матрицы (Гаусс с выбором ведущего элемента).</summary>
+	[KernMember]
+	public static double Det(KValue matrix)
+	{
+		double[][] a = Square(matrix, "det");
+		int size = a.Length;
+		double determinant = 1;
+		for (int pivot = 0; pivot < size; pivot++)
+		{
+			int best = pivot;
+			for (int row = pivot + 1; row < size; row++)
+				if (System.Math.Abs(a[row][pivot]) > System.Math.Abs(a[best][pivot])) best = row;
+			if (System.Math.Abs(a[best][pivot]) < 1e-12)
+				return 0;
+			if (best != pivot)
+			{
+				(a[pivot], a[best]) = (a[best], a[pivot]);
+				determinant = -determinant;
+			}
+
+			double value = a[pivot][pivot];
+			determinant *= value;
+			for (int row = pivot + 1; row < size; row++)
+			{
+				double factor = a[row][pivot] / value;
+				for (int column = pivot; column < size; column++)
+					a[row][column] -= factor * a[pivot][column];
+			}
+		}
+
+		return determinant;
+	}
+
+	/// <summary><c>inverse(a)</c>: обратная матрица (Гаусс—Жордан); вырождённая — паника.</summary>
+	[KernMember]
+	[KernReturn("list<list<f64>>")]
+	public static KValue Inverse(KValue matrix)
+	{
+		double[][] a = Square(matrix, "inverse");
+		int size = a.Length;
+		var augmented = new double[size][];
+		for (int row = 0; row < size; row++)
+		{
+			augmented[row] = new double[size * 2];
+			Array.Copy(a[row], augmented[row], size);
+			augmented[row][size + row] = 1;
+		}
+
+		for (int pivot = 0; pivot < size; pivot++)
+		{
+			int best = pivot;
+			for (int row = pivot + 1; row < size; row++)
+				if (System.Math.Abs(augmented[row][pivot]) > System.Math.Abs(augmented[best][pivot])) best = row;
+			if (System.Math.Abs(augmented[best][pivot]) < 1e-12)
+				throw new KernPanic("num.inverse: матрица вырождена");
+			(augmented[pivot], augmented[best]) = (augmented[best], augmented[pivot]);
+			double divisor = augmented[pivot][pivot];
+			for (int column = 0; column < size * 2; column++) augmented[pivot][column] /= divisor;
+			for (int row = 0; row < size; row++)
+			{
+				if (row == pivot) continue;
+				double factor = augmented[row][pivot];
+				for (int column = 0; column < size * 2; column++)
+					augmented[row][column] -= factor * augmented[pivot][column];
+			}
+		}
+
+		var result = new double[size][];
+		for (int row = 0; row < size; row++)
+			result[row] = augmented[row][size..];
+		return MatrixValue(result);
+	}
+
+	/// <summary><c>matrix_rank(a[, eps])</c>: ранг матрицы (ступенчатый вид, порог 1e-12).</summary>
+	[KernMember]
+	public static int MatrixRank(KValue matrix) => MatrixRank(matrix, 1e-12);
+
+	/// <summary><c>matrix_rank(a, eps)</c>: ранг с явным порогом.</summary>
+	[KernMember]
+	public static int MatrixRank(KValue matrix, double epsilon)
+	{
+		double[][] a = Matrix(matrix, "matrix_rank");
+		if (epsilon < 0)
+			throw new KernPanic("num.matrix_rank: порог должен быть неотрицательным");
+		int rows = a.Length, columns = a[0].Length, rank = 0;
+		for (int column = 0; column < columns && rank < rows; column++)
+		{
+			int best = rank;
+			for (int row = rank + 1; row < rows; row++)
+				if (System.Math.Abs(a[row][column]) > System.Math.Abs(a[best][column])) best = row;
+			if (System.Math.Abs(a[best][column]) <= epsilon)
+				continue;
+			(a[rank], a[best]) = (a[best], a[rank]);
+			double divisor = a[rank][column];
+			for (int inner = column; inner < columns; inner++) a[rank][inner] /= divisor;
+			for (int row = 0; row < rows; row++)
+			{
+				if (row == rank) continue;
+				double factor = a[row][column];
+				for (int inner = column; inner < columns; inner++)
+					a[row][inner] -= factor * a[rank][inner];
+			}
+			rank++;
+		}
+
+		return rank;
+	}
+
+	/// <summary>
+	/// <c>qr(a)</c>: QR-разложение методом Грама—Шмидта; результат <c>[Q, R]</c>,
+	/// Q — m×n с ортонормированными столбцами, R — n×n верхнетреугольная.
+	/// </summary>
+	[KernMember]
+	[KernReturn("list<list<list<f64>>>")]
+	public static KValue Qr(KValue matrix)
+	{
+		double[][] a = Matrix(matrix, "qr");
+		int rows = a.Length, columns = a[0].Length;
+		if (rows < columns)
+			throw new KernPanic("num.qr: нужно строк не меньше, чем столбцов");
+		var q = new double[rows][];
+		for (int row = 0; row < rows; row++) q[row] = new double[columns];
+		var r = new double[columns][];
+		for (int column = 0; column < columns; column++) r[column] = new double[columns];
+
+		for (int column = 0; column < columns; column++)
+		{
+			var v = new double[rows];
+			for (int row = 0; row < rows; row++) v[row] = a[row][column];
+			for (int previous = 0; previous < column; previous++)
+			{
+				double projection = 0;
+				for (int row = 0; row < rows; row++) projection += q[row][previous] * v[row];
+				r[previous][column] = projection;
+				for (int row = 0; row < rows; row++) v[row] -= projection * q[row][previous];
+			}
+
+			double norm = System.Math.Sqrt(v.Sum(value => value * value));
+			if (norm < 1e-12)
+				throw new KernPanic("num.qr: столбцы линейно зависимы");
+			r[column][column] = norm;
+			for (int row = 0; row < rows; row++) q[row][column] = v[row] / norm;
+		}
+
+		return KValue.Obj(new KList(null, [MatrixValue(q), MatrixValue(r)]));
+	}
+
+	/// <summary>
+	/// <c>eigen_symmetric(a[, iterations])</c>: собственные значения и векторы
+	/// симметричной матрицы (метод Якоби). Результат <c>[values, vectors]</c>:
+	/// значения по возрастанию, строки <c>vectors</c> — соответствующие единичные векторы.
+	/// </summary>
+	[KernMember]
+	[KernReturn("list<list<f64>>")]
+	public static KValue EigenSymmetric(KValue matrix) => EigenSymmetric(matrix, 100);
+
+	/// <summary><c>eigen_symmetric(a, iterations)</c>: метод Якоби с числом проходов.</summary>
+	[KernMember]
+	[KernReturn("list<list<f64>>")]
+	public static KValue EigenSymmetric(KValue matrix, int iterations)
+	{
+		double[][] a = Square(matrix, "eigen_symmetric");
+		int size = a.Length;
+		if (iterations <= 0 || iterations > 10_000)
+			throw new KernPanic("num.eigen_symmetric: число проходов должно быть 1..10 000");
+		for (int row = 0; row < size; row++)
+			for (int column = row + 1; column < size; column++)
+				if (System.Math.Abs(a[row][column] - a[column][row]) > 1e-9)
+					throw new KernPanic("num.eigen_symmetric: матрица не симметрична");
+
+		var vectors = new double[size][];
+		for (int row = 0; row < size; row++)
+		{
+			vectors[row] = new double[size];
+			vectors[row][row] = 1;
+		}
+
+		for (int sweep = 0; sweep < iterations; sweep++)
+		{
+			double offDiagonal = 0;
+			for (int row = 0; row < size; row++)
+				for (int column = row + 1; column < size; column++)
+					offDiagonal += a[row][column] * a[row][column];
+			if (offDiagonal < 1e-24) break;
+
+			for (int p = 0; p < size - 1; p++)
+				for (int q = p + 1; q < size; q++)
+				{
+					if (System.Math.Abs(a[p][q]) < 1e-15) continue;
+					double angle = (a[q][q] - a[p][p]) / (2 * a[p][q]);
+					double t = System.Math.Sign(angle == 0 ? 1 : angle) /
+						(System.Math.Abs(angle) + System.Math.Sqrt(angle * angle + 1));
+					double c = 1 / System.Math.Sqrt(t * t + 1);
+					double s = t * c;
+					Rotate(a, vectors, p, q, c, s);
+				}
+		}
+
+		var order = Enumerable.Range(0, size).ToArray();
+		Array.Sort(order, (left, right) => a[left][left].CompareTo(a[right][right]));
+		double[] values = [.. order.Select(index => a[index][index])];
+		var resultVectors = new double[size][];
+		for (int row = 0; row < size; row++)
+		{
+			resultVectors[row] = new double[size];
+			for (int column = 0; column < size; column++)
+				resultVectors[row][column] = vectors[column][order[row]];
+		}
+
+		return KValue.Obj(new KList(null, [Floats(values), MatrixValue(resultVectors)]));
+	}
+
+	private static void Rotate(double[][] a, double[][] vectors, int p, int q, double c, double s)
+	{
+		int size = a.Length;
+		for (int index = 0; index < size; index++)
+		{
+			double ap = a[index][p], aq = a[index][q];
+			a[index][p] = c * ap - s * aq;
+			a[index][q] = s * ap + c * aq;
+		}
+		for (int index = 0; index < size; index++)
+		{
+			double ap = a[p][index], aq = a[q][index];
+			a[p][index] = c * ap - s * aq;
+			a[q][index] = s * ap + c * aq;
+		}
+		for (int index = 0; index < size; index++)
+		{
+			double vp = vectors[index][p], vq = vectors[index][q];
+			vectors[index][p] = c * vp - s * vq;
+			vectors[index][q] = s * vp + c * vq;
+		}
+	}
+
 	/// <summary><c>interpolate(xs, ys, x)</c>: линейная интерполяция (с зажимом краёв).</summary>
 	[KernMember]
 	public static double Interpolate(KValue xs, KValue ys, double x)
@@ -348,6 +583,14 @@ public static class NumApi
 		if (result.Any(row => row.Length != width))
 			throw new KernPanic($"num.{name}: строки матрицы разной длины");
 		return result;
+	}
+
+	private static double[][] Square(KValue value, string name)
+	{
+		double[][] matrix = Matrix(value, name);
+		if (matrix.Length != matrix[0].Length)
+			throw new KernPanic($"num.{name}: ожидалась квадратная матрица");
+		return matrix;
 	}
 
 	private static KValue Floats(IEnumerable<double> values) =>
