@@ -2,6 +2,22 @@
 
 ## Now
 
+### Батч 2026-11-03 (owner request): bootstrap B1 — AST и парсер
+
+Сделано и проверено (`kernc check bootstrap`, `kernc test bootstrap` 12/12):
+- `bootstrap/src/ast.kern` — однородный AST (`ast_node`, `ast_decl`, `ast_program`,
+  `parse_error`, `parse_result`) и текстовый дамп.
+- `bootstrap/src/lexer.kern` расширен: строки с префиксами `f/r/x/v`, char-литералы,
+  числа `0x/0b/0h`, `_`, суффиксы, операторы `**`, `**=`, `..=`, `!in`, `!is`, `?.`, `?:`.
+- `bootstrap/src/syntax.kern` — состояние парсера, токены, типы, балансировка скобок.
+- `bootstrap/src/parser.kern` — рекурсивный спуск + Pratt: объявления `use/fun/type/unit/
+  unit!/op` и расширения, локальные функции, лямбды, `if`/`loop`/`match`,
+  деструктуризация и множественное присваивание, диапазоны с шагом, вызовы с
+  именованными аргументами, `$`/`$field`.
+- `bootstrap/src/parser_tests.kern` — 9 новых тестов; AST для `examples/01_basics`…
+  `05_functions` разбирается без ошибок. `docs/BOOTSTRAP.md` и `bootstrap/README.md`
+  обновлены; следующий срез — B2 (binder/typecheck).
+
 ### Батч 2026-11-03 (owner request): NativeAOT, оптимизатор, шаблоны
 
 Сделано и проверено (build 0 errors, тесты 624/624, style clean):

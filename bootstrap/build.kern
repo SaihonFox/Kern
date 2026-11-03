@@ -1,6 +1,6 @@
 fun build(workspace w) {
 	w.name = "bootstrap"
-	w.target("lexer", fun(target t) {
+	w.target("bootstrap", fun(target t) {
 		t.kind = "app"
 		t.src = ["src"]
 		t.entry = "main"

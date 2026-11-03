@@ -4,8 +4,8 @@ using Xunit;
 namespace Kern.Tests.Features;
 
 /// <summary>
-/// Первый срез self-hosted компилятора (<c>selfhost/</c>): проект собирается, тесты
-/// лексера проходят, а <c>run</c> печатает токены.
+/// Self-hosted компилятор (<c>bootstrap/</c>): проект собирается, тесты лексера и
+/// парсера проходят, а <c>run</c> печатает AST.
 /// </summary>
 [Collection("timing")]
 public sealed class SelfHostTests
@@ -19,7 +19,7 @@ public sealed class SelfHostTests
 
 		int testCode = KernCli.Run(["test", directory], stdout, stderr);
 		Assert.True(testCode == 0, stderr.ToString());
-		Assert.Contains("тестов: 3, успешно: 3", stdout.ToString());
+		Assert.Contains("тестов: 12, успешно: 12", stdout.ToString());
 
 		stdout.GetStringBuilder().Clear();
 		stderr.GetStringBuilder().Clear();
@@ -37,7 +37,7 @@ public sealed class SelfHostTests
 		}
 
 		Assert.True(runCode == 0, stderr.ToString());
-		Assert.Contains("ident 'fun'", programOutput.ToString());
+		Assert.Contains("fun main", programOutput.ToString());
 	}
 
 	private static string RepositoryRoot()

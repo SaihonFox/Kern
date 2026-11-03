@@ -1,0 +1,779 @@
+// B1: рекурсивный спуск + Pratt-разбор выражений для Kern на самом Kern.
+// Поддерживается практическое подмножество: use/fun/type/unit, атрибуты,
+// локальные переменные, ret/if/loop/stop/next, вызовы, члены, индексы и
+// бинарные операторы с приоритетами. match и лямбды — следующий срез.
+use tokens[token]
+use lexer[lex]
+use ast[ast_node, ast_leaf, ast_parent, ast_param, ast_decl, ast_program,
+	parse_error, parse_result, dump_ast, dump_program]
+
+use syntax[parser_state, peek, at, at_eof, advance, expect, expect_ident, error_at,
+	is_keyword, is_decl_start, parse_attributes, consume_balanced, consume_until,
+	consume_until_decl, parse_type, same_line]
+
+
+fun parse_source(str source) -> parse_result parse_tokens(lex(source))
+
+fun parse_tokens(list<token> tokens) -> parse_result {
+	var state = parser_state(tokens, 0, <parse_error>[])
+	list<ast_decl> declarations = []
+	loop state.position < state.tokens.len {
+		list<str> attributes = parse_attributes(state)
+		if (at(state, "use")) {
+			declarations.add(parse_use(state, attributes))
+			next
+		}
+		if (at(state, "fun")) {
+			declarations.add(parse_fun(state, attributes))
+			next
+		}
+		if (at(state, "type")) || at(state, "unit") {
+			declarations.add(parse_type_decl(state, attributes))
+			next
+		}
+		if (at(state, "op")) {
+			declarations.add(parse_op_decl(state, attributes))
+			next
+		}
+		if (peek(state).kind == "ident") && is_keyword(peek(state).text) == false {
+			declarations.add(parse_other_decl(state, attributes))
+			next
+		}
+		error_at(state, "ожидалось объявление fun/type/unit/use", peek(state))
+		advance(state)
+	}
+	parse_result(ast_program(declarations), state.errors, state.errors.len == 0)
+}
+
+fun parse_use(parser_state p, list<str> attributes) -> ast_decl {
+	token start = peek(p)
+	_ = advance(p)
+	token first = expect_ident(p)
+	str name = first.text
+	loop (at(p, ".")) {
+		_ = advance(p)
+		name += "." + expect_ident(p).text
+	}
+	str members = ""
+	if (at(p, "[")) {
+		members = consume_balanced(p, "[", "]")
+	}
+	ast_decl("use", name, attributes, <ast_param>[], members, <ast_node>[], start.line, start.column)
+}
+
+fun parse_fun(parser_state p, list<str> attributes) -> ast_decl {
+	token start = peek(p)
+	_ = advance(p)
+	token nameToken = expect_ident(p)
+	str name = nameToken.text
+	if (at(p, "<")) {
+		name += consume_balanced(p, "<", ">")
+	}
+	loop (at(p, ".")) {
+		_ = advance(p)
+		name += "." + expect_ident(p).text
+	}
+	list<ast_param> parameters = []
+	if (at(p, "(")) {
+		_ = advance(p)
+		parameters = parse_params(p)
+		expect(p, ")")
+	}
+	str result = ""
+	if (at(p, "->")) {
+		_ = advance(p)
+		result = parse_type(p)
+	}
+	list<ast_node> body = []
+	if (at(p, "{")) {
+		body = parse_block(p)
+	} else {
+		body = [parse_statement(p)]
+	}
+	ast_decl("fun", name, attributes, parameters, result, body, start.line, start.column)
+}
+
+fun parse_params(parser_state p) -> list<ast_param> {
+	list<ast_param> result = []
+	loop (at(p, ")") == false) && at_eof(p) == false {
+		str typeName = parse_type(p)
+		token name = expect_ident(p)
+		str defaultText = ""
+		if (at(p, "=")) {
+			_ = advance(p)
+			defaultText = dump_ast(parse_expr(p, 0))
+		}
+		result.add(ast_param(name.text, typeName, defaultText))
+		if (at(p, ",")) {
+			_ = advance(p)
+			next
+		}
+		stop
+	}
+	result
+}
+
+
+fun parse_op_decl(parser_state p, list<str> attributes) -> ast_decl {
+	token start = peek(p)
+	_ = advance(p)
+	str receiver = parse_type(p)
+	expect(p, ".")
+	str symbol = advance(p).text
+	if (at(p, "[")) {
+		symbol = consume_balanced(p, "[", "]")
+	}
+	list<ast_param> parameters = []
+	if (at(p, "(")) {
+		_ = advance(p)
+		parameters = parse_params(p)
+		expect(p, ")")
+	}
+	str result = ""
+	if (at(p, "->")) {
+		_ = advance(p)
+		result = parse_type(p)
+	}
+	list<ast_node> body = []
+	if (at(p, "{")) {
+		body = parse_block(p)
+	} else {
+		body = [parse_statement(p)]
+	}
+	ast_decl("op", receiver + "." + symbol, attributes, parameters, result, body, start.line, start.column)
+}
+
+fun parse_other_decl(parser_state p, list<str> attributes) -> ast_decl {
+	token start = peek(p)
+	str firstType = parse_type(p)
+	if (peek(p).kind != "ident") {
+		error_at(p, "ожидалось объявление", peek(p))
+		_ = advance(p)
+		ret ast_decl("error", "", attributes, <ast_param>[], "", <ast_node>[], start.line, start.column)
+	}
+	str second = parse_type(p)
+	if (at(p, ".")) {
+		_ = advance(p)
+		token name = expect_ident(p)
+		list<ast_node> body = []
+		if (at(p, "{")) {
+			body = parse_block(p)
+		} else {
+			body = [parse_statement(p)]
+		}
+		ret ast_decl("ext_prop", second + "." + name.text, attributes, <ast_param>[], firstType, body, start.line, start.column)
+	}
+	if (at(p, "=")) {
+		_ = advance(p)
+		ast_node value = parse_expr(p, 0)
+		ret ast_decl("const", second, attributes, <ast_param>[], firstType, [value], start.line, start.column)
+	}
+	error_at(p, "ожидалось '.' или '=' в объявлении верхнего уровня", peek(p))
+	ast_decl("error", second, attributes, <ast_param>[], firstType, <ast_node>[], start.line, start.column)
+}
+
+fun parse_type_decl(parser_state p, list<str> attributes) -> ast_decl {
+	token start = peek(p)
+	str kind = advance(p).text
+	if (at(p, "!")) {
+		kind += "!"
+		_ = advance(p)
+	}
+	token nameToken = expect_ident(p)
+	str name = nameToken.text
+	if (at(p, "<")) {
+		name += consume_balanced(p, "<", ">")
+	}
+	list<ast_param> parameters = []
+	if (at(p, "(")) {
+		_ = advance(p)
+		parameters = parse_params(p)
+		expect(p, ")")
+	}
+	str alias = ""
+	if (at(p, "=")) {
+		_ = advance(p)
+		alias = consume_until_decl(p)
+	}
+	list<ast_node> body = []
+	if (at(p, "{")) {
+		str raw = consume_balanced(p, "{", "}")
+		body = [ast_leaf("raw", raw, start.line, start.column)]
+	}
+	ast_decl(kind, name, attributes, parameters, alias, body, start.line, start.column)
+}
+
+fun parse_block(parser_state p) -> list<ast_node> {
+	list<ast_node> result = []
+	expect(p, "{")
+	loop (at(p, "}") == false) && at_eof(p) == false {
+		result.add(parse_statement(p))
+	}
+	expect(p, "}")
+	result
+}
+
+fun parse_statement(parser_state p) -> ast_node {
+	token start = peek(p)
+	if (at(p, "{")) {
+		ret ast_parent("stmt.block", "", start.line, start.column, parse_block(p))
+	}
+	if (looks_like_destructure(p)) {
+		ret parse_destructure(p)
+	}
+	if (at(p, "var")) || looks_like_var_decl(p) {
+		ret parse_var(p)
+	}
+	if (at(p, "ret")) {
+		_ = advance(p)
+		if (at(p, "}")) || at_eof(p) {
+			ret ast_leaf("stmt.ret", "", start.line, start.column)
+		}
+		ret ast_parent("stmt.ret", "", start.line, start.column, [parse_expr(p, 0)])
+	}
+	if (at(p, "if")) {
+		ret parse_if(p)
+	}
+	if (at(p, "loop")) {
+		ret parse_loop(p)
+	}
+	if (at(p, "stop")) || at(p, "next") {
+		str kind = advance(p).text
+		str label = ""
+		if (peek(p).kind == "ident") && at(p, "}") == false {
+			label = advance(p).text
+		}
+		ret ast_leaf("stmt." + kind, label, start.line, start.column)
+	}
+	if (at(p, "use")) {
+		ast_decl decl = parse_use(p, <str>[])
+		ret ast_leaf("stmt.use", decl.name, start.line, start.column)
+	}
+	if (at(p, "fun")) {
+		bool named = p.position + 1 < p.tokens.len && p.tokens[p.position + 1].kind == "ident"
+		if named {
+			ret parse_local_fun(p)
+		}
+		ret parse_lambda(p)
+	}
+	parse_expression_statement(p)
+}
+
+fun parse_local_fun(parser_state p) -> ast_node {
+	token start = peek(p)
+	ast_decl declaration = parse_fun(p, <str>[])
+	list<ast_node> children = []
+	loop var parameter in declaration.params {
+		children.add(ast_leaf("param", parameter.type_name + " " + parameter.name, start.line, start.column))
+	}
+	loop var statement in declaration.body {
+		children.add(statement)
+	}
+	ast_parent("stmt.fun", declaration.name, start.line, start.column, children)
+}
+
+fun parse_lambda(parser_state p) -> ast_node {
+	token start = peek(p)
+	_ = advance(p)
+	list<ast_node> children = []
+	if (at(p, "(")) {
+		str parameters = consume_balanced(p, "(", ")")
+		children.add(ast_leaf("params", parameters, start.line, start.column))
+	}
+	str result = ""
+	if (at(p, "->")) {
+		_ = advance(p)
+		result = parse_type(p)
+	}
+	if (at(p, "{")) {
+		children.add(ast_parent("block", "", peek(p).line, peek(p).column, parse_block(p)))
+	} else {
+		children.add(ast_parent("block", "", peek(p).line, peek(p).column, [parse_statement(p)]))
+	}
+	ast_parent("expr.lambda", result, start.line, start.column, children)
+}
+
+fun looks_like_var_decl(parser_state p) -> bool {
+	bool startsIdent = peek(p).kind == "ident"
+	bool startsTuple = at(p, "(")
+	if (startsIdent == false) && (startsTuple == false) {
+		ret false
+	}
+	if startsIdent {
+		bool keyword = is_keyword(peek(p).text)
+		if keyword {
+			ret false
+		}
+	}
+	var probe = parser_state(p.tokens, p.position, <parse_error>[])
+	str typeName = parse_type(probe)
+	if (typeName.len == 0) || probe.position >= p.tokens.len {
+		ret false
+	}
+	token nextToken = probe.tokens[probe.position]
+	bool isName = nextToken.kind == "ident"
+	if isName {
+		bool keyword = is_keyword(nextToken.text)
+		ret !keyword
+	}
+	false
+}
+
+fun looks_like_destructure(parser_state p) -> bool {
+	if (at(p, "(")) == false {
+		ret false
+	}
+	var probe = parser_state(p.tokens, p.position, <parse_error>[])
+	_ = consume_balanced(probe, "(", ")")
+	if probe.position >= p.tokens.len {
+		ret false
+	}
+	probe.tokens[probe.position].text == "="
+}
+
+fun parse_destructure(parser_state p) -> ast_node {
+	token start = peek(p)
+	str pattern = consume_balanced(p, "(", ")")
+	expect(p, "=")
+	ast_node value = parse_expr(p, 0)
+	ast_parent("stmt.destructure", pattern, start.line, start.column, [value])
+}
+
+fun parse_var(parser_state p) -> ast_node {
+	token start = peek(p)
+	str typeName = "var"
+	if (at(p, "var")) {
+		_ = advance(p)
+	} else {
+		typeName = parse_type(p)
+	}
+	list<ast_node> declarations = []
+	loop {
+		token name = expect_ident(p)
+		list<ast_node> children = [ast_leaf("name", name.text, name.line, name.column)]
+		if (at(p, "=")) {
+			_ = advance(p)
+			children.add(parse_expr(p, 0))
+		}
+		declarations.add(ast_parent("stmt.var", typeName, start.line, start.column, children))
+		if (at(p, ",")) {
+			_ = advance(p)
+			next
+		}
+		stop
+	}
+	if declarations.len == 1 {
+		ret declarations[0]
+	}
+	ast_parent("stmt.block", "", start.line, start.column, declarations)
+}
+
+fun parse_if(parser_state p) -> ast_node {
+	token start = peek(p)
+	_ = advance(p)
+	ast_node condition = parse_expr(p, 0)
+	ast_node thenBranch = parse_branch(p)
+	list<ast_node> children = [condition, thenBranch]
+	if (at(p, "else")) {
+		_ = advance(p)
+		if (at(p, "if")) {
+			children.add(parse_if(p))
+		} else {
+			children.add(parse_branch(p))
+		}
+	}
+	ast_parent("stmt.if", "", start.line, start.column, children)
+}
+
+fun parse_branch(parser_state p) -> ast_node {
+	token start = peek(p)
+	if (at(p, "{")) {
+		ret ast_parent("block", "", start.line, start.column, parse_block(p))
+	}
+	ast_parent("block", "", start.line, start.column, [parse_statement(p)])
+}
+
+fun parse_loop(parser_state p) -> ast_node {
+	token start = peek(p)
+	_ = advance(p)
+	if (at(p, "var")) {
+		_ = advance(p)
+		token name = expect_ident(p)
+		expect(p, "in")
+		ast_node source = parse_expr(p, 0)
+		ast_node body = parse_loop_body(p)
+		ret ast_parent("stmt.loop_each", name.text, start.line, start.column, [source, body])
+	}
+	if (looks_like_loop_destructure(p)) {
+		str pattern = consume_balanced(p, "(", ")")
+		expect(p, "in")
+		ast_node source = parse_expr(p, 0)
+		ast_node body = parse_loop_body(p)
+		ret ast_parent("stmt.loop_each", pattern, start.line, start.column, [source, body])
+	}
+	if (looks_like_loop_var(p)) {
+		str typeName = parse_type(p)
+		token name = expect_ident(p)
+		expect(p, "in")
+		ast_node source = parse_expr(p, 0)
+		ast_node body = parse_loop_body(p)
+		ret ast_parent("stmt.loop_each", typeName + " " + name.text, start.line, start.column, [source, body])
+	}
+	if (at(p, "{")) {
+		ret ast_parent("stmt.loop", "", start.line, start.column, [parse_block_node(p)])
+	}
+	ast_node header = parse_expr(p, 0)
+	ast_node bodyNode = parse_loop_body(p)
+	ast_parent("stmt.loop", "", start.line, start.column, [header, bodyNode])
+}
+
+fun parse_loop_body(parser_state p) -> ast_node {
+	token start = peek(p)
+	if (at(p, "{")) {
+		ret parse_block_node(p)
+	}
+	ast_parent("block", "", start.line, start.column, [parse_statement(p)])
+}
+
+fun parse_block_node(parser_state p) -> ast_node {
+	token start = peek(p)
+	ast_parent("block", "", start.line, start.column, parse_block(p))
+}
+
+fun looks_like_loop_destructure(parser_state p) -> bool {
+	if (at(p, "(")) == false {
+		ret false
+	}
+	var probe = parser_state(p.tokens, p.position, <parse_error>[])
+	_ = consume_balanced(probe, "(", ")")
+	if probe.position >= p.tokens.len {
+		ret false
+	}
+	probe.tokens[probe.position].text == "in"
+}
+
+fun looks_like_loop_var(parser_state p) -> bool {
+	if (peek(p).kind != "ident" || is_keyword(peek(p).text)) {
+		ret false
+	}
+	var probe = parser_state(p.tokens, p.position, <parse_error>[])
+	str typeName = parse_type(probe)
+	if (typeName.len == 0 || probe.position >= p.tokens.len) {
+		ret false
+	}
+	token name = probe.tokens[probe.position]
+	if name.kind != "ident" {
+		ret false
+	}
+	if probe.position + 1 >= p.tokens.len {
+		ret false
+	}
+	probe.tokens[probe.position + 1].text == "in"
+}
+
+fun parse_match(parser_state p) -> ast_node {
+	token start = peek(p)
+	_ = advance(p)
+	list<ast_node> children = []
+	if (at(p, "{")) == false {
+		children.add(parse_expr(p, 0))
+	}
+	expect(p, "{")
+	loop (at(p, "}") == false) && at_eof(p) == false {
+		if (at(p, ";")) {
+			_ = advance(p)
+			next
+		}
+		str pattern = consume_until(p, "=>")
+		expect(p, "=>")
+		ast_node value = parse_expr(p, 0)
+		children.add(ast_parent("match_arm", pattern, start.line, start.column, [value]))
+		if (at(p, ";")) {
+			_ = advance(p)
+		}
+	}
+	expect(p, "}")
+	ast_parent("expr.match", "", start.line, start.column, children)
+}
+
+fun parse_expression_statement(parser_state p) -> ast_node {
+	token start = peek(p)
+	list<ast_node> lefts = [parse_expr(p, 0)]
+	loop (at(p, ",")) {
+		_ = advance(p)
+		lefts.add(parse_expr(p, 0))
+	}
+	if (is_assignment(peek(p).text)) {
+		str operator = advance(p).text
+		list<ast_node> rights = [parse_expr(p, 0)]
+		loop (at(p, ",")) {
+			_ = advance(p)
+			rights.add(parse_expr(p, 0))
+		}
+		ast_node left = lefts[0]
+		ast_node right = rights[0]
+		if lefts.len > 1 {
+			left = ast_parent("expr.tuple", "", start.line, start.column, lefts)
+		}
+		if rights.len > 1 {
+			right = ast_parent("expr.tuple", "", start.line, start.column, rights)
+		}
+		ret ast_parent("stmt.assign", operator, start.line, start.column, [left, right])
+	}
+	if lefts.len == 1 {
+		ret lefts[0]
+	}
+	ast_parent("expr.tuple", "", start.line, start.column, lefts)
+}
+
+fun is_assignment(str text) -> bool
+	text == "=" || text == "+=" || text == "-=" || text == "*=" || text == "/=" ||
+	text == "%=" || text == "**=" || text == "&=" || text == "|=" || text == "^=" ||
+	text == "<<=" || text == ">>="
+
+fun precedence(str operator) -> i32 {
+	if operator == "||" || operator == "?:" {
+		ret 1
+	}
+	if operator == "&&" {
+		ret 2
+	}
+	if operator == "==" || operator == "!=" {
+		ret 3
+	}
+	if operator == "<" || operator == "<=" || operator == ">" || operator == ">=" ||
+		operator == "in" || operator == "!in" || operator == "is" || operator == "!is" {
+		ret 4
+	}
+	if operator == ".." || operator == "..=" {
+		ret 5
+	}
+	if operator == "+" || operator == "-" {
+		ret 6
+	}
+	if operator == "*" || operator == "/" || operator == "%" {
+		ret 7
+	}
+	if operator == "**" {
+		ret 8
+	}
+	0
+}
+
+
+fun parse_expr(parser_state p, i32 minPrecedence) -> ast_node {
+	var left = parse_postfix(p, parse_prefix(p))
+	loop (at_eof(p) == false) && same_line(p) {
+		token operator = peek(p)
+		i32 level = precedence(operator.text)
+		if level < minPrecedence || level == 0 {
+			stop
+		}
+		_ = advance(p)
+		i32 nextMin = level + 1
+		if operator.text == "**" || operator.text == "?:" {
+			nextMin = level
+		}
+		ast_node right = parse_expr(p, nextMin)
+		if (operator.text == ".." || operator.text == "..=") && at(p, ":") {
+			_ = advance(p)
+			ast_node step = parse_expr(p, level + 1)
+			left = ast_parent("expr.range", operator.text, operator.line, operator.column, [left, right, step])
+			next
+		}
+		left = ast_parent("expr.binary", operator.text, operator.line, operator.column, [left, right])
+	}
+	left
+}
+
+fun parse_prefix(parser_state p) -> ast_node {
+	token start = peek(p)
+	if start.kind == "number" {
+		_ = advance(p)
+		ret ast_leaf("expr.number", start.text, start.line, start.column)
+	}
+	if start.kind == "string" {
+		_ = advance(p)
+		ret ast_leaf("expr.string", start.text, start.line, start.column)
+	}
+	if start.kind == "char" {
+		_ = advance(p)
+		ret ast_leaf("expr.char", start.text, start.line, start.column)
+	}
+	if start.text == "true" || start.text == "false" {
+		_ = advance(p)
+		ret ast_leaf("expr.bool", start.text, start.line, start.column)
+	}
+	if start.text == "nil" || start.text == "none" {
+		_ = advance(p)
+		ret ast_leaf("expr.nil", start.text, start.line, start.column)
+	}
+	if start.text == "if" {
+		ret parse_if(p)
+	}
+	if start.text == "match" {
+		ret parse_match(p)
+	}
+	if start.text == "loop" {
+		ret parse_loop(p)
+	}
+	if start.text == "fun" {
+		ret parse_lambda(p)
+	}
+	if start.text == "$" {
+		_ = advance(p)
+		if (peek(p).kind == "ident") {
+			token field = advance(p)
+			ret ast_leaf("expr.self_field", field.text, start.line, start.column)
+		}
+		ret ast_leaf("expr.self", "", start.line, start.column)
+	}
+	if start.kind == "ident" {
+		_ = advance(p)
+		ret ast_leaf("expr.ident", start.text, start.line, start.column)
+	}
+	if start.text == "(" {
+		ret parse_group(p)
+	}
+	if start.text == "[" {
+		ret parse_list_literal(p, "")
+	}
+	if start.text == "<" {
+		str typeName = consume_balanced(p, "<", ">")
+		if (at(p, "[")) {
+			ret parse_list_literal(p, typeName)
+		}
+		error_at(p, "ожидался '[' после аргументов типа", peek(p))
+		ret ast_leaf("expr.error", typeName, start.line, start.column)
+	}
+	if start.text == "-" || start.text == "!" || start.text == "~" || start.text == "+" {
+		_ = advance(p)
+		ret ast_parent("expr.unary", start.text, start.line, start.column, [parse_expr(p, 9)])
+	}
+	error_at(p, "ожидалось выражение", start)
+	if (at_eof(p) == false) {
+		_ = advance(p)
+	}
+	ast_leaf("expr.error", start.text, start.line, start.column)
+}
+
+fun parse_group(parser_state p) -> ast_node {
+	token start = peek(p)
+	_ = advance(p)
+	if (at(p, ")")) {
+		_ = advance(p)
+		ret ast_leaf("expr.unit", "", start.line, start.column)
+	}
+	ast_node first = parse_expr(p, 0)
+	if (at(p, ",")) {
+		list<ast_node> children = [first]
+		loop (at(p, ",")) {
+			_ = advance(p)
+			if (at(p, ")")) {
+				stop
+			}
+			children.add(parse_expr(p, 0))
+		}
+		expect(p, ")")
+		ret ast_parent("expr.tuple", "", start.line, start.column, children)
+	}
+	expect(p, ")")
+	first
+}
+
+fun parse_list_literal(parser_state p, str typeName) -> ast_node {
+	token start = peek(p)
+	_ = advance(p)
+	list<ast_node> items = []
+	loop (at(p, "]") == false) && at_eof(p) == false {
+		ast_node item = parse_expr(p, 0)
+		if (at(p, ":")) {
+			_ = advance(p)
+			ast_node value = parse_expr(p, 0)
+			item = ast_parent("expr.pair", "", item.line, item.column, [item, value])
+		}
+		items.add(item)
+		if (at(p, ",")) {
+			_ = advance(p)
+			next
+		}
+		stop
+	}
+	expect(p, "]")
+	ast_parent("expr.list", typeName, start.line, start.column, items)
+}
+
+fun parse_expr_list(parser_state p, str closing) -> list<ast_node> {
+	list<ast_node> items = []
+	loop (at(p, closing) == false) && at_eof(p) == false {
+		ast_node item = parse_expr(p, 0)
+		if (at(p, "=")) || at(p, ":") {
+			_ = advance(p)
+			ast_node value = parse_expr(p, 0)
+			item = ast_parent("expr.named_arg", item.text, item.line, item.column, [value])
+		}
+		items.add(item)
+		if (at(p, ",")) {
+			_ = advance(p)
+			next
+		}
+		stop
+	}
+	items
+}
+
+fun parse_postfix(parser_state p, ast_node left) -> ast_node {
+	var current = left
+	loop (at_eof(p) == false) && same_line(p) {
+		if (at(p, "(")) {
+			token start = peek(p)
+			_ = advance(p)
+			list<ast_node> children = [current]
+			loop var item in parse_expr_list(p, ")") {
+				children.add(item)
+			}
+			expect(p, ")")
+			current = ast_parent("expr.call", "", start.line, start.column, children)
+			next
+		}
+		if (at(p, ".")) {
+			_ = advance(p)
+			token name = expect_ident(p)
+			current = ast_parent("expr.member", name.text, name.line, name.column, [current])
+			next
+		}
+		if (at(p, "?.")) {
+			_ = advance(p)
+			token name = expect_ident(p)
+			current = ast_parent("expr.safe_member", name.text, name.line, name.column, [current])
+			next
+		}
+		if (at(p, "[")) {
+			token start = peek(p)
+			_ = advance(p)
+			ast_node index = parse_expr(p, 0)
+			expect(p, "]")
+			current = ast_parent("expr.index", "", start.line, start.column, [current, index])
+			next
+		}
+		if (at(p, "?")) {
+			token start = peek(p)
+			_ = advance(p)
+			current = ast_parent("expr.assert_nil", "", start.line, start.column, [current])
+			next
+		}
+		if (at(p, "<")) {
+			i32 saved = p.position
+			str typeArgs = consume_balanced(p, "<", ">")
+			if (at(p, "(")) {
+				current = ast_parent("expr.generic", typeArgs, current.line, current.column, [current])
+				next
+			}
+			p.position = saved
+			stop
+		}
+		stop
+	}
+	current
+}
+

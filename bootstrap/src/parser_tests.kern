@@ -1,0 +1,112 @@
+// Тесты парсера и AST (B1).
+use tokens[token]
+use lexer[lex]
+use ast[ast_node, ast_decl, parse_result, parse_error]
+use syntax[parser_state]
+use parser[parse_source, looks_like_destructure]
+use kern.test[assert_eq]
+
+#[test]
+fun recognizes_destructuring_assignment() {
+	list<token> tokens = lex("(i32 n, str s) = pair")
+	var probe = parser_state(tokens, 0, <parse_error>[])
+	assert_eq("(", probe.tokens[0].text)
+	assert_eq(true, looks_like_destructure(probe))
+}
+
+#[test]
+fun parses_match_and_destructuring() {
+	parse_result result = parse_source("fun f(list<i32> xs) { (i32 first, list<i32> rest) = xs match first { 1 => \"a\"; _ => \"b\" } }")
+	assert_eq(true, result.ok)
+	ast_decl declaration = result.program.decls[0]
+	assert_eq("stmt.destructure", declaration.body[0].kind)
+	assert_eq("expr.match", declaration.body[1].kind)
+	assert_eq(3, declaration.body[1].children.len)
+	assert_eq("match_arm", declaration.body[1].children[1].kind)
+}
+
+#[test]
+fun parses_lambdas_loops_and_extensions() {
+	parse_result result = parse_source("fun make -> fun -> i32 { ret 1 }\nfun str.shout -> str \"!\"\nop i32.*(i32 p) -> i32 { $ * p }\nfun g(list<i32> xs) { loop i32 i in 1..5 i }")
+	assert_eq(true, result.ok)
+	assert_eq(4, result.program.decls.len)
+	assert_eq("fun", result.program.decls[0].kind)
+	assert_eq("fun->i32", result.program.decls[0].result_type)
+	assert_eq("str.shout", result.program.decls[1].name)
+	assert_eq("op", result.program.decls[2].kind)
+	assert_eq("i32.*", result.program.decls[2].name)
+	assert_eq("stmt.loop_each", result.program.decls[3].body[0].kind)
+}
+
+#[test]
+fun parses_function_declaration() {
+	parse_result result = parse_source("fun add(i32 a, i32 b) -> i32 { ret a + b }")
+	assert_eq(true, result.ok)
+	assert_eq(1, result.program.decls.len)
+	ast_decl declaration = result.program.decls[0]
+	assert_eq("fun", declaration.kind)
+	assert_eq("add", declaration.name)
+	assert_eq(2, declaration.params.len)
+	assert_eq("i32", declaration.params[0].type_name)
+	assert_eq("i32", declaration.result_type)
+	assert_eq(1, declaration.body.len)
+	assert_eq("stmt.ret", declaration.body[0].kind)
+	assert_eq("expr.binary", declaration.body[0].children[0].kind)
+	assert_eq("+", declaration.body[0].children[0].text)
+}
+
+#[test]
+fun respects_operator_precedence() {
+	parse_result result = parse_source("fun f() -> i32 1 + 2 * 3")
+	assert_eq(true, result.ok)
+	ast_node expression = result.program.decls[0].body[0]
+	assert_eq("+", expression.text)
+	assert_eq("expr.number", expression.children[0].kind)
+	assert_eq("*", expression.children[1].text)
+	assert_eq("3", expression.children[1].children[1].text)
+}
+
+#[test]
+fun parses_calls_members_and_indexes() {
+	parse_result result = parse_source("fun f() -> i32 g(1, x)[0].len")
+	assert_eq(true, result.ok)
+	ast_node expression = result.program.decls[0].body[0]
+	assert_eq("expr.member", expression.kind)
+	assert_eq("len", expression.text)
+	assert_eq("expr.index", expression.children[0].kind)
+	assert_eq("expr.call", expression.children[0].children[0].kind)
+	assert_eq(3, expression.children[0].children[0].children.len)
+}
+
+#[test]
+fun parses_locals_assignments_and_blocks() {
+	parse_result result = parse_source("fun f() { i32 x = 1 x += 2 if x > 0 { ret x } else { ret 0 } }")
+	assert_eq(true, result.ok)
+	ast_decl declaration = result.program.decls[0]
+	assert_eq(3, declaration.body.len)
+	assert_eq("stmt.var", declaration.body[0].kind)
+	assert_eq("i32", declaration.body[0].text)
+	assert_eq("stmt.assign", declaration.body[1].kind)
+	assert_eq("+=", declaration.body[1].text)
+	assert_eq("stmt.if", declaration.body[2].kind)
+	assert_eq(3, declaration.body[2].children.len)
+}
+
+#[test]
+fun parses_loop_forms_and_use_declarations() {
+	parse_result result = parse_source("use kern.test[assert_eq]\nfun f(list<i32> xs) { loop var x in xs { print(x) } loop { stop } }")
+	assert_eq(true, result.ok)
+	assert_eq(2, result.program.decls.len)
+	assert_eq("use", result.program.decls[0].kind)
+	assert_eq("kern.test", result.program.decls[0].name)
+	assert_eq("stmt.loop_each", result.program.decls[1].body[0].kind)
+	assert_eq("x", result.program.decls[1].body[0].text)
+	assert_eq("stmt.loop", result.program.decls[1].body[1].kind)
+}
+
+#[test]
+fun reports_parse_errors() {
+	parse_result result = parse_source("fun")
+	assert_eq(false, result.ok)
+	assert_eq(true, result.errors.len > 0)
+}

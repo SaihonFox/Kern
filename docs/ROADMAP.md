@@ -137,8 +137,8 @@ with stubs), comparison chains, `#[if]`/`#[allow]`/`#[memo]`, related diagnostic
 `--deny-warnings`, `run --profile`, `explain-type`, `build --native` (NativeAOT with a
 single-file fallback), `kern.security`/`kern.text`/`kern.parse`/`kern.num`
 (partial). Capabilities `#[needs]`/`--allow`/`--deny` implemented 2026-11-03; self-hosted
-lexer started in `bootstrap/`. Docs: `BOOTSTRAP.md`, `IN_REF_OUT.md`, `DEBUGGER.md`,
-`CAPABILITIES.md`. Open
+lexer, AST and parser (B0/B1) work in `bootstrap/`. Docs: `BOOTSTRAP.md`, `IN_REF_OUT.md`,
+`DEBUGGER.md`, `CAPABILITIES.md`. Open
 decision: full C# generics — see `DECISIONS_NEEDED.md`. Suite **627/627**, style clean.
 
 ## Owner batch 2026-10-27 — language polish (stage 1)

@@ -14,8 +14,29 @@ fun is_space(char c) -> bool c == ' ' || c == '\t' || c == '\r'
 
 fun two_char_op(str text) -> bool
 	text == "==" || text == "!=" || text == "<=" || text == ">=" ||
-	text == "->" || text == "&&" || text == "||" || text == ".." ||
-	text == "+=" || text == "-=" || text == "*=" || text == "/="
+	text == "->" || text == "=>" || text == "&&" || text == "||" ||
+	text == ".." || text == "?." || text == "?:" || text == "+=" || text == "-=" ||
+	text == "*=" || text == "/=" || text == "%=" || text == "&=" ||
+	text == "|=" || text == "^=" || text == "<<" || text == "**"
+
+fun three_char_op(str text) -> bool
+	text == "**=" || text == "..=" || text == "<<=" || text == ">>=" || text == "!in" ||
+	text == "!is"
+
+fun is_string_prefix(str text) -> bool {
+	if text.len == 0 || text.len > 3 {
+		ret false
+	}
+	i32 index = 0
+	loop index < text.len {
+		char c = text[index]
+		if c != 'f' && c != 'r' && c != 'x' && c != 'v' {
+			ret false
+		}
+		index += 1
+	}
+	true
+}
 
 fun lex(str source) -> list<token> {
 	list<token> result = []
@@ -54,12 +75,83 @@ fun lex(str source) -> list<token> {
 				index += 1
 				column += 1
 			}
-			result.add(token("ident", source[start..index], line, startColumn))
+			str word = source[start..index]
+			// Префикс строки: f"...", r"...", fx"...", x"...".
+			if index < source.len && source[index] == '"' && is_string_prefix(word) {
+				index += 1
+				column += 1
+				loop index < source.len && source[index] != '"' {
+					if source[index] == '\\' && index + 1 < source.len {
+						index += 2
+						column += 2
+						next
+					}
+					if source[index] == '\n' {
+						line += 1
+						column = 1
+						index += 1
+						next
+					}
+					index += 1
+					column += 1
+				}
+				if index < source.len {
+					index += 1
+					column += 1
+				}
+				result.add(token("string", source[start..index], line, startColumn))
+				next
+			}
+			result.add(token("ident", word, line, startColumn))
 			next
 		}
 
 		if (is_digit(c)) {
-			loop index < source.len && (is_digit(source[index]) || source[index] == '.') {
+			// 0x/0b/0h — основание системы счисления; цифры не разбираем,
+			// это задача следующего слоя.
+			if c == '0' && index + 1 < source.len &&
+				(source[index + 1] == 'x' || source[index + 1] == 'X' ||
+				 source[index + 1] == 'b' || source[index + 1] == 'B' ||
+				 source[index + 1] == 'h' || source[index + 1] == 'H') {
+				index += 2
+				column += 2
+				loop index < source.len && (is_ident(source[index]) || source[index] == '_') {
+					index += 1
+					column += 1
+				}
+				result.add(token("number", source[start..index], line, startColumn))
+				next
+			}
+			loop index < source.len && (is_digit(source[index]) || source[index] == '_') {
+				index += 1
+				column += 1
+			}
+			// Дробная часть: только одна точка и только перед цифрой, чтобы
+			// `1..5` оставалось диапазоном, а не числом.
+			if index + 1 < source.len && source[index] == '.' && is_digit(source[index + 1]) {
+				index += 1
+				column += 1
+				loop index < source.len && is_digit(source[index]) {
+					index += 1
+					column += 1
+				}
+			}
+			// Суффикс типа: 2i64, 1.5f32, 10u8.
+			if index < source.len && is_alpha(source[index]) {
+				loop index < source.len && is_ident(source[index]) {
+					index += 1
+					column += 1
+				}
+			}
+			result.add(token("number", source[start..index], line, startColumn))
+			next
+		}
+
+		// Число, начинающееся с точки: .5
+		if c == '.' && index + 1 < source.len && is_digit(source[index + 1]) {
+			index += 1
+			column += 1
+			loop index < source.len && is_digit(source[index]) {
 				index += 1
 				column += 1
 			}
@@ -67,10 +159,41 @@ fun lex(str source) -> list<token> {
 			next
 		}
 
+		// Символьный литерал: 'k', '\n', '\'', '\\'.
+		if c == '\'' {
+			index += 1
+			column += 1
+			if index < source.len && source[index] == '\\' {
+				index += 1
+				column += 1
+			}
+			if index < source.len {
+				index += 1
+				column += 1
+			}
+			if index < source.len && source[index] == '\'' {
+				index += 1
+				column += 1
+			}
+			result.add(token("char", source[start..index], line, startColumn))
+			next
+		}
+
 		if c == '"' {
 			index += 1
 			column += 1
 			loop index < source.len && source[index] != '"' {
+				if source[index] == '\\' && index + 1 < source.len {
+					index += 2
+					column += 2
+					next
+				}
+				if source[index] == '\n' {
+					line += 1
+					column = 1
+					index += 1
+					next
+				}
 				index += 1
 				column += 1
 			}
@@ -83,7 +206,13 @@ fun lex(str source) -> list<token> {
 		}
 
 		str text = c.to_str()
-		if index + 1 < source.len {
+		if index + 2 < source.len {
+			str triple = source[index..(index + 3)]
+			if (three_char_op(triple)) {
+				text = triple
+			}
+		}
+		if text.len == 1 && index + 1 < source.len {
 			str pair = source[index..(index + 2)]
 			if (two_char_op(pair)) {
 				text = pair

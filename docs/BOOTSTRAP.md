@@ -1,6 +1,6 @@
 # Бутстраппинг Kern — чего хватает и чего нет
 
-**Статус 2026-11-03:** B0 (лексер) начат — `bootstrap/src/tokens.kern`, `bootstrap/src/lexer.kern`, `bootstrap/src/main.kern`; `kernc test bootstrap` (3 теста) и `kernc run bootstrap` работают. Дальше: парсер/AST (B1).
+**Статус 2026-11-03:** B0 (лексер) и B1 (AST + парсер) готовы — `bootstrap/src/{tokens,lexer,ast,syntax,parser,main}.kern`; `kernc test bootstrap` (12 тестов) и `kernc run bootstrap` работают; AST для `examples/01_basics`…`05_functions` разбирается без ошибок. Дальше: binder/typecheck (B2).
 
 Цель бутстраппинга: компилятор Kern (lexer → parser → AST → binder → codegen/интерпретатор)
 написан на Kern и запускается существующим `kernc`. C# остаётся только VM/нативным слоем.
@@ -61,8 +61,12 @@
 - **B0.** `bootstrap/src/lexer.kern`: читает файл, печатает токены `kind text line:col` в
   формате, совместимом с C#-лексером. Проверка: golden-файл на `examples/01_basics`.
   **Начато 2026-11-03:** `bootstrap/src/{tokens,lexer,main}.kern`, 3 теста, `kernc run bootstrap`.
-- **B1.** `bootstrap/parser.kern`: AST как union-типы, рекурсивный спуск, диагностика через
-  `parse_error`. Проверка: AST для 01–05 совпадает с эталоном (текстовый дамп).
+- **B1.** `bootstrap/src/{ast,syntax,parser,parser_tests}.kern`: AST как однородные
+  `ast_node`, рекурсивный спуск + Pratt для выражений, диагностика через `parse_error`.
+  Разбираются объявления `use/fun/type/unit/unit!/op`, расширения, локальные функции,
+  лямбды, `if`/`loop`/`match`, деструктуризация, диапазоны с шагом и типы
+  `list<T>`/`fun(...) -> T`. Проверка: AST для 01–05 без ошибок; 12 тестов.
+  **Готово 2026-11-03.** Тела `type`/`unit` пока `raw`, паттерны `match` — текстом.
 - **B2.** `bootstrap/binder.kern`: таблица символов, типы, перегрузки; проверка на
   `examples/06_generics_operators`.
 - **B3.** `bootstrap/interp.kern`: исполнение AST (без `.kbc`) — доказательство семантики.
@@ -72,8 +76,8 @@
 
 ```text
 kernc run bootstrap
-kernc run bootstrap bootstrap/src/lexer.kern
-kernc test bootstrap          # тесты лексера
+kernc run bootstrap src/lexer.kern
+kernc test bootstrap          # тесты лексера и парсера
 kernc check bootstrap
 ```
 

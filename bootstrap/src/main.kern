@@ -1,7 +1,9 @@
 use tokens[token]
 use lexer[lex]
+use ast[ast_decl, ast_node, parse_error, parse_result, dump_program]
+use parser[parse_source]
 
-// Демонстрация первого среза: печатает токены файла (или встроенного примера).
+// Демонстрация среза B1: печатает AST файла (или встроенного примера).
 #[needs(fs.read("."))]
 fun main(list<str> args) {
 	str source = "fun main { }\n"
@@ -15,8 +17,12 @@ fun main(list<str> args) {
 		}
 	}
 
-	list<token> tokens = lex(source)
-	loop var item in tokens {
-		println(f"${item.kind} '${item.text}' ${item.line}:${item.column}")
+	parse_result result = parse_source(source)
+	if (result.ok == false) {
+		loop var problem in result.errors {
+			println(f"${problem.line}:${problem.column}: ${problem.message}")
+		}
+		ret
 	}
+	println(dump_program(result.program))
 }

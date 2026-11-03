@@ -1,0 +1,81 @@
+// AST самописного компилятора Kern (B1).
+// Узлы намеренно однородные: kind + text + дети. Так проще дампить дерево и
+// расширять парсер, пока набор конструкций ещё меняется.
+
+type ast_node(str kind, str text, i32 line, i32 column, list<ast_node> children)
+
+type ast_param(str name, str type_name, str default_text)
+
+type ast_decl(
+	str kind,
+	str name,
+	list<str> attributes,
+	list<ast_param> params,
+	str result_type,
+	list<ast_node> body,
+	i32 line,
+	i32 column)
+
+type ast_program(list<ast_decl> decls)
+
+type parse_error(str message, i32 line, i32 column)
+
+type parse_result(ast_program program, list<parse_error> errors, bool ok)
+
+fun ast_leaf(str kind, str text, i32 line, i32 column) -> ast_node
+	ast_node(kind, text, line, column, <ast_node>[])
+
+fun ast_parent(str kind, str text, i32 line, i32 column, list<ast_node> children) -> ast_node
+	ast_node(kind, text, line, column, children)
+
+fun ast_empty_program() -> ast_program ast_program(<ast_decl>[])
+
+fun dump_ast(ast_node node) -> str {
+	str result = "(" + node.kind
+	if node.text.len > 0 {
+		result += " " + node.text
+	}
+	loop var child in node.children {
+		result += " " + dump_ast(child)
+	}
+	result + ")"
+}
+
+fun dump_decl(ast_decl decl) -> str {
+	str result = decl.kind + " " + decl.name
+	if decl.params.len > 0 {
+		result += "("
+		i32 index = 0
+		loop var param in decl.params {
+			if index > 0 {
+				result += ", "
+			}
+			result += param.type_name + " " + param.name
+			if param.default_text.len > 0 {
+				result += " = " + param.default_text
+			}
+			index += 1
+		}
+		result += ")"
+	}
+	if decl.result_type.len > 0 {
+		result += " -> " + decl.result_type
+	}
+	loop var statement in decl.body {
+		result += "\n  " + dump_ast(statement)
+	}
+	result
+}
+
+fun dump_program(ast_program program) -> str {
+	str result = ""
+	i32 index = 0
+	loop var decl in program.decls {
+		if index > 0 {
+			result += "\n"
+		}
+		result += dump_decl(decl)
+		index += 1
+	}
+	result
+}
