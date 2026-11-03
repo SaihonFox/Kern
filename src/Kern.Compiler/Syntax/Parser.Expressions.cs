@@ -305,9 +305,27 @@ public sealed partial class Parser
 			}
 			if (hasNamedArguments && name is null)
 				Report("PAR009", "Позиционный аргумент не может следовать за именованным");
+			// `&x` / `*x` / `out x` — маркеры in/ref-аргумента (spec §6). Разбираются только
+			// здесь, чтобы не путать с битовым `&` и умножением `*`.
+			var markerStart = Current.Span.Start;
+			bool? mutableMarker = null;
+			if (Current.Kind == TokenKind.Operator && Current.Text is "&" or "*")
+				mutableMarker = Advance().Text == "*";
+			else if (Current.Kind == TokenKind.Identifier && Current.Text == "out" &&
+				_position + 1 < _tokens.Count &&
+				_tokens[_position + 1].Kind is not (TokenKind.Comma or TokenKind.RightParen))
+			{
+				Advance();
+				mutableMarker = true;
+			}
 			var value = Current.Kind == TokenKind.Fun
 				? ParseLambdaExpression()
 				: ParseExpression();
+			if (mutableMarker is { } mutable)
+				value = new ReferenceArgumentExpression(
+					value,
+					mutable,
+					new TextSpan(markerStart, value.Span.End - markerStart));
 			arguments.Add(new CallArgumentNode(name, value,
 				new TextSpan(argumentStart, value.Span.End - argumentStart)));
 			if (!Match(TokenKind.Comma))

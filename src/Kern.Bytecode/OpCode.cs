@@ -191,6 +191,13 @@ public enum OpCode
 	// --- конверсии str <-> list<char> (spec §3) ---
 	StrChars,         // нет операндов: [str] -> list<char>
 	CharsToStr,       // нет операндов: [list<char>] -> str
+
+	// --- in/ref-параметры (spec §6) ---
+	LoadRef,          // нет операндов: [ячейка] -> значение места
+	StoreRef,         // нет операндов: [ячейка, значение] -> ничего
+	RefLocal,         // слот: локальный слот -> ячейка на текущий кадр
+	RefField,         // слот поля: [объект] -> ячейка на поле объекта
+	RefStatic,        // индекс поля: -> ячейка на статическое поле модуля
 }
 
 /// <summary>Раскладка операндов и вспомогательные проверки для <see cref="OpCode"/>.</summary>
@@ -206,7 +213,8 @@ public static class OpCodeInfo
 			or OpCode.LoadStatic or OpCode.StoreStatic
 			or OpCode.NewTuple or OpCode.MakeFunc or OpCode.LoadCapture
 			or OpCode.CallValue or OpCode.TypeOfSig or OpCode.IsType
-			or OpCode.Slice or OpCode.SliceStep or OpCode.TupleGet => 1,
+			or OpCode.Slice or OpCode.SliceStep or OpCode.TupleGet
+			or OpCode.RefLocal or OpCode.RefField or OpCode.RefStatic => 1,
 		OpCode.PushI64 or OpCode.PushF64 or OpCode.Call or OpCode.CallVirtual
 			or OpCode.NewList or OpCode.NewArray or OpCode.NewDict
 			or OpCode.MakeClosure or OpCode.NewObjectGeneric or OpCode.CallBase
@@ -220,7 +228,7 @@ public static class OpCodeInfo
 	public static bool IsJump(OpCode op) => op is OpCode.Jmp or OpCode.JmpIf or OpCode.JmpIfNot;
 
 	/// <summary>Известен ли номер опкода (защита от мусора в .kbc).</summary>
-	public static bool IsDefined(int value) => value >= 0 && value <= (int)OpCode.CharsToStr;
+	public static bool IsDefined(int value) => value >= 0 && value <= (int)OpCode.RefStatic;
 
 	public static bool IsDefined(OpCode op) => IsDefined((int)op);
 }

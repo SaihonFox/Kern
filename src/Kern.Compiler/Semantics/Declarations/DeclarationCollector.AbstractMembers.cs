@@ -128,7 +128,8 @@ public sealed partial class DeclarationCollector
 			return false;
 
 		for (var index = 0; index < candidate.Parameters.Count; index++)
-			if (!TypesCompatible(candidate.Parameters[index].Type, abstractMethod.Parameters[index].Type))
+			if (candidate.Parameters[index].Passing != abstractMethod.Parameters[index].Passing ||
+				!TypesCompatible(candidate.Parameters[index].Type, abstractMethod.Parameters[index].Type))
 				return false;
 
 		return true;

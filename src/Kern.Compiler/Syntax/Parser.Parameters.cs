@@ -35,7 +35,11 @@ public sealed partial class Parser
 				null, autoDefault, IsAutoInit: true);
 		}
 
-		if (Current.Kind is TokenKind.Fun or TokenKind.LeftParen or TokenKind.LeftBracket)
+		if (Current.Kind is TokenKind.Fun or TokenKind.LeftParen or TokenKind.LeftBracket ||
+			(Current.Kind == TokenKind.Operator && Current.Text is "&" or "*") ||
+			(Current.Kind == TokenKind.Identifier && Current.Text == "out" &&
+				_position + 1 < _tokens.Count &&
+				_tokens[_position + 1].Kind is not (TokenKind.Comma or TokenKind.RightParen)))
 		{
 			var compoundType = ParseTypeSyntax();
 			var (compoundName, compoundAutoInit) = ParseParameterName();

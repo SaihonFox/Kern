@@ -14,6 +14,17 @@ public sealed partial class Binder
 {
 	private BoundStatement BindCapturedAssignment(AssignmentStatement assignment, BoundVariable variable)
 	{
+		if (variable.Passing == ParameterPassing.Ref)
+		{
+			Report("KRN2109", $"ref-параметр '{variable.Name}' нельзя захватить замыканием", assignment.Target.Span);
+			return new BoundBlock([], null, FallsThrough: true, assignment.Span);
+		}
+		if (variable.Passing == ParameterPassing.In)
+		{
+			Report("KRN2106", $"Параметр '{variable.Name}' объявлен как '&' (только чтение) и не может быть изменён", assignment.Target.Span);
+			return new BoundBlock([], null, FallsThrough: true, assignment.Span);
+		}
+
 		if (_lambdaFrames.Count == 0)
 		{
 			Report("KRN2109", $"Переменная '{variable.Name}' недоступна в этом кадре", assignment.Target.Span);

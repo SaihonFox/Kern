@@ -1,0 +1,95 @@
+// Параметры in (&T), ref (*T) и их синоним out: ссылка на место вызова.
+// &T — только чтение, *T/out — изменяемая ссылка на переменную, поле или статическое поле.
+
+fun add_into(*i32 target, i32 delta) {
+	target += delta
+}
+
+fun add_both(*i32 left, *i32 right) {
+	left += 1
+	right += 1
+}
+
+fun swap(*i32 left, *i32 right) {
+	i32 temporary = left
+	left = right
+	right = temporary
+}
+
+fun double_in_place(*i32 value) {
+	value *= 2
+}
+
+// out — тот же *T: функция обязана записать значение до возврата (проверка — на совести кода).
+fun set(out i32 value, i32 replacement) {
+	value = replacement
+}
+
+// &list<T> читает коллекцию без изменения самой переменной.
+fun total(&list<i32> values) -> i32 {
+	var sum = 0
+	loop var value in values { sum += value }
+	sum
+}
+
+unit Wallet(i32 coins)
+
+fun add_coins(*Wallet wallet, i32 coins) {
+	wallet.coins += coins
+}
+
+type Registry {
+	#i32 bumps = 0
+
+	#fun bump() {
+		add_into(*bumps, 1)
+	}
+}
+
+// Захваченная переменная тоже передаётся как *T: замыкание хранит ячейку.
+fun make_counter() -> fun() -> i32 {
+	var count = 0
+
+	fun bump() -> i32 {
+		add_into(*count, 1)
+		count
+	}
+
+	bump
+}
+
+fun main {
+	i32 x = 10
+	add_into(*x, 5)
+	println(f"add_into: ${x}")
+
+	i32 a = 1
+	i32 b = 2
+	swap(*a, *b)
+	println(f"swap: ${a},${b}")
+
+	double_in_place(*a)
+	println(f"double: ${a}")
+
+	i32 answer = 0
+	set(out answer, 7)
+	println(f"out: ${answer}")
+
+	list<i32> values = [1, 2, 3, 4]
+	println(f"in: ${total(&values)}")
+
+	Wallet wallet = Wallet(5)
+	add_coins(*wallet, 3)
+	println(f"field: ${wallet.coins}")
+
+	Registry.bump()
+	Registry.bump()
+	println(f"static: ${Registry.bumps}")
+
+	var step = make_counter()
+	println(f"captured: ${step()},${step()}")
+
+	i32 alias = 0
+	add_both(*alias, *alias)
+	println(f"alias: ${alias}")
+}

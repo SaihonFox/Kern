@@ -181,6 +181,11 @@ public sealed partial class Binder
 		_isAsyncFunction = symbol.IsAsync;
 		_isGeneratorFunction = false;
 		_generatorElement = null;
+		if (symbol.IsAsync && symbol.Parameters.Any(parameter => parameter.Passing == ParameterPassing.Ref))
+			Report(
+				"KRN2101",
+				$"функция '{symbol.Name}' объявлена async: ref-параметр '*' не поддерживается",
+				DeclarationSpan(symbol));
 		if (symbol.HasYield)
 		{
 			if (symbol.ReturnType is { } generatorReturn &&
@@ -188,6 +193,11 @@ public sealed partial class Binder
 			{
 				_isGeneratorFunction = true;
 				_generatorElement = generatorElement;
+				if (symbol.Parameters.Any(parameter => parameter.Passing == ParameterPassing.Ref))
+					Report(
+						"KRN2101",
+						$"функция-генератор '{symbol.Name}': ref-параметр '*' не поддерживается",
+						DeclarationSpan(symbol));
 			}
 			else
 			{
@@ -228,7 +238,8 @@ public sealed partial class Binder
 			var variable = new BoundVariable(parameter.Name, parameter.Type, _nextSlot++, isSingleAssignment: true)
 			{
 				IsParameter = true,
-				Frame = _frame
+				Frame = _frame,
+				Passing = parameter.Passing,
 			};
 			if (!_scope.TryDeclare(variable))
 				Report("KRN2106", $"Параметр '{parameter.Name}' уже объявлен в этой функции", parameter.Span);
@@ -529,6 +540,15 @@ public sealed partial class Binder
 		if (variable.Frame != _frame)
 			return BindCapturedAssignment(assignment, variable);
 
+		if (variable.Passing == ParameterPassing.In)
+		{
+			Report(
+				"KRN2106",
+				$"Параметр '{variable.Name}' объявлен как '&' (только чтение) и не может быть изменён",
+				target.Span);
+			return new BoundBlock([], null, FallsThrough: true, assignment.Span);
+		}
+
 		var value = assignment.Operator == "="
 			? BindExpression(assignment.Value, variable.Type)
 			: BindExpression(assignment.Value);
@@ -546,7 +566,8 @@ public sealed partial class Binder
 
 		var valueType = value.Type;
 		value = Convert(value, variable.Type, assignment.Value.Span);
-		if (variable.IsSingleAssignment && _flow.Reachable && _flow.IsMaybeAssigned(variable.Slot))
+		if (variable.Passing != ParameterPassing.Ref &&
+			variable.IsSingleAssignment && _flow.Reachable && _flow.IsMaybeAssigned(variable.Slot))
 			Report("KRN2105", $"Переменная '{variable.Name}' помечена как single-assignment и не может быть переприсвоена", assignment.Span);
 
 		_flow.MarkAssigned(variable.Slot);

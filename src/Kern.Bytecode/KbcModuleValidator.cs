@@ -169,7 +169,8 @@ public static class KbcModuleValidator
 				or OpCode.CallValue or OpCode.TypeOfSig or OpCode.IsType
 				or OpCode.NewList or OpCode.NewArray or OpCode.NewDict
 				or OpCode.MakeClosure or OpCode.Call or OpCode.CallVirtual or OpCode.TupleGet
-				or OpCode.NewObjectGeneric or OpCode.CallBase or OpCode.TailCall => code[at + 1],
+				or OpCode.NewObjectGeneric or OpCode.CallBase or OpCode.TailCall
+				or OpCode.RefLocal or OpCode.RefField or OpCode.RefStatic => code[at + 1],
 			_ => -1,
 		};
 
@@ -179,7 +180,8 @@ public static class KbcModuleValidator
 				if ((uint)arg >= (uint)module.ConstPool.Count)
 					throw new KbcFormatException($"{where}: индекс константы вне пула: {arg}");
 				break;
-			case OpCode.LoadLocal or OpCode.StoreLocal or OpCode.SaveSp or OpCode.RestoreSp:
+			case OpCode.LoadLocal or OpCode.StoreLocal or OpCode.SaveSp or OpCode.RestoreSp
+				or OpCode.RefLocal:
 				if ((uint)arg >= (uint)function.LocalCount)
 					throw new KbcFormatException($"{where}: слот локальной вне кадра: {arg}");
 				break;
@@ -218,7 +220,7 @@ public static class KbcModuleValidator
 						ValidateSigIndex(module, sig, where, "аргумента дженерика");
 					break;
 				}
-			case OpCode.LoadField or OpCode.StoreField:
+			case OpCode.LoadField or OpCode.StoreField or OpCode.RefField:
 				// Слот проверяется у объекта во время исполнения: поле можно читать и писать
 				// из любой функции, а не только из метода владельца (spec §4).
 				if (arg < 0)
@@ -230,7 +232,7 @@ public static class KbcModuleValidator
 				if (arg < 0)
 					throw new KbcFormatException($"{where}: отрицательный индекс элемента кортежа: {arg}");
 				break;
-			case OpCode.LoadStatic or OpCode.StoreStatic:
+			case OpCode.LoadStatic or OpCode.StoreStatic or OpCode.RefStatic:
 				if ((uint)arg >= (uint)module.FieldPool.Count)
 					throw new KbcFormatException($"{where}: индекс глобального поля вне пула: {arg}");
 				break;

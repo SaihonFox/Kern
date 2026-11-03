@@ -354,6 +354,12 @@ public sealed partial class DeclarationCollector
 		List<FieldSymbol> fields)
 	{
 		var resolved = ResolveParameters(parameters, scope);
+		foreach (var parameter in resolved)
+			if (parameter.Passing != ParameterPassing.Value)
+				_diagnostics.Add(new Diagnostic(
+					"KRN2101",
+					$"параметр основного конструктора '{parameter.Name}' не может быть '&' или '*'",
+					parameter.Span));
 		LinkPrimaryParameters(resolved, fields, owner);
 		var constructor = new FunctionSymbol("ctor", FunctionKind.Constructor)
 		{
@@ -424,16 +430,38 @@ public sealed partial class DeclarationCollector
 		var parameters = new List<ParameterSymbol>(nodes.Count);
 		foreach (var node in nodes)
 		{
-			var type = node.Type is null
+			var passing = ParameterPassing.Value;
+			TypeSyntax? parameterSyntax = node.Type;
+			if (parameterSyntax is NamedTypeSyntax { IsIn: true } or NamedTypeSyntax { IsRef: true })
+			{
+				var named = (NamedTypeSyntax)parameterSyntax;
+				if (named.IsIn && named.IsRef)
+					_diagnostics.Add(new Diagnostic(
+						"PAR014", "Тип параметра не может быть одновременно '&' и '*'", named.Span));
+				passing = named.IsRef ? ParameterPassing.Ref : ParameterPassing.In;
+				parameterSyntax = named with { IsIn = false, IsRef = false };
+			}
+
+			if (passing == ParameterPassing.Ref && node.DefaultValue is not null)
+				_diagnostics.Add(new Diagnostic(
+					"KRN2101", $"ref-параметр '{node.Name}' не может иметь значение по умолчанию", node.Span));
+			if (passing != ParameterPassing.Value && node.IsAutoInit)
+				_diagnostics.Add(new Diagnostic(
+					"KRN2101", $"Параметр '{node.Name}' с '&' или '*' не может авто-инициализировать поле", node.Span));
+
+			var type = parameterSyntax is null
 				? ErrorType.Instance
-				: _resolver.Resolve(node.Type, scope);
+				: _resolver.Resolve(parameterSyntax, scope);
 			parameters.Add(new ParameterSymbol(
 				node.Name,
 				type,
 				node.DefaultValue,
 				node.IsAutoInit,
 				false,
-				node.Span));
+				node.Span)
+			{
+				Passing = passing,
+			});
 		}
 		return parameters;
 	}

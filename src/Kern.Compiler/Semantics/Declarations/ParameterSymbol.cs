@@ -19,5 +19,8 @@ public sealed record ParameterSymbol(
 	/// <summary>Поле, которое заполняет параметр с <c>$</c> (объявленное или синтезированное).</summary>
 	public FieldSymbol? Field { get; init; }
 
+	/// <summary>Способ передачи (<c>&amp;T</c>/<c>*T</c>, spec §6); по умолчанию по значению.</summary>
+	public ParameterPassing Passing { get; init; }
+
 	public bool HasDefault => DefaultValue is not null;
 }

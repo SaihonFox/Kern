@@ -1,0 +1,9 @@
+add_into: 15
+swap: 2,1
+double: 4
+out: 7
+in: 10
+field: 8
+static: 2
+captured: 1,2
+alias: 2

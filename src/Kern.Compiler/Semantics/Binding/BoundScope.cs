@@ -1,3 +1,4 @@
+using Kern.Compiler.Semantics.Declarations;
 using Kern.Compiler.Semantics.Types;
 
 namespace Kern.Compiler.Semantics.Binding;
@@ -15,6 +16,9 @@ internal sealed class BoundVariable(string name, KernType type, int slot, bool i
 	public bool IsSingleAssignment { get; } = isSingleAssignment;
 
 	public bool IsParameter { get; init; }
+
+	/// <summary>Способ передачи параметра (spec §6); у локальных переменных — <c>Value</c>.</summary>
+	public ParameterPassing Passing { get; init; }
 
 	/// <summary>
 	/// Идентификатор кадра (функции), в котором объявлена переменная. Слоты уникальны

@@ -307,6 +307,14 @@ public sealed partial class Binder
 		{
 			if (argument.Argument is null)
 			{
+				if (argument.Parameter.Passing == ParameterPassing.Ref)
+				{
+					Report(
+						"KRN2101",
+						$"Параметр '{argument.Parameter.Name}' объявлен как '*' (ref): аргумент обязателен",
+						span);
+					return new BoundErrorExpression(span);
+				}
 				if (BindDefaultArgument(argument.Parameter, span) is not { } defaultValue)
 				{
 					Report("KRN2108", $"У параметра '{argument.Parameter.Name}' нет значения по умолчанию", span);
@@ -318,6 +326,13 @@ public sealed partial class Binder
 			}
 
 			var expression = byCallArgument[argument.Argument];
+			if (argument.Parameter.Passing != ParameterPassing.Value)
+			{
+				if (!TryBindPassingArgument(expression, argument, out BoundExpression bound))
+					return new BoundErrorExpression(span);
+				ordered.Add(bound);
+				continue;
+			}
 			if (nativeElement is not null &&
 				argument.Parameter.Type is PrimitiveType { Primitive: PrimitiveKind.Object })
 			{
@@ -433,24 +448,9 @@ public sealed partial class Binder
 				constructor = candidates[position];
 		}
 
-		var ordered = new List<BoundExpression>(resolution.Arguments.Count);
-		foreach (var argument in resolution.Arguments)
-		{
-			if (argument.Argument is null)
-			{
-				if (BindDefaultArgument(argument.Parameter, span) is not { } defaultValue)
-				{
-					Report("KRN2108", $"У параметра '{argument.Parameter.Name}' нет значения по умолчанию", span);
-					return new BoundErrorExpression(span);
-				}
-
-				ordered.Add(defaultValue);
-				continue;
-			}
-
-			var expression = byCallArgument[argument.Argument];
-			ordered.Add(ConvertWithConversion(expression, argument.Parameter.Type, argument.Conversion, expression.Span));
-		}
+		var ordered = BindResolvedArguments(resolution, byCallArgument, span);
+		if (ordered is null)
+			return new BoundErrorExpression(span);
 
 		WarnDeprecatedType(type, span);
 		return new BoundObjectCreationExpression(type, constructor, ordered, instanceType, span);
@@ -478,5 +478,109 @@ public sealed partial class Binder
 		}
 
 		return (bound, calls, map);
+	}
+
+	/// <summary>
+	/// Аргументы в порядке параметров с учётом <c>&amp;T</c>/<c>*T</c> (spec §6).
+	/// <c>null</c> — ошибка уже добавлена в диагностики.
+	/// </summary>
+	private List<BoundExpression>? BindResolvedArguments(
+		OverloadResolution resolution,
+		Dictionary<CallArgument, BoundExpression> byCallArgument,
+		TextSpan span)
+	{
+		var ordered = new List<BoundExpression>(resolution.Arguments.Count);
+		foreach (BoundArgument argument in resolution.Arguments)
+		{
+			if (argument.Argument is null)
+			{
+				if (argument.Parameter.Passing == ParameterPassing.Ref)
+				{
+					Report(
+						"KRN2101",
+						$"Параметр '{argument.Parameter.Name}' объявлен как '*' (ref): аргумент обязателен",
+						span);
+					return null;
+				}
+				if (BindDefaultArgument(argument.Parameter, span) is not { } defaultValue)
+				{
+					Report("KRN2108", $"У параметра '{argument.Parameter.Name}' нет значения по умолчанию", span);
+					return null;
+				}
+
+				ordered.Add(defaultValue);
+				continue;
+			}
+
+			if (!TryBindPassingArgument(byCallArgument[argument.Argument], argument, out BoundExpression bound))
+				return null;
+			ordered.Add(bound);
+		}
+
+		return ordered;
+	}
+
+	/// <summary>
+	/// Проверка маркера аргумента против способа передачи параметра и приведение типа.
+	/// </summary>
+	private bool TryBindPassingArgument(
+		BoundExpression expression,
+		BoundArgument argument,
+		out BoundExpression result)
+	{
+		ParameterSymbol parameter = argument.Parameter;
+		switch (parameter.Passing)
+		{
+			case ParameterPassing.Ref:
+				if (expression is not BoundReferenceArgumentExpression { Mutable: true } reference)
+				{
+					Report(
+						"KRN2101",
+						$"Параметр '{parameter.Name}' объявлен как '*{parameter.Type}' (ref): передайте '*переменная' или '*поле'",
+						expression.Span);
+					result = new BoundErrorExpression(expression.Span);
+					return false;
+				}
+				if (!reference.Operand.Type.Equals(parameter.Type))
+				{
+					Report(
+						"KRN2101",
+						$"ref-аргумент '{parameter.Name}' должен иметь тип '{parameter.Type}', получено '{reference.Operand.Type}'",
+						reference.Span);
+					result = new BoundErrorExpression(reference.Span);
+					return false;
+				}
+				result = reference;
+				return true;
+
+			case ParameterPassing.In:
+				if (expression is BoundReferenceArgumentExpression { Mutable: true })
+				{
+					Report(
+						"KRN2101",
+						$"Параметр '{parameter.Name}' объявлен как '&{parameter.Type}' (in): используйте '&', а не '*'",
+						expression.Span);
+					result = new BoundErrorExpression(expression.Span);
+					return false;
+				}
+				var value = expression is BoundReferenceArgumentExpression inArgument
+					? inArgument.Operand
+					: expression;
+				result = ConvertWithConversion(value, parameter.Type, argument.Conversion, value.Span);
+				return true;
+
+			default:
+				if (expression is BoundReferenceArgumentExpression)
+				{
+					Report(
+						"KRN2101",
+						$"Параметр '{parameter.Name}' не объявлен как '&'/'*': уберите маркер аргумента",
+						expression.Span);
+					result = new BoundErrorExpression(expression.Span);
+					return false;
+				}
+				result = ConvertWithConversion(expression, parameter.Type, argument.Conversion, expression.Span);
+				return true;
+		}
 	}
 }

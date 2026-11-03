@@ -329,10 +329,10 @@ internal static class KbcLinker
 						OpCode.Call or OpCode.CallVirtual or OpCode.CallBase or OpCode.TailCall
 							or OpCode.MakeFunc or OpCode.MakeClosure
 							when operand == 0 => MapFunction(value),
-						OpCode.LoadField or OpCode.StoreField => function.OwnerType >= 0
+						OpCode.LoadField or OpCode.StoreField or OpCode.RefField => function.OwnerType >= 0
 							? MapSlot(library.TypePool[function.OwnerType], value)
 							: value,
-						OpCode.LoadStatic or OpCode.StoreStatic => _globals.TryGetValue(value, out int global)
+						OpCode.LoadStatic or OpCode.StoreStatic or OpCode.RefStatic => _globals.TryGetValue(value, out int global)
 							? global
 							: value,
 						OpCode.NewList or OpCode.NewArray or OpCode.TypeOfSig or OpCode.IsType

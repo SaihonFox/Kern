@@ -1,5 +1,6 @@
 using Kern.Bytecode;
 using Kern.Compiler.Semantics.Bound;
+using Kern.Compiler.Semantics.Declarations;
 
 namespace Kern.Compiler.CodeGen;
 
@@ -21,6 +22,10 @@ public sealed partial class CodeGenerator
 			_current.SourceFile = _source.Path;
 
 		_boxedSlots = function.BoxedSlots;
+		_refSlots = function.Parameters
+			.Where(parameter => parameter.Symbol.Passing == ParameterPassing.Ref)
+			.Select(parameter => parameter.Slot)
+			.ToHashSet();
 		foreach (var parameter in function.Parameters)
 		{
 			if (!_boxedSlots.Contains(parameter.Slot))

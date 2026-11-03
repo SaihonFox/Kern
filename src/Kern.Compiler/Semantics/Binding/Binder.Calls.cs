@@ -44,24 +44,9 @@ public sealed partial class Binder
 			return new BoundErrorExpression(span);
 		}
 
-		var ordered = new List<BoundExpression>(resolution.Arguments.Count);
-		foreach (var argument in resolution.Arguments)
-		{
-			if (argument.Argument is null)
-			{
-				if (BindDefaultArgument(argument.Parameter, span) is not { } defaultValue)
-				{
-					Report("KRN2108", $"У параметра '{argument.Parameter.Name}' нет значения по умолчанию", span);
-					return new BoundErrorExpression(span);
-				}
-
-				ordered.Add(defaultValue);
-				continue;
-			}
-
-			var expression = byCallArgument[argument.Argument];
-			ordered.Add(ConvertWithConversion(expression, argument.Parameter.Type, argument.Conversion, expression.Span));
-		}
+		var ordered = BindResolvedArguments(resolution, byCallArgument, span);
+		if (ordered is null)
+			return new BoundErrorExpression(span);
 
 		var returnType = CallResultType(resolution.Function!, resolution.ReturnType);
 		WarnDeprecated(resolution.Function!, span);

@@ -80,6 +80,39 @@ public sealed partial class Interpreter
 						locals[code[pc++]] = stack.Pop();
 						break;
 
+					// ---------- in/ref-параметры (spec §6) ----------
+					case OpCode.LoadRef:
+						{
+							KValue cellValue = stack.Pop();
+							if (cellValue.Ref is not IValueCell cell)
+								throw new KernPanic($"LoadRef: ожидалась ячейка значения, получено {cellValue.TypeName}");
+							stack.Push(cell.Get());
+							break;
+						}
+					case OpCode.StoreRef:
+						{
+							KValue value = stack.Pop();
+							KValue cellValue = stack.Pop();
+							if (cellValue.Ref is not IValueCell cell)
+								throw new KernPanic($"StoreRef: ожидалась ячейка значения, получено {cellValue.TypeName}");
+							cell.Set(value);
+							break;
+						}
+					case OpCode.RefLocal:
+						stack.Push(KValue.Obj(new LocalValueCell(locals, code[pc++])));
+						break;
+					case OpCode.RefField:
+						{
+							KValue receiverValue = stack.Pop();
+							if (receiverValue.Ref is not KObject target)
+								throw new KernPanic($"RefField: ожидался объект, получено {receiverValue.TypeName}");
+							stack.Push(KValue.Obj(new FieldValueCell(target, code[pc++])));
+							break;
+						}
+					case OpCode.RefStatic:
+						stack.Push(KValue.Obj(new StaticValueCell(_statics, code[pc++])));
+						break;
+
 					// ---------- арифметика ----------
 					case OpCode.Add or OpCode.Sub or OpCode.Mul or OpCode.Div or OpCode.Mod or OpCode.Pow:
 						{

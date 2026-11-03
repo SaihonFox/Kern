@@ -26,6 +26,16 @@ public sealed record BoundVariableExpression(
 	TextSpan Span) : BoundExpression(Type, Span);
 
 /// <summary>
+/// Аргумент с маркером <c>&amp;x</c>/<c>*x</c> (spec §6). <see cref="Mutable"/> = <c>*</c>:
+/// кодогенерация передаёт ячейку на место вызова (локальную, поле или статическое поле);
+/// <c>&amp;</c> передаёт значение только для чтения. Тип выражения — тип места.
+/// </summary>
+public sealed record BoundReferenceArgumentExpression(
+	BoundExpression Operand,
+	bool Mutable,
+	TextSpan Span) : BoundExpression(Operand.Type, Span);
+
+/// <summary>
 /// Выбор родителя в выражении <c>$[A]</c> (spec §2): приёмник — обычный <c>$</c>
 /// (<see cref="Self"/>), статический тип — выбранный родитель <see cref="ParentType"/>.
 /// Доступ к членам через этот узел привязывается к реализации родителя статически,

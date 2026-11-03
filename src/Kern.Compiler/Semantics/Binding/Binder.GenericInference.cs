@@ -178,6 +178,20 @@ public sealed partial class Binder
 				return null;
 			if (!byCallArgument.TryGetValue(call, out var expression))
 				return null;
+			if (parameter.Passing == ParameterPassing.Ref)
+			{
+				if (expression is not BoundReferenceArgumentExpression { Mutable: true } ||
+					!expression.Type.Equals(parameter.Type))
+					return null;
+				ordered.Add(expression);
+				continue;
+			}
+			if (expression is BoundReferenceArgumentExpression reference)
+			{
+				if (reference.Mutable)
+					return null;
+				expression = reference.Operand;
+			}
 			if (!Conversions.TryClassify(expression.Type, parameter.Type, out var conversion))
 				return null;
 			ordered.Add(ConvertWithConversion(expression, parameter.Type, conversion, expression.Span));

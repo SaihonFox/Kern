@@ -79,6 +79,7 @@ public sealed partial class Binder
 		TypedCollectionExpression typed => BindTypedCollectionLiteral(typed, hint),
 		DictionaryExpression dictionary => BindDictionaryLiteral(dictionary, hint),
 		LambdaExpression lambda => BindLambda(lambda, hint),
+		ReferenceArgumentExpression reference => BindReferenceArgument(reference),
 		_ => UnsupportedExpression(expression)
 	};
 
@@ -103,7 +104,8 @@ public sealed partial class Binder
 				function.NativeKey is null &&
 				!function.IsAsync &&
 				function.GenericParameters.Count == 0 &&
-				function.Kind == FunctionKind.Function)
+				function.Kind == FunctionKind.Function &&
+				function.Parameters.All(parameter => parameter.Passing == ParameterPassing.Value))
 			.ToList();
 		if (candidates.Count != 1)
 			return null;

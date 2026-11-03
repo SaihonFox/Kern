@@ -78,6 +78,15 @@ public sealed partial class Binder
 	/// </summary>
 	private BoundExpression BindCapturedVariable(BoundVariable variable, TextSpan span)
 	{
+		if (variable.Passing == ParameterPassing.Ref)
+		{
+			Report(
+				"KRN2109",
+				$"ref-параметр '{variable.Name}' нельзя захватить замыканием",
+				span);
+			return new BoundErrorExpression(span);
+		}
+
 		if (_lambdaFrames.Count == 0)
 		{
 			// Возможно только при ошибке в коде самого binder'а: кадр меняют лишь лямбды.
@@ -353,6 +362,14 @@ public sealed partial class Binder
 				Report("KRN2108", "Именованные аргументы у вызова функции-значения не поддерживаются", argument.Span);
 
 			var value = BindExpression(argument.Value, function.Parameters[index]);
+			if (value is BoundReferenceArgumentExpression referenceArgument)
+			{
+				Report(
+					"KRN2101",
+					"Маркеры '&'/'*' не поддерживаются у вызова функции-значения",
+					argument.Span);
+				value = referenceArgument.Operand;
+			}
 			bound.Add(Convert(value, function.Parameters[index], argument.Span));
 		}
 

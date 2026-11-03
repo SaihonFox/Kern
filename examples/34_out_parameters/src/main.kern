@@ -1,0 +1,41 @@
+// out-параметры (*T/out) для «нескольких результатов» и ref для замены значения.
+
+fun try_parse(&str text, out i32 value) -> bool {
+	i32? parsed = text.to_i32()
+	if parsed == nil { ret false }
+	value = parsed!
+	true
+}
+
+fun min_max(&list<i32> values, out i32 minimum, out i32 maximum) {
+	minimum = values[0]
+	maximum = values[0]
+	loop var value in values {
+		if value < minimum { minimum = value }
+		if value > maximum { maximum = value }
+	}
+}
+
+// *list<T> заменяет саму переменную вызывающего, а не только элементы списка.
+fun reset(*list<i32> values, i32 value) {
+	values = [value, value]
+}
+
+fun main {
+	i32 parsed = 0
+	bool ok = try_parse(&"42", out parsed)
+	println(f"parse: ${ok},${parsed}")
+
+	bool bad = try_parse(&"nope", out parsed)
+	println(f"bad: ${bad},${parsed}")
+
+	list<i32> numbers = [3, -1, 7, 2]
+	i32 minimum = 0
+	i32 maximum = 0
+	min_max(&numbers, out minimum, out maximum)
+	println(f"minmax: ${minimum},${maximum}")
+
+	list<i32> repeated = [1, 2, 3]
+	reset(*repeated, 9)
+	println(f"reset: ${repeated.join(",")}")
+}

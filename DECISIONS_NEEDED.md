@@ -37,18 +37,21 @@ Owner выбрал вариант 3: `seq<T>` кэширует пройденн�
    арности неоднозначна с многомерным чтением `x[a, b]`. Оценка: S, риск путаницы.
 3. **Оставить только чтение:** запись — через явный метод `x.set(i, v)`. Ничего не меняем.
 
-### Параметры `in` / `ref` — решено (2026-11-03), не реализовано
+### Параметры `in` / `ref` / `out` — реализовано (2026-11-03)
 
-Owner выбрал синтаксис:
+Owner выбрал синтаксис, затем попросил реализовать:
 
-- `in` → `&T`: `fun somefun(&str arg) {}` — read-only ссылка, как `in` в C#.
-- `ref` → `*T`: `fun somefun(*str arg) {}` — изменяемая ссылка, как `ref` в C#.
-- Отдельного `out` нет: его роль выполняет `*T` (как в примере owner'а
-  `fun somefun(*str arg) { if arg != none { return } }`).
+- `in` → `&T`: `fun somefun(&str arg) {}` — read-only, передаётся по значению; на вызове
+  `f(&x)` или `f(x)`.
+- `ref` → `*T`: `fun somefun(*str arg) {}` — изменяемая ссылка на место (переменная,
+  поле, статическое поле, захват); на вызове обязателен `f(*x)`.
+- `out` → `out T` — синоним `*T` (`fun somefun(out str arg)`), на вызове `f(out x)`;
+  отдельной проверки определённого присваивания нет.
 
-Owner попросил запомнить, но **не реализовывать** сейчас. При старте среза нужно решить:
-форма вызова (`f(&x)`/`f(*x)` или без маркера), запрет литералов/временных значений для `*T`,
-правила алиасинга и взаимодействие с `unit` (копирование) и полями.
+Реализовано в lexer/parser (`NamedTypeSyntax.IsIn/IsRef`, `ReferenceArgumentExpression`),
+`ParameterSymbol.Passing`, bound-дереве (`BoundReferenceArgumentExpression`), codegen и VM
+(`IValueCell` + `LoadRef/StoreRef/RefLocal/RefField/RefStatic`). Тесты
+`ReferenceParameterTests` (6), пример `examples/33_references`; spec §6 обновлён.
 
 ## Open — разрешения модулей / capabilities (2026-11-02)
 

@@ -80,6 +80,13 @@ public sealed class TypeResolver
 
 	private KernType ResolveNamed(NamedTypeSyntax syntax, TypeParameterScope scope)
 	{
+		// Маркеры &T/*T допустимы только у параметров функции; ResolveParameters
+		// снимает их перед вызовом резолвера (spec §6).
+		if (syntax.IsIn || syntax.IsRef)
+			return Report(
+				"KRN2101",
+				"Маркеры '&' (in) и '*' (ref) допустимы только в типе параметра функции",
+				syntax.Span);
 		var resolved = ResolveNamedCore(syntax, scope);
 		return syntax.IsNullable ? NullableType.Create(resolved) : resolved;
 	}

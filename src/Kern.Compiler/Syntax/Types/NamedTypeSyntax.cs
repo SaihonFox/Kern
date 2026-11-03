@@ -15,7 +15,9 @@ public sealed record NamedTypeSyntax(
 	IReadOnlyList<string?> ArgumentLabels,
 	bool IsNullable,
 	bool IsSingleAssignment,
-	TextSpan Span) : TypeSyntax(Span)
+	TextSpan Span,
+	bool IsIn = false,
+	bool IsRef = false) : TypeSyntax(Span)
 {
 	/// <summary>Простое имя без аргументов, меток и маркеров (для восстановления после ошибки).</summary>
 	public static NamedTypeSyntax Plain(string name, TextSpan span) => new(name, [], [], false, false, span);
@@ -25,7 +27,12 @@ public sealed record NamedTypeSyntax(
 
 	public override string ToString()
 	{
-		var builder = new StringBuilder(Name);
+		var builder = new StringBuilder();
+		if (IsIn)
+			builder.Append('&');
+		else if (IsRef)
+			builder.Append('*');
+		builder.Append(Name);
 		if (Arguments.Count > 0)
 		{
 			builder.Append('<');

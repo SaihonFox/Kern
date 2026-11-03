@@ -16,7 +16,8 @@ public sealed partial class CodeGenerator
 		foreach (var argument in call.Arguments)
 		{
 			EmitExpression(argument);
-			EmitCopyIfUnit(argument.Type);
+			if (argument is not BoundReferenceArgumentExpression { Mutable: true })
+				EmitCopyIfUnit(argument.Type);
 		}
 
 		int index = NativeCallIndex(call);
@@ -76,7 +77,8 @@ public sealed partial class CodeGenerator
 		foreach (var argument in creation.Arguments)
 		{
 			EmitExpression(argument);
-			EmitCopyIfUnit(argument.Type);
+			if (argument is not BoundReferenceArgumentExpression { Mutable: true })
+				EmitCopyIfUnit(argument.Type);
 		}
 		Emit(OpCode.Call);
 		EmitOperand(constructorIndex);

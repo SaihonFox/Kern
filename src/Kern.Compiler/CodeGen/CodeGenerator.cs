@@ -30,6 +30,9 @@ public sealed partial class CodeGenerator
 	/// <summary>Слоты текущей функции, захваченные замыканиями: живут в <c>KCell</c>.</summary>
 	private IReadOnlySet<int> _boxedSlots = new HashSet<int>();
 
+	/// <summary>Слоты ref-параметров текущей функции: в них лежит ячейка (<c>*T</c>, spec §6).</summary>
+	private IReadOnlySet<int> _refSlots = new HashSet<int>();
+
 	/// <summary>
 	/// Генерирует байткод модуля. Если передан <paramref name="source"/>, у функций заполняются
 	/// <c>SourceFile</c> (непустой путь) и <c>LineTable</c> (границы операторов).
@@ -109,6 +112,14 @@ public sealed partial class CodeGenerator
 				break;
 
 			case BoundAssignment assignment:
+				if (_refSlots.Contains(assignment.Slot))
+				{
+					Emit(OpCode.LoadLocal, assignment.Slot);
+					EmitExpression(assignment.Value);
+					EmitCopyIfUnit(assignment.Type);
+					Emit(OpCode.StoreRef);
+					break;
+				}
 				if (_boxedSlots.Contains(assignment.Slot))
 				{
 					Emit(OpCode.LoadLocal, assignment.Slot);
@@ -217,8 +228,14 @@ public sealed partial class CodeGenerator
 
 			case BoundVariableExpression variable:
 				Emit(OpCode.LoadLocal, variable.Slot);
-				if (_boxedSlots.Contains(variable.Slot))
+				if (_refSlots.Contains(variable.Slot))
+					Emit(OpCode.LoadRef);
+				else if (_boxedSlots.Contains(variable.Slot))
 					Emit(OpCode.LoadCell);
+				break;
+
+			case BoundReferenceArgumentExpression reference:
+				EmitReferenceArgument(reference);
 				break;
 
 			// `$[A]` — это тот же получатель `$`; тип-предок уже учтён при привязке членов.
