@@ -68,7 +68,7 @@ as `.kbc` and link through stubs (ask owner before adding).
 - `profile`: `optimize`, `warnings_as_errors`, `env` dict; built-in profiles `debug` (default, `-O1`) and `release` (`-O2`).
 - Built-in tasks per target: `compile`, `run`, `exe`, `dist`, `dll`, `check`, `dis`, `clean`. Workspace: `build` (all targets), `clean`, plus user tasks. (No `test` task in stage 1.)
 - **Up-to-date check:** skip recompilation when the hash of sources + dependency targets + `.kbc` deps + compiler settings + profile + kernc version is unchanged (the old implementation forgot `.kbc` deps in the hash - don't).
-- **Native output:** `kernc build --native [--target <rid>]` builds `.kbc` and publishes it *inside* a self-contained single-file host (VM + std + bytecode resource), so no installed .NET is needed; result `<project>/dist/native/<name>[.exe]`. `--target linux-x64|win-x64|osx-arm64` selects the RID. This is embedding the VM with bytecode, not NativeAOT (see `DECISIONS_NEEDED.md`).
+- **Native output:** `kernc build --native [--target <rid>]` builds `.kbc` and publishes it *inside* an executable. Compatible programs use **NativeAOT** (`PublishAot`, VM + std + bytecode, no installed .NET); generic natives, external `Kern.Lib.*` DLLs, `use dotnet`/reflection and a foreign RID fall back to a self-contained single-file host with the reason printed to stderr. Result `<project>/dist/native/<name>[.exe]`; `--target linux-x64|win-x64|osx-arm64` selects the RID.
 - Task ordering: `after` list = prerequisite tasks (topological, cycle → clear error).
 
 ## 5. Multi-project [FINAL: wanted] [PROPOSED shape]

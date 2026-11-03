@@ -51,10 +51,16 @@ public sealed class TextExtrasTests
 		const string source = """
 			fun html() -> str markdown_to_html("# Hi\n\n**bold**")
 			fun template() -> str template_render("Привет, {{name}}!", ["name": "<Аня>"])
+			fun loop_items() -> str template_render("{{#each items}}{{@index}}:{{this}};{{/each}}", ["items": ["a", "b"]])
+			fun branch() -> str template_render("{{#if ok}}yes{{else}}no{{/if}}", ["ok": true])
+			fun partial() -> str template_render_with("[{{> row}}]", ["name": "<x>"], ["row": "{{name}}"])
 			""";
 
 		Assert.Equal(KValue.Str("<h1>Hi</h1>\n<p><strong>bold</strong></p>\n"), StdPipeline.Run(source, "html"));
 		Assert.Equal(KValue.Str("Привет, &lt;Аня&gt;!"), StdPipeline.Run(source, "template"));
+		Assert.Equal(KValue.Str("0:a;1:b;"), StdPipeline.Run(source, "loop_items"));
+		Assert.Equal(KValue.Str("yes"), StdPipeline.Run(source, "branch"));
+		Assert.Equal(KValue.Str("[&lt;x&gt;]"), StdPipeline.Run(source, "partial"));
 	}
 
 	[Fact]

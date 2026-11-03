@@ -2,6 +2,27 @@
 
 ## Now
 
+### Батч 2026-11-03 (owner request): NativeAOT, оптимизатор, шаблоны
+
+Сделано и проверено (build 0 errors, тесты 624/624, style clean):
+- `kernc build --native` теперь публикует совместимые программы через **NativeAOT**
+  (`PublishAot`, `TrimMode=full`); для generic-нативов, внешних `Kern.Lib.*` DLL,
+  `use dotnet`/`kern.reflection`/`type` и чужого RID — осознанный fallback на
+  self-contained single-file с причиной в stderr. Пример 01: AOT-бинарник 15.8 MB,
+  запускается. NativeAOT-путь в `NativeResolver` больше не использует
+  `MakeGenericMethod` (вызов через `MethodInfo.Invoke` + `KMarshal`), поэтому
+  `format`/`println` работают. Тесты `NativeCompilerTests` (+ end-to-end под
+  `KERN_TEST_NATIVE_AOT=1`).
+- Оптимизатор `-O2` доделан: `Inliner` встраивает `#[inline]`-функции с ветвлениями,
+  циклами, несколькими `ret` и локальными слотами (корректный ремап смещений/слотов,
+  `Ret` → `Jmp` в конец), `DeadFunctionEliminator` не трогает методы типов и
+  `Pub`/`#[test]`, `StackAnalyzer` считает точный `MaxStack` по CFG. Тесты
+  `OptimizerTests` (+ встраивание ветвлений/локальных).
+- `kern.text`: шаблонизатор получил `{{#if}}/{{else}}/{{/if}}`,
+  `{{#each items}}` с `{{this}}`, `{{@index}}` и `{{else}}` для пустой коллекции,
+  `{{& key}}` без экранирования и `template_render_with(template, values, partials)`
+  с `{{> partial}}`. Тесты `TextExtrasTests` (+ цикл, ветвление, partial).
+
 ### Батч 2026-11-03 (owner request): capabilities
 
 Сделано и проверено (build 0 errors, тесты 619/619, style clean):
@@ -88,11 +109,11 @@
 Не сделано/ограничения: path-scope `fs.read("...")`/`fs.write("...")` пока не ограничивает путь
 (проверяется только имя capability), манифест пакета/подпись — отдельное решение;
 `kern.security` без BLAKE/Ed25519/argon2/bcrypt (в .NET нет
-из коробки); `kern.text` без циклов/условий/частичных шаблонов в шаблонизаторе;
-`kern.parse` без комбинаторов/PEG (только базовые разборщики и диагностика);
+из коробки); шаблонизатор `kern.text` не вычисляет выражения в тегах (только имена,
+`this`, `@index`); `kern.parse` без комбинаторов/PEG (только базовые разборщики и диагностика);
 `kern.num` без собственных чисел/матричных разложений; «настоящие» C#-генерики не
-переписаны — вопрос в `DECISIONS_NEEDED.md`; `kernc build --native` использует
-self-contained single-file (не NativeAOT).
+переписаны — вопрос в `DECISIONS_NEEDED.md`; `kernc build --native` откатывается на
+single-file для generic-нативов, внешних DLL, reflection и чужого RID.
 
 ### Открытый объём (2026-11-02)
 

@@ -3,11 +3,11 @@ using Kern.Bytecode;
 namespace Kern.Compiler.Optimization;
 
 /// <summary>
-/// Инлайнинг <c>#[inline]</c>-функций (M11/spec §7): простая функция без ветвлений и
-/// собственных локальных слотов встраивается в место вызова. Аргументы сохраняются в
-/// новые локальные слоты вызывающего, параметры переназначаются на них; <c>Ret</c>
-/// отбрасывается. Сложные функции (циклы, ветвления, генераторы, async, ref) не
-/// встраиваются — они остаются обычными вызовами.
+/// Инлайнинг <c>#[inline]</c>-функций (spec §7): код вызываемого переносится в место
+/// вызова, параметры и локальные слоты получают новые слоты вызывающего, <c>Ret</c>
+/// заменяется переходом в конец встроенного фрагмента. Поддерживаются ветвления, циклы
+/// и локальные переменные; async/генераторы, конструкторы, memo и ref-опкоды не
+/// встраиваются.
 /// </summary>
 public static class Inliner
 {
@@ -34,14 +34,13 @@ public static class Inliner
 		var nextLocal = caller.LocalCount;
 		foreach (Instruction instruction in instructions)
 		{
-			offsetMap[instruction.Start] = output.Count;
+			int outputStart = output.Count;
+			offsetMap[instruction.Start] = outputStart;
 			if (instruction.Op == OpCode.Call &&
-				TryInline(module, callerIndex, caller, instruction, ref nextLocal, out List<Instruction> replacement))
+				TryInline(module, callerIndex, caller, instruction, outputStart, ref nextLocal, out List<Instruction> replacement))
 			{
 				foreach (Instruction item in replacement)
 				{
-					if (OpCodeInfo.IsJump(item.Op))
-						jumps.Add((output.Count, item.Operands[0]));
 					output.Add((int)item.Op);
 					output.AddRange(item.Operands);
 				}
@@ -49,7 +48,7 @@ public static class Inliner
 			}
 
 			if (OpCodeInfo.IsJump(instruction.Op))
-				jumps.Add((output.Count, instruction.Operands[0]));
+				jumps.Add((outputStart, instruction.Operands[0]));
 			output.Add((int)instruction.Op);
 			output.AddRange(instruction.Operands);
 		}
@@ -69,6 +68,7 @@ public static class Inliner
 		int callerIndex,
 		FunctionDef caller,
 		Instruction call,
+		int outputStart,
 		ref int nextLocal,
 		out List<Instruction> replacement)
 	{
@@ -86,61 +86,78 @@ public static class Inliner
 			!CanInline(callee, argc))
 			return false;
 
-		int baseSlot = nextLocal;
-		nextLocal += argc;
+		int parameterBase = nextLocal;
+		int localBase = parameterBase + argc;
+		int localCount = System.Math.Max(0, callee.LocalCount - callee.ParamCount);
+		nextLocal = localBase + localCount;
+
 		// Аргументы лежат на стеке в порядке arg0..argN-1; снимаем с конца.
 		for (int argument = argc - 1; argument >= 0; argument--)
-			replacement.Add(new Instruction(0, OpCode.StoreLocal, [baseSlot + argument]));
+			replacement.Add(new Instruction(0, OpCode.StoreLocal, [parameterBase + argument]));
 
 		Instruction[] body = Decode(callee.Code);
-		for (var index = 0; index < body.Length; index++)
+		var newStart = new Dictionary<int, int>(body.Length);
+		var position = outputStart;
+		foreach (Instruction store in replacement)
+			position += 1 + OpCodeInfo.OperandCount(store.Op);
+		foreach (Instruction instruction in body)
 		{
-			Instruction instruction = body[index];
-			if (instruction.Op == OpCode.Ret)
-				break;
+			newStart[instruction.Start] = position;
+			position += 1 + OpCodeInfo.OperandCount(instruction.Op) + (instruction.Op == OpCode.Ret ? 1 : 0);
+		}
+
+		int end = position;
+		foreach (Instruction instruction in body)
+		{
 			int[] operands = instruction.Operands;
-			if (instruction.Op is OpCode.LoadLocal or OpCode.StoreLocal)
-				operands = [baseSlot + instruction.Operands[0]];
+			switch (instruction.Op)
+			{
+				case OpCode.Ret:
+					replacement.Add(new Instruction(0, OpCode.Jmp, [end]));
+					continue;
+				case OpCode.LoadLocal or OpCode.StoreLocal or OpCode.SaveSp or OpCode.RestoreSp:
+					operands = [MapSlot(operands[0], callee, parameterBase, localBase)];
+					break;
+				case OpCode.Jmp or OpCode.JmpIf or OpCode.JmpIfNot:
+					operands = [newStart.GetValueOrDefault(operands[0], end)];
+					break;
+			}
+
 			replacement.Add(new Instruction(0, instruction.Op, operands));
 		}
 
 		return true;
 	}
 
+	private static int MapSlot(int slot, FunctionDef callee, int parameterBase, int localBase) =>
+		slot < callee.ParamCount
+			? parameterBase + slot
+			: localBase + (slot - callee.ParamCount);
+
 	private static bool CanInline(FunctionDef callee, int argc)
 	{
 		if ((callee.Flags & (MemberFlags.Native | MemberFlags.Abstract | MemberFlags.Async |
 			MemberFlags.Generator | MemberFlags.Memo | MemberFlags.Ctor)) != 0)
 			return false;
-		if (callee.ParamCount != argc || callee.LocalCount != callee.ParamCount)
-			return false;
-		if (callee.Code.Length < 2 || (OpCode)callee.Code[^1] != OpCode.Ret)
+		if (callee.ParamCount != argc || callee.Code.Length == 0)
 			return false;
 
-		var returned = false;
 		var offset = 0;
+		var hasReturn = false;
 		while (offset < callee.Code.Length)
 		{
 			var op = (OpCode)callee.Code[offset];
 			int count = OpCodeInfo.OperandCount(op);
 			if (op == OpCode.Ret)
-			{
-				if (offset != callee.Code.Length - 1)
-					return false;
-				returned = true;
-				break;
-			}
-			if (op is OpCode.Jmp or OpCode.JmpIf or OpCode.JmpIfNot or OpCode.Stop or OpCode.Yield
-				or OpCode.TailCall or OpCode.MatchFail or OpCode.SaveSp or OpCode.RestoreSp
+				hasReturn = true;
+			if (op is OpCode.Stop or OpCode.Yield or OpCode.TailCall or OpCode.MatchFail
 				or OpCode.RefLocal or OpCode.RefField or OpCode.RefStatic or OpCode.LoadRef
 				or OpCode.StoreRef)
-				return false;
-			if (op is OpCode.LoadLocal or OpCode.StoreLocal && callee.Code[offset + 1] >= callee.ParamCount)
 				return false;
 			offset += 1 + count;
 		}
 
-		return returned;
+		return hasReturn;
 	}
 
 	private static List<LineEntry> RemapLines(List<LineEntry> lines, Dictionary<int, int> offsetMap)

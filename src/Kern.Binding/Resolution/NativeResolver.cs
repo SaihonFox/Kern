@@ -1,5 +1,6 @@
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using Kern.Binding.Attributes;
 using Kern.Binding.Catalog;
 using Kern.Binding.Marshalling;
@@ -152,6 +153,8 @@ public sealed class NativeResolver : INativeResolver
 	{
 		MethodInfo method = descriptor.Method
 			?? throw new InvalidOperationException($"native '{Kern.Vm.Native.NativeKey.Describe(descriptor.NativeKey)}' не имеет CLR-метода");
+		if (!RuntimeFeature.IsDynamicCodeSupported)
+			return BuildWithoutDynamicCode(descriptor, method);
 		if (method.IsGenericMethodDefinition)
 		{
 			// Реальные аргументы типа приходят через `[KernTypeArgs]`; закрытие `object`
@@ -205,6 +208,59 @@ public sealed class NativeResolver : INativeResolver
 				catch (KernPanic)
 				{
 					throw;
+				}
+				catch (Exception exception)
+				{
+					throw new KernPanic(
+						$"нативный вызов '{Kern.Vm.Native.NativeKey.Describe(descriptor.NativeKey)}' завершился ошибкой: {exception.Message}",
+						exception);
+				}
+			},
+		};
+	}
+
+	private static NativeBinding BuildWithoutDynamicCode(NativeFunctionDescriptor descriptor, MethodInfo method)
+	{
+		if (method.IsGenericMethodDefinition)
+			throw new KernPanic(
+				$"native '{Kern.Vm.Native.NativeKey.Describe(descriptor.NativeKey)}': generic-натив не поддерживается в NativeAOT");
+		ParameterInfo[] parameters = method.GetParameters();
+		return new NativeBinding
+		{
+			ParameterCount = descriptor.SignatureParameterCount,
+			Invoke = (interpreter, arguments, typeArguments) =>
+			{
+				try
+				{
+					var callArguments = new object?[parameters.Length];
+					var argumentIndex = 0;
+					for (var index = 0; index < parameters.Length; index++)
+					{
+						ParameterInfo parameter = parameters[index];
+						if (parameter.ParameterType == typeof(Interpreter))
+							callArguments[index] = interpreter;
+						else if (parameter.GetCustomAttribute<KernTypeArgsAttribute>() is not null)
+							callArguments[index] = typeArguments;
+						else
+							callArguments[index] = KMarshal.To(arguments[argumentIndex++], parameter.ParameterType);
+					}
+
+					object? result = method.Invoke(null, callArguments);
+					if (method.ReturnType == typeof(void))
+						return KValue.Void;
+					if (result is KTask task)
+						return KMarshal.FromKTask(task);
+					return KMarshal.FromReturn(result);
+				}
+				catch (KernPanic)
+				{
+					throw;
+				}
+				catch (TargetInvocationException exception) when (exception.InnerException is not null)
+				{
+					throw new KernPanic(
+						$"нативный вызов '{Kern.Vm.Native.NativeKey.Describe(descriptor.NativeKey)}' завершился ошибкой: {exception.InnerException.Message}",
+						exception.InnerException);
 				}
 				catch (Exception exception)
 				{

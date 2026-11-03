@@ -134,11 +134,12 @@ Accept: new syntax has parser/binder/codegen tests; tail recursion runs a deep l
 
 Done: `.kbc` v3 (LEB128+Brotli, v2 readable), project kinds (`new` aliases, library `.kbc`
 with stubs), comparison chains, `#[if]`/`#[allow]`/`#[memo]`, related diagnostics,
-`--deny-warnings`, `run --profile`, `explain-type`, `build --native` (self-contained
-single-file host with embedded bytecode), `kern.security`/`kern.text`/`kern.parse`/`kern.num`
+`--deny-warnings`, `run --profile`, `explain-type`, `build --native` (NativeAOT with a
+single-file fallback), `kern.security`/`kern.text`/`kern.parse`/`kern.num`
 (partial). Capabilities `#[needs]`/`--allow`/`--deny` implemented 2026-11-03; self-hosted
-lexer started in `bootstrap/`. Docs: `BOOTSTRAP.md`, `IN_REF_OUT.md`, `DEBUGGER.md`. Open
-decision: full C# generics — see `DECISIONS_NEEDED.md`. Suite **619/619**, style clean.
+lexer started in `bootstrap/`. Docs: `BOOTSTRAP.md`, `IN_REF_OUT.md`, `DEBUGGER.md`,
+`CAPABILITIES.md`. Open
+decision: full C# generics — see `DECISIONS_NEEDED.md`. Suite **624/624**, style clean.
 
 ## Owner batch 2026-10-27 — language polish (stage 1)
 Recorded in `DECISIONS_NEEDED.md` ("Decided — owner additions"). Ordered by dependency; every slice updates `docs/spec/kern.en.md` + `CHANGELOG_LANG.md` and lands with tests. Two slices may run in parallel only if they do not touch the same lexer/parser/binder files.

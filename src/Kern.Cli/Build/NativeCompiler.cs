@@ -27,7 +27,10 @@ internal static class NativeCompiler
 		{
 			string location = output ??
 				Path.Combine(Path.GetDirectoryName(Path.GetFullPath(source))!, "dist", "native");
-			return Publish(temporary, name, location, options, stderr);
+			bool aot = AotCompatible(compiled.Program!, target: null, options, out string? aotReason);
+			if (!aot && aotReason is not null)
+				stderr.WriteLine($"native: {aotReason}; используется single-file host");
+			return Publish(temporary, name, location, options, stderr, aot);
 		}
 		finally
 		{
@@ -73,7 +76,10 @@ internal static class NativeCompiler
 			throw new BuildException($"цель '{target.Name}' не скомпилировалась");
 		try
 		{
-			return Publish(temporary, target.Name, Path.GetFullPath(directory), options, stderr);
+			bool aot = AotCompatible(result.Compile.Program!, target, options, out string? aotReason);
+			if (!aot && aotReason is not null)
+				stderr.WriteLine($"native: {aotReason}; используется single-file host");
+			return Publish(temporary, target.Name, Path.GetFullPath(directory), options, stderr, aot);
 		}
 		finally
 		{
@@ -92,7 +98,8 @@ internal static class NativeCompiler
 		string programName,
 		string? output,
 		CliOptions options,
-		TextWriter stderr)
+		TextWriter stderr,
+		bool aot)
 	{
 		string project = FindProject()
 			?? throw new BuildException(
@@ -116,9 +123,20 @@ internal static class NativeCompiler
 		start.ArgumentList.Add(rid);
 		start.ArgumentList.Add("--self-contained");
 		start.ArgumentList.Add("true");
-		start.ArgumentList.Add("-p:PublishSingleFile=true");
 		start.ArgumentList.Add("-p:PublishTrimmed=true");
-		start.ArgumentList.Add("-p:IncludeNativeLibrariesForSelfExtract=true");
+		if (aot)
+		{
+			start.ArgumentList.Add("-p:PublishAot=true");
+			start.ArgumentList.Add("-p:TrimMode=full");
+			start.ArgumentList.Add("-p:DebugType=None");
+			start.ArgumentList.Add("-p:DebugSymbols=false");
+			start.ArgumentList.Add("-p:StripSymbols=true");
+		}
+		else
+		{
+			start.ArgumentList.Add("-p:PublishSingleFile=true");
+			start.ArgumentList.Add("-p:IncludeNativeLibrariesForSelfExtract=true");
+		}
 		start.ArgumentList.Add($"-p:KernEmbedProgram={bytecode}");
 		start.ArgumentList.Add("-o");
 		start.ArgumentList.Add(directory);
@@ -130,6 +148,12 @@ internal static class NativeCompiler
 		process.WaitForExit();
 		if (process.ExitCode != 0)
 		{
+			if (aot)
+			{
+				stderr.WriteLine("native: NativeAOT не удался, используем single-file host");
+				return Publish(bytecode, programName, output, options, stderr, aot: false);
+			}
+
 			stderr.WriteLine(stdout);
 			stderr.WriteLine(errorText);
 			throw new BuildException($"dotnet publish завершился с кодом {process.ExitCode}");
@@ -142,10 +166,96 @@ internal static class NativeCompiler
 		if (!string.Equals(published, host, StringComparison.Ordinal))
 		{
 			File.Move(published, host, overwrite: true);
+		}
+
+		if (aot)
+		{
+			foreach (string file in Directory.EnumerateFiles(directory))
+				if (!string.Equals(file, host, StringComparison.Ordinal))
+					File.Delete(file);
+			foreach (string sidecarDirectory in Directory.EnumerateDirectories(directory))
+				Directory.Delete(sidecarDirectory, recursive: true);
+		}
+		else
+		{
 			foreach (string sidecar in Directory.EnumerateFiles(directory, "*.pdb"))
 				File.Delete(sidecar);
 		}
 		return host;
+	}
+
+	/// <summary>
+	/// Можно ли использовать NativeAOT: только текущий RID, без внешних DLL, без
+	/// `use dotnet` и generic-нативов (NativeAOT не умеет MakeGenericMethod).
+	/// </summary>
+	internal static bool AotCompatible(CompiledProgram program, TargetModel? target, CliOptions options, out string? reason)
+	{
+		ArgumentNullException.ThrowIfNull(program);
+		reason = null;
+		if (options.TargetRid is { Length: > 0 } rid &&
+			!string.Equals(rid, CurrentRid(), StringComparison.OrdinalIgnoreCase))
+		{
+			reason = $"NativeAOT доступен только для текущей платформы ({CurrentRid()})";
+			return false;
+		}
+		if (target is { Libs.Count: > 0 } || target is { LibPaths.Count: > 0 })
+		{
+			reason = "NativeAOT не поддерживает внешние Kern.Lib.* DLL";
+			return false;
+		}
+
+		var descriptors = new Dictionary<string, Kern.Binding.Catalog.NativeFunctionDescriptor>(StringComparer.Ordinal);
+		foreach (Kern.Binding.Catalog.NativeFunctionDescriptor descriptor in program.Catalog.Functions)
+			if (descriptor.NativeKey is not null)
+				descriptors[descriptor.NativeKey] = descriptor;
+
+		foreach (int index in UsedNativeFunctions(program.Module))
+		{
+			FunctionDef function = program.Module.FunctionPool[index];
+			if (function.NativeKey is not { } key)
+				continue;
+			if (key.StartsWith("dotnet:", StringComparison.Ordinal))
+			{
+				reason = "NativeAOT не поддерживает use dotnet (динамическая рефлексия BCL)";
+				return false;
+			}
+			if (key.StartsWith("kern.reflection", StringComparison.Ordinal) ||
+				key.StartsWith("type|", StringComparison.Ordinal))
+			{
+				reason = "NativeAOT не поддерживает kern.reflection/type";
+				return false;
+			}
+			if (descriptors.TryGetValue(key, out var descriptor) &&
+				descriptor.Method?.IsGenericMethodDefinition == true)
+			{
+				reason = $"NativeAOT не поддерживает generic-натив '{Kern.Vm.Native.NativeKey.Describe(key)}'";
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	/// <summary>Индексы нативных функций, реально вызываемых из кода модуля.</summary>
+	private static IEnumerable<int> UsedNativeFunctions(KbcModule module)
+	{
+		var used = new HashSet<int>();
+		foreach (FunctionDef function in module.FunctionPool)
+		{
+			if ((function.Flags & MemberFlags.Native) != 0 || function.Code.Length == 0)
+				continue;
+			var offset = 0;
+			while (offset < function.Code.Length)
+			{
+				var op = (OpCode)function.Code[offset];
+				int count = OpCodeInfo.OperandCount(op);
+				if (op is OpCode.Call or OpCode.CallVirtual or OpCode.CallBase or OpCode.TailCall)
+					used.Add(function.Code[offset + 1]);
+				offset += 1 + count;
+			}
+		}
+
+		return used;
 	}
 
 	/// <summary>RID текущей платформы (без вызова `dotnet --info`).</summary>

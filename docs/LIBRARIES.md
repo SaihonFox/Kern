@@ -35,11 +35,14 @@
   `secret` не сериализуется автоматически — раскрытие только через `reveal()`.
 - **`kern.text`** (расширения): `levenshtein`, `fuzzy_contains`, `transliterate`, `slug`,
   `normalize(text, "NFC"|"NFD"|"NFKC"|"NFKD")`, `graphemes`, `escape_html`, `markdown_to_html`,
-  `template_render(template, dict<str,str>)` с `{{key}}`, `to_utf8`/`from_utf8`.
+  `template_render(template, dict)` с `{{key}}`, `{{#if key}}…{{else}}…{{/if}}`,
+  `{{#each items}}…{{/each}}` (`{{this}}`, `{{@index}}`, `{{else}}` для пустой коллекции) и
+  `{{& key}}` без HTML-экранирования; `template_render_with(template, values, partials)` добавляет
+  `{{> partial}}`. Значения по умолчанию экранируются как HTML. `to_utf8`/`from_utf8`.
   Эффективная сборка строк — тип `string_builder`: `string_builder([capacity])`, `append(...)`,
   `append_line(...)`, `len`, `is_empty`, `clear()`, `to_str()`.
-  *Ограничения:* шаблонизатор без циклов/условий/partials; Markdown — подмножество без таблиц
-  и вложенных списков.
+  *Ограничения:* Markdown — подмножество без таблиц и вложенных списков; шаблонизатор не
+  вычисляет выражения в тегах (только имена полей, `this` и `@index`).
 - **`kern.parse`**: `parse_ident`, `parse_integer`, `parse_number`, `parse_quoted`,
   `is_ident`, `parse_error(text, offset)` (строка:колонка + подчёркивание).
   *Ограничения:* комбинаторы (`~>`, `many`, `sep_by`, PEG) ещё не реализованы.

@@ -19,4 +19,5 @@
 | `DISTRIBUTION.md` | Portable `kernc` + `libs/` + examples package |
 | `BOOTSTRAP.md` | What is missing for self-hosting Kern (audit + slices) |
 | `IN_REF_OUT.md` | `in`/`ref`/`out` idioms without new keywords |
+| `CAPABILITIES.md` | `#[needs]` + `--allow/--deny`: purpose, levels, limits |
 | `history/` | Old implementation notes |

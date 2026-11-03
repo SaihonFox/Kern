@@ -118,37 +118,8 @@ public static partial class TextModule
 	/// </summary>
 	[KernName("template_render")]
 	[KernMember]
-	public static string TemplateRender(string template, KValue values)
-	{
-		KDict? dict = values.Ref as KDict;
-		if (dict is null)
-			throw new KernPanic($"text.template_render: ожидался dict<str, str>, получено {values.TypeName}");
-		var builder = new StringBuilder(template.Length);
-		int position = 0;
-		while (position < template.Length)
-		{
-			int open = template.IndexOf("{{", position, StringComparison.Ordinal);
-			if (open < 0)
-			{
-				builder.Append(template, position, template.Length - position);
-				break;
-			}
-			builder.Append(template, position, open - position);
-			int close = template.IndexOf("}}", open + 2, StringComparison.Ordinal);
-			if (close < 0)
-			{
-				builder.Append(template, open, template.Length - open);
-				break;
-			}
-			string key = template[(open + 2)..close].Trim();
-			if (dict.TryGet(KValue.Str(key), out KValue value) && value.Kind == ValueKind.Str)
-				builder.Append(EscapeHtml(value.AsStr));
-			else
-				builder.Append(template, open, close - open + 2);
-			position = close + 2;
-		}
-		return builder.ToString();
-	}
+	public static string TemplateRender(string template, KValue values) =>
+		new TemplateRenderer(values, KValue.Nil).Render(template);
 
 	/// <summary><c>text.to_utf8(text)</c>: UTF-8 байты строки.</summary>
 	[KernName("to_utf8")]
