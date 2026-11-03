@@ -20,6 +20,10 @@
   `len`/индексы остаются UTF-16 (spec), `normalize` — no-op при `InvariantGlobalization=true`.
   Тесты `StringGraphemeTests` (3).
 - Обновлены spec §5/§7, `CHANGELOG_LANG.md`, `DECISIONS_NEEDED.md`.
+- Не входит в этот батч (крупные срезы, см. `DECISIONS_NEEDED.md`): полный
+  `use dotnet.X[...]` с экземплярными членами/конструкторами, настоящие native generics,
+  автоподключение `Kern.Std` и перенос чистых библиотек на Kern; вложенная
+  деструктуризация кортежей в объявлениях.
 
 ### Батч 2026-11-03 (owner request): capabilities — только `--deny`
 
