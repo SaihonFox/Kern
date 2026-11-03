@@ -16,14 +16,16 @@
   `kern-package.sig` (RSA PKCS#1 SHA-256 по байтам манифеста; ключ из
   `KERN_PACKAGE_PUBLIC_KEY`/`KERN_PACKAGE_KEY_FILE`). Имя должно совпадать с `t.pkg`,
   пакеты без манифеста совместимы. Тест `PackageFetchTests` (+1); `docs/BUILDER.md` §8.
+- `use dotnet`: обычные классы теперь импортируют конструкторы и экземплярные
+  методы/свойства (`SelfClrType`, приёмник `arguments[0]`, `Expression.New`/AOT `Invoke`).
+  Тесты `DotnetInteropTests` (+2); spec §12.10, `KNOWN_ISSUES.md` обновлены.
 - `str`: графемные члены `graphemes()`, `grapheme_len`, `grapheme_at(i)` и `normalize(form)`;
   `len`/индексы остаются UTF-16 (spec), `normalize` — no-op при `InvariantGlobalization=true`.
   Тесты `StringGraphemeTests` (3).
-- Обновлены spec §5/§7, `CHANGELOG_LANG.md`, `DECISIONS_NEEDED.md`.
-- Не входит в этот батч (крупные срезы, см. `DECISIONS_NEEDED.md`): полный
-  `use dotnet.X[...]` с экземплярными членами/конструкторами, настоящие native generics,
-  автоподключение `Kern.Std` и перенос чистых библиотек на Kern; вложенная
-  деструктуризация кортежей в объявлениях.
+- Обновлены spec §5/§7/§12.10, `CHANGELOG_LANG.md`, `DECISIONS_NEEDED.md`.
+- Не входит в этот батч (крупные срезы, см. `DECISIONS_NEEDED.md`): настоящие native
+  generics (variant 2/3), автоподключение `Kern.Std` и перенос чистых библиотек на Kern;
+  вложенная деструктуризация кортежей в объявлениях.
 
 ### Батч 2026-11-03 (owner request): capabilities — только `--deny`
 

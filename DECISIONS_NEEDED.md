@@ -5,10 +5,10 @@
 Закрыты: модульные атрибуты, `op []=`, манифест+подпись пакета, графемные члены `str`.
 Следующие пункты требуют отдельного архитектурного среза, а не точечной правки:
 
-1. **`use dotnet.X[...]` — экземплярные члены и конструкторы.** Сейчас импортируются только
-   статические методы/свойства. Для instance-членов нужны `SelfClrType`/`IsStatic=false` в
-   дескрипторе, приёмник как `arguments[0]` в `NativeResolver` (expression и AOT-путь),
-   `ConstructorInfo` в каталоге и `Expression.New`; плюс поиск в `TryBuildDotnet`. Оценка: M/L.
+1. **`use dotnet.X[...]` — сделано (2026-11-03).** Статические члены, конструкторы и
+   экземплярные методы/свойства обычных классов: `SelfClrType`, приёмник как `arguments[0]`,
+   `ConstructorInfo`/`Expression.New`, AOT-путь через `MethodInfo.Invoke`. Ограничения:
+   открытые generic-типы BCL и члены с не импортированными типами пропускаются.
 2. **Native generics.** Вариант 2 (reified `KType[]` в `KNativeBox`/каталоге) затрагивает
    `NativeResolver`, `NativeSymbolBuilder`, `.kbc` и AOT; вариант 3 (`MakeGenericType`) — XL.
    Текущий вариант 1 (стирание + подстановка binder'ом) выбран и работает. Нужен approval.

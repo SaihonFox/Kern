@@ -52,16 +52,10 @@ public sealed class NativeResolver : INativeResolver
 		ArgumentNullException.ThrowIfNull(catalog);
 		foreach (NativeFunctionDescriptor descriptor in catalog.Functions)
 		{
-			if (descriptor.Method is null)
+			if (descriptor.Method is null && descriptor.Constructor is null)
 				continue;
 			// Generic-метод закрывается в Build (реальные аргументы приходят через
 			// `[KernTypeArgs]`), поэтому здесь он допустим.
-
-			if (!descriptor.Method.IsStatic)
-			{
-				_diagnostics.Add($"native '{Kern.Vm.Native.NativeKey.Describe(descriptor.NativeKey)}': экземплярные члены пока не поддержаны");
-				continue;
-			}
 
 			if (!_descriptors.TryAdd(descriptor.NativeKey, descriptor))
 				_diagnostics.Add($"native '{Kern.Vm.Native.NativeKey.Describe(descriptor.NativeKey)}': ключ встречается несколько раз");
@@ -127,17 +121,42 @@ public sealed class NativeResolver : INativeResolver
 		if (type is null)
 			return false;
 
-		foreach (MethodInfo method in type.GetMethods(BindingFlags.Public | BindingFlags.Static))
+		if (kind == NativeMemberKind.Constructor)
 		{
-			if (method.IsGenericMethodDefinition)
+			foreach (ConstructorInfo constructor in type.GetConstructors(BindingFlags.Public | BindingFlags.Instance))
+			{
+				if (constructor.GetParameters().Length != expected)
+					continue;
+				if (!DotnetCatalog.TryBuildConstructor(constructor, type, type.Name,
+					out NativeFunctionDescriptor? candidate))
+					continue;
+				if (candidate!.NativeKey != key)
+					continue;
+				descriptor = candidate;
+				return true;
+			}
+			return false;
+		}
+
+		foreach (MethodInfo method in type.GetMethods(BindingFlags.Public | BindingFlags.Static | BindingFlags.Instance))
+		{
+			if (method.IsGenericMethodDefinition || method.DeclaringType == typeof(object))
 				continue;
 			if (kind == NativeMemberKind.PropertyGet && !method.Name.StartsWith("get_", StringComparison.Ordinal))
 				continue;
+			if (kind == NativeMemberKind.PropertySet && !method.Name.StartsWith("set_", StringComparison.Ordinal))
+				continue;
 			if (kind == NativeMemberKind.Method && method.IsSpecialName)
 				continue;
-			if (method.GetParameters().Length != expected)
+			int parameterCount = method.GetParameters().Length;
+			if (parameterCount != expected && !(method.IsStatic == false && parameterCount + 1 == expected))
 				continue;
-			if (!DotnetCatalog.TryBuild(method, type, type.Name, kind, out NativeFunctionDescriptor? candidate))
+
+			NativeFunctionDescriptor? candidate;
+			bool built = method.IsStatic
+				? DotnetCatalog.TryBuild(method, type, type.Name, kind, out candidate)
+				: DotnetCatalog.TryBuildInstance(method, type, type.Name, kind, out candidate);
+			if (!built)
 				continue;
 			if (candidate!.Name != name && !method.Name.Equals(name, StringComparison.Ordinal))
 				continue;
@@ -151,25 +170,42 @@ public sealed class NativeResolver : INativeResolver
 
 	private static NativeBinding Build(NativeFunctionDescriptor descriptor)
 	{
-		MethodInfo method = descriptor.Method
-			?? throw new InvalidOperationException($"native '{Kern.Vm.Native.NativeKey.Describe(descriptor.NativeKey)}' не имеет CLR-метода");
 		if (!RuntimeFeature.IsDynamicCodeSupported)
-			return BuildWithoutDynamicCode(descriptor, method);
-		if (method.IsGenericMethodDefinition)
+			return BuildWithoutDynamicCode(descriptor);
+
+		ConstructorInfo? constructor = descriptor.Constructor;
+		MethodInfo? method = descriptor.Method;
+		if (constructor is null && method is null)
+			throw new InvalidOperationException(
+				$"native '{Kern.Vm.Native.NativeKey.Describe(descriptor.NativeKey)}' не имеет CLR-метода");
+
+		if (method is { IsGenericMethodDefinition: true })
 		{
 			// Реальные аргументы типа приходят через `[KernTypeArgs]`; закрытие `object`
 			// нужно только чтобы построить вызываемый delegate (сам T в теле не используется).
 			method = method.MakeGenericMethod([.. method.GetGenericArguments().Select(_ => typeof(object))]);
 		}
 
-		ParameterInfo[] parameters = method.GetParameters();
+		ParameterInfo[] parameters = constructor is not null ? constructor.GetParameters() : method!.GetParameters();
+		Type? selfType = constructor is null && !method!.IsStatic
+			? descriptor.SelfClrType ?? method.DeclaringType
+			: null;
 
 		ParameterExpression interpreter = Expression.Parameter(typeof(Interpreter), "interpreter");
 		ParameterExpression arguments = Expression.Parameter(typeof(KValue[]), "arguments");
 		ParameterExpression typeArguments = Expression.Parameter(typeof(KType[]), "typeArguments");
 
-		var callArguments = new List<Expression>(parameters.Length);
+		Expression? receiver = null;
 		var argumentIndex = 0;
+		if (selfType is not null)
+		{
+			receiver = Expression.Call(
+				ToMethod.MakeGenericMethod(selfType),
+				Expression.ArrayIndex(arguments, Expression.Constant(0)));
+			argumentIndex = 1;
+		}
+
+		var callArguments = new List<Expression>(parameters.Length);
 		foreach (ParameterInfo parameter in parameters)
 		{
 			if (parameter.ParameterType == typeof(Interpreter))
@@ -192,8 +228,13 @@ public sealed class NativeResolver : INativeResolver
 			throw new InvalidOperationException(
 				$"native '{Kern.Vm.Native.NativeKey.Describe(descriptor.NativeKey)}': ожидалось {descriptor.SignatureParameterCount} аргументов, метод принимает {argumentIndex}");
 
-		Expression call = Expression.Call(method, callArguments);
-		Expression body = ConvertReturn(call, method.ReturnType, interpreter);
+		Expression call = constructor is not null
+			? Expression.New(constructor, callArguments)
+			: receiver is null
+				? Expression.Call(method!, callArguments)
+				: Expression.Call(receiver, method!, callArguments);
+		Type returnType = constructor is not null ? constructor.DeclaringType! : method!.ReturnType;
+		Expression body = ConvertReturn(call, returnType, interpreter);
 		var compiled = Expression.Lambda<NativeInvoke>(body, interpreter, arguments, typeArguments).Compile();
 
 		return new NativeBinding
@@ -219,12 +260,23 @@ public sealed class NativeResolver : INativeResolver
 		};
 	}
 
-	private static NativeBinding BuildWithoutDynamicCode(NativeFunctionDescriptor descriptor, MethodInfo method)
+	private static NativeBinding BuildWithoutDynamicCode(NativeFunctionDescriptor descriptor)
 	{
-		if (method.IsGenericMethodDefinition)
+		ConstructorInfo? constructor = descriptor.Constructor;
+		MethodInfo? method = descriptor.Method;
+		if (constructor is null && method is null)
+			throw new KernPanic(
+				$"native '{Kern.Vm.Native.NativeKey.Describe(descriptor.NativeKey)}': нет CLR-члена");
+		if (method is { IsGenericMethodDefinition: true })
 			throw new KernPanic(
 				$"native '{Kern.Vm.Native.NativeKey.Describe(descriptor.NativeKey)}': generic-натив не поддерживается в NativeAOT");
-		ParameterInfo[] parameters = method.GetParameters();
+
+		ParameterInfo[] parameters = constructor is not null ? constructor.GetParameters() : method!.GetParameters();
+		Type? selfType = constructor is null && !method!.IsStatic
+			? descriptor.SelfClrType ?? method.DeclaringType
+			: null;
+		Type returnType = constructor is not null ? constructor.DeclaringType! : method!.ReturnType;
+
 		return new NativeBinding
 		{
 			ParameterCount = descriptor.SignatureParameterCount,
@@ -232,8 +284,12 @@ public sealed class NativeResolver : INativeResolver
 			{
 				try
 				{
-					var callArguments = new object?[parameters.Length];
 					var argumentIndex = 0;
+					object? target = null;
+					if (selfType is not null)
+						target = KMarshal.To(arguments[argumentIndex++], selfType);
+
+					var callArguments = new object?[parameters.Length];
 					for (var index = 0; index < parameters.Length; index++)
 					{
 						ParameterInfo parameter = parameters[index];
@@ -245,8 +301,10 @@ public sealed class NativeResolver : INativeResolver
 							callArguments[index] = KMarshal.To(arguments[argumentIndex++], parameter.ParameterType);
 					}
 
-					object? result = method.Invoke(null, callArguments);
-					if (method.ReturnType == typeof(void))
+					object? result = constructor is not null
+						? constructor.Invoke(callArguments)
+						: method!.Invoke(target, callArguments);
+					if (returnType == typeof(void))
 						return KValue.Void;
 					if (result is KTask task)
 						return KMarshal.FromKTask(task);

@@ -57,7 +57,13 @@ public sealed class NativeFunctionDescriptor
 
 	public MethodInfo? Method { get; init; }
 
-	public bool IsBound => Method is not null;
+	/// <summary>Конструктор CLR для <c>use dotnet</c> (тогда <see cref="Method"/> null).</summary>
+	public ConstructorInfo? Constructor { get; init; }
+
+	/// <summary>CLR-тип приёмника для экземплярного члена <c>use dotnet</c>.</summary>
+	public Type? SelfClrType { get; init; }
+
+	public bool IsBound => Method is not null || Constructor is not null;
 
 	/// <summary>Число аргументов, которое VM передаёт в делегат (self + параметры).</summary>
 	public int SignatureParameterCount => (SelfType is null ? 0 : 1) + Parameters.Count;

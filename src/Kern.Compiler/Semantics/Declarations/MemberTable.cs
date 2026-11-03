@@ -59,7 +59,17 @@ public sealed class MemberTable
 
 	public IReadOnlyDictionary<string, IReadOnlyList<FunctionSymbol>> Functions => _mergedFunctions ??= MergeFunctions();
 
-	/// <summary>Поля с учётом унаследованных; статические члены родителя не наследуются.</summary>
+	/// <summary>Тот же тип, но с дополнительными конструкторами (нативные <c>use dotnet</c>).</summary>
+	public MemberTable WithConstructors(IReadOnlyList<FunctionSymbol> constructors) =>
+		new(
+			new Dictionary<string, IReadOnlyList<FunctionSymbol>>(_functions, StringComparer.Ordinal),
+			_fields,
+			_properties,
+			constructors,
+			Operators,
+			ParentSelections,
+			ParentFieldSelections,
+			StaticInitializer);	/// <summary>Поля с учётом унаследованных; статические члены родителя не наследуются.</summary>
 	public IReadOnlyList<FieldSymbol> Fields => _mergedFields ??= MergeFields();
 
 	/// <summary>Собственные функции объявления без унаследованных и выбранных членов.</summary>

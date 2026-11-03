@@ -35,12 +35,6 @@ public static class NativeSymbolBuilder
 		var natives = new List<FunctionSymbol>();
 		foreach (NativeFunctionDescriptor descriptor in catalog.Functions)
 		{
-			if (descriptor.Method is not null && !descriptor.Method.IsStatic)
-			{
-				problems.Add($"native '{Kern.Vm.Native.NativeKey.Describe(descriptor.NativeKey)}': экземплярные члены пока не поддержаны");
-				continue;
-			}
-
 			if (!TryBuild(types, descriptor, out FunctionSymbol? symbol, out string? error))
 			{
 				problems.Add($"native '{Kern.Vm.Native.NativeKey.Describe(descriptor.NativeKey)}': {error}");
@@ -208,6 +202,28 @@ public static class NativeSymbolBuilder
 
 	private static IReadOnlyList<string> DefaultGenericNames(int arity) =>
 		arity == 1 ? ["T"] : [.. Enumerable.Range(1, arity).Select(index => $"T{index}")];
+
+	private static void AttachConstructors(
+		Dictionary<string, TypeSymbol> types,
+		IReadOnlyList<FunctionSymbol> natives,
+		List<string> problems)
+	{
+		foreach (var group in natives
+			.Where(function => function.Kind == FunctionKind.Constructor &&
+				function.NativeSelfType is null && function.ReturnType is ClassType)
+			.GroupBy(function => ((ClassType)function.ReturnType!).Symbol.Name, StringComparer.Ordinal))
+		{
+			if (!types.TryGetValue(group.Key, out TypeSymbol? symbol) || symbol.Kind != SymbolKind.Native)
+			{
+				problems.Add($"нативный конструктор: тип '{group.Key}' не зарегистрирован");
+				continue;
+			}
+
+			var constructors = new List<FunctionSymbol>(symbol.Members.Constructors);
+			constructors.AddRange(group);
+			symbol.Members = symbol.Members.WithConstructors(constructors);
+		}
+	}
 
 	/// <summary>
 	/// Статические нативные члены (<c>[KernStatic]</c>) раскладываются в

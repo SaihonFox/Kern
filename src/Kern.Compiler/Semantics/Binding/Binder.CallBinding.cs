@@ -408,7 +408,7 @@ public sealed partial class Binder
 			: explicitTypes ?? InferConstructorTypeArguments(type, callArguments);
 		var instanceType = Instantiate(type, constructedArguments);
 
-		var call = new CallArguments(callArguments, instanceType, explicitTypes, span, type.Name);
+		var call = new CallArguments(callArguments, null, explicitTypes, span, type.Name);
 
 		// Проверяем вызов по конструкторам с подставленными выведенными аргументами,
 		// а в bound-узел кладём исходный символ (у него есть байткод).

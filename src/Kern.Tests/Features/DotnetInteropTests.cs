@@ -1,6 +1,7 @@
 using Kern.Binding.Catalog;
 using Kern.Cli;
 using Kern.Tests.Features.Support;
+using Kern.Vm.Native;
 using Xunit;
 
 namespace Kern.Tests.Features;
@@ -57,6 +58,62 @@ public sealed class DotnetInteropTests
 			Assert.Equal(0, code);
 			Assert.Equal(string.Empty, error.ToString());
 			Assert.Equal("ok\nb\n3\n", output.ToString().Replace("\r\n", "\n"));
+		}
+		finally
+		{
+			Directory.Delete(directory, recursive: true);
+		}
+	}
+
+	[Fact]
+	public void Import_includes_instance_members_and_constructors()
+	{
+		Type? builder = DotnetCatalog.FindType("System.Text.StringBuilder");
+		Assert.NotNull(builder);
+		NativeCatalog catalog = DotnetCatalog.Import(StdPipeline.Catalog(), [builder!]);
+		Assert.Contains(catalog.Types, type => type.Name == "StringBuilder");
+		Assert.Contains(catalog.Functions, function =>
+			function.Name == "append" && function.SelfType == "StringBuilder");
+		Assert.Contains(catalog.Functions, function =>
+			function.Kind == NativeMemberKind.Constructor && function.Owner == "StringBuilder");
+	}
+
+	[Fact]
+	public void Kernel_program_can_use_dotnet_instance_members_and_constructors()
+	{
+		string directory = Path.Combine(Path.GetTempPath(), $"kern-dotnet-{Guid.NewGuid():N}");
+		Directory.CreateDirectory(directory);
+		string file = Path.Combine(directory, "main.kern");
+		System.IO.File.WriteAllText(file, """
+			use dotnet.System.Text[StringBuilder]
+
+			fun main {
+				StringBuilder b = StringBuilder()
+				b.append("a")
+				b.append("b")
+				println(b.to_string())
+				println(b.length)
+			}
+			""", new System.Text.UTF8Encoding(false));
+		try
+		{
+			var output = new StringWriter();
+			var error = new StringWriter();
+			TextWriter previous = Console.Out;
+			Console.SetOut(output);
+			int code;
+			try
+			{
+				code = KernCli.Run(["run", file], output, error);
+			}
+			finally
+			{
+				Console.SetOut(previous);
+			}
+
+			Assert.Equal(0, code);
+			Assert.Equal(string.Empty, error.ToString());
+			Assert.Equal("ab\n2\n", output.ToString().Replace("\r\n", "\n"));
 		}
 		finally
 		{
