@@ -355,10 +355,14 @@ public sealed partial class Binder
 
 	private BoundExpression BindComparison(string symbol, BoundExpression left, BoundExpression right, TextSpan span)
 	{
-		// spec §3: `===`/`!==` сравнивают только ссылки значений `type`.
+		// spec §3/§9: `===`/`!==` сравнивают ссылки значений `type`, `unit` и функций.
 		if (symbol is "===" or "!==")
 		{
 			if (left.Type is ClassType && right.Type is ClassType)
+				return new BoundBinaryExpression(left, symbol, right, PrimitiveType.Bool, span);
+			if (left.Type is UnitType && right.Type is UnitType && left.Type.Equals(right.Type))
+				return new BoundBinaryExpression(left, symbol, right, PrimitiveType.Bool, span);
+			if (left.Type is FunctionType && right.Type is FunctionType && left.Type.Equals(right.Type))
 				return new BoundBinaryExpression(left, symbol, right, PrimitiveType.Bool, span);
 			return Incompatible(symbol, left, right, span);
 		}

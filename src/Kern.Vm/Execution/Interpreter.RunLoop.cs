@@ -153,6 +153,14 @@ public sealed partial class Interpreter
 					case OpCode.Not:
 						stack.Push(KValueMath.Not(stack.Pop()));
 						break;
+					case OpCode.RefEq or OpCode.RefNe:
+						{
+							KValue right = stack.Pop();
+							KValue left = stack.Pop();
+							bool same = KValueMath.SameReference(left, right);
+							stack.Push(KValue.Bool(op == OpCode.RefEq ? same : !same));
+							break;
+						}
 					case OpCode.And or OpCode.Or:
 						{
 							KValue right = stack.Pop();

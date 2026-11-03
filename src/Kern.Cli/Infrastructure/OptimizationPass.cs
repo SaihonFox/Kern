@@ -1,5 +1,6 @@
 using System.Reflection;
 using Kern.Bytecode;
+using Kern.Compiler.Optimization;
 
 namespace Kern.Cli.Infrastructure;
 
@@ -25,10 +26,14 @@ internal static class OptimizationPass
 
 		if (!TryApply(ConstantFolderType, "Fold", ref module, ref note))
 			note = "оптимизация -O1: проход ConstantFolder ещё не подключён в компиляторе";
-		if (level < 2)
-			return module;
+		if (level >= 2)
+		{
+			module = Inliner.Inline(module);
+			TryApply(PeepholeType, "Optimize", ref module, ref note);
+			module = DeadFunctionEliminator.Eliminate(module);
+		}
 
-		TryApply(PeepholeType, "Optimize", ref module, ref note);
+		StackAnalyzer.Compute(module);
 		return module;
 	}
 

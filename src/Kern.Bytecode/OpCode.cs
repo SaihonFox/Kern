@@ -198,6 +198,10 @@ public enum OpCode
 	RefLocal,         // слот: локальный слот -> ячейка на текущий кадр
 	RefField,         // слот поля: [объект] -> ячейка на поле объекта
 	RefStatic,        // индекс поля: -> ячейка на статическое поле модуля
+
+	// --- identity-сравнение `===`/`!==` (spec §3/§9) ---
+	RefEq,            // [a, b] -> bool: ссылки на один объект (для unit/type/функций)
+	RefNe,            // [a, b] -> bool: ссылки на разные объекты
 }
 
 /// <summary>Раскладка операндов и вспомогательные проверки для <see cref="OpCode"/>.</summary>
@@ -228,7 +232,7 @@ public static class OpCodeInfo
 	public static bool IsJump(OpCode op) => op is OpCode.Jmp or OpCode.JmpIf or OpCode.JmpIfNot;
 
 	/// <summary>Известен ли номер опкода (защита от мусора в .kbc).</summary>
-	public static bool IsDefined(int value) => value >= 0 && value <= (int)OpCode.RefStatic;
+	public static bool IsDefined(int value) => value >= 0 && value <= (int)OpCode.RefNe;
 
 	public static bool IsDefined(OpCode op) => IsDefined((int)op);
 }

@@ -40,8 +40,8 @@
 
 - `kern.ui` (Avalonia, `libs/Kern.Lib.Ui` отсутствует; `examples/19_gui` не запускается).
 
-- Инструменты: `kernc wasm` (нужен WASI-хост/бэкенд, `DECISIONS_NEEDED.md`); package fetching (M13); архитектурные примеры; отладчик. `kernc new`, `kernc doc` (doctest) и `kernc run --watch` реализованы 2026-11-02.
-- Языковые ограничения: `use dotnet.X[...]`, `in/ref/out`, identity для `unit`, запись через пользовательский `op []`, шаг срезов, `op in`, async-генераторы.
+- Инструменты: `kernc wasm` (решено: WASI P2 через NetWasm, не реализовано); package fetching (M13), архитектурные примеры и отладчик реализованы 2026-11-03. `kernc new`, `kernc doc` (doctest) и `kernc run --watch` реализованы 2026-11-02.
+- Языковые ограничения: `use dotnet.X[...]`, запись через пользовательский `op []` (оставлено read-only, как в C#), async-генераторы (решено не поддерживать). `in/ref` (`&T`/`*T`), `seq.len`/повторная итерация, identity для `unit` (`===`/`!==`), инлайнинг/удаление мёртвых функций и точный `MaxStack` реализованы 2026-11-03.
 
 M7 закрыт 2026-11-01: `kern.events`, `kern.compress`, `kern.http` (оба варианта), `kern.threading`,
 `kern.tasks`, `kern.parallel`, `kern.pipes`, моки `kern.test.mock`, базовая рефлексия

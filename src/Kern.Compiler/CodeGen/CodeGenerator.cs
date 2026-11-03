@@ -1,4 +1,5 @@
 using Kern.Bytecode;
+using Kern.Compiler.Optimization;
 using Kern.Compiler.Semantics.Bound;
 using Kern.Compiler.Semantics.Declarations;
 using Kern.Compiler.Semantics.Types;
@@ -74,6 +75,7 @@ public sealed partial class CodeGenerator
 		foreach (var function in module.Functions)
 			EmitFunction(function);
 
+		StackAnalyzer.Compute(_module);
 		return new CodegenResult(_module, _diagnostics);
 	}
 
@@ -496,8 +498,8 @@ public sealed partial class CodeGenerator
 			case "**": Emit(OpCode.Pow); break;
 			case "==": Emit(OpCode.Eq); break;
 			case "!=": Emit(OpCode.Ne); break;
-			case "===": Emit(OpCode.Eq); break;
-			case "!==": Emit(OpCode.Ne); break;
+			case "===": Emit(OpCode.RefEq); break;
+			case "!==": Emit(OpCode.RefNe); break;
 			case "<": Emit(OpCode.Lt); break;
 			case "<=": Emit(OpCode.Le); break;
 			case ">": Emit(OpCode.Gt); break;

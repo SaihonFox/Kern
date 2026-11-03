@@ -424,6 +424,15 @@ public static class KValueMath
 		return true;
 	}
 
+	/// <summary>
+	/// <c>===</c>/<c>!==</c> (spec §3/§9): одна и та же ссылка на объект. Для <c>unit</c>
+	/// assignment по-прежнему копирует значение, поэтому копия не идентична оригиналу.
+	/// </summary>
+	public static bool SameReference(KValue a, KValue b) =>
+		a.Kind == ValueKind.Ref &&
+		b.Kind == ValueKind.Ref &&
+		ReferenceEquals(a.Ref, b.Ref);
+
 	public static bool AreEqual(KValue a, KValue b)
 	{
 		// unit — значение: равенство структурное (spec §9); остальные ссылки — ссылочные.

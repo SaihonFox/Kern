@@ -186,6 +186,11 @@ public sealed partial class Binder
 				"KRN2101",
 				$"функция '{symbol.Name}' объявлена async: ref-параметр '*' не поддерживается",
 				DeclarationSpan(symbol));
+		if (symbol.IsAsync && symbol.HasYield)
+			Report(
+				"KRN2101",
+				"async-генераторы не поддерживаются: используйте async_iter<T>",
+				DeclarationSpan(symbol));
 		if (symbol.HasYield)
 		{
 			if (symbol.ReturnType is { } generatorReturn &&

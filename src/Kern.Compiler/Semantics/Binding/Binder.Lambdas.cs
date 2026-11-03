@@ -229,6 +229,11 @@ public sealed partial class Binder
 			if (lambda.ReturnType is not null)
 			{
 				returnType = _resolver.Resolve(lambda.ReturnType, _typeScope);
+				if (lambda.IsAsync && lambda.HasYield)
+					Report(
+						"KRN2101",
+						"async-генераторы не поддерживаются: используйте async_iter<T>",
+						lambda.Span);
 				if (lambda.HasYield && TryGetSeqElement(returnType, out KernType? generatorElement))
 				{
 					_isGeneratorFunction = true;

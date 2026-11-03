@@ -2,6 +2,16 @@
 
 ## Now
 
+### Батч 2026-11-03 (owner request): identity, оптимизатор, async-генераторы
+
+Сделано и проверено (build 0 errors, тесты 613/613, style clean):
+- `===`/`!==` для `unit`/`unit!` и функций — identity ссылки (`RefEq`/`RefNe`);
+  присваивание `unit` по-прежнему копирует, `==` структурный. Тесты `UnitIdentityTests`.
+- `-O2`: инлайнинг простых `#[inline]`-функций, удаление мёртвых приватных функций
+  приложения, точный `MaxStack` (CFG). Тесты `OptimizerTests`.
+- Async-генераторы решено не поддерживать: `async fun` + `yield` — `KRN2101`,
+  асинхронные источники — `async_iter<T>`. Тесты `AsyncGeneratorTests`.
+
 ### Батч 2026-11-03 (owner request): `seq.len`, in/ref/out, M13
 
 Сделано и проверено (build 0 errors, тесты 607/607, style clean):
