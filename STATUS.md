@@ -62,7 +62,7 @@
   `src/**/*.kern` проекта и `libs/**/Kern.Lib.*.dll`; `build.kern` видит `workspace`/`target`
   через `build_prelude`; у примитивов подсказываются `to_str`/`to_debug`; см. `docs/LSP.md`.
   Лицензия — MIT.
-- Отчёт по бутстраппингу — `docs/BOOTSTRAP.md`; `in/ref/out` без ключевых слов —
+- Отчёт по бутстраппингу — `docs/BOOTSTRAP.md`; `in`/`ref` (`&T`/`*T`, роль `out` выполняет `*T`) —
   `docs/IN_REF_OUT.md`. `docs/TOKEN_BUDGET.md` удалён.
 
 Не сделано/ограничения: capabilities/разрешения модулей (`#[needs]`, `--allow`) — вопрос в

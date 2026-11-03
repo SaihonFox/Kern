@@ -93,6 +93,9 @@ archive is verified before extraction:
     sha256-osx-x64=...
     sha256-osx-arm64=...
 
+`KERNW_BASE_URL` overrides the release base URL (mirrors/tests); plain HTTP is allowed only
+with `KERNW_ALLOW_HTTP=1`.
+
 ## GitHub Releases
 
 `.github/workflows/release.yml` builds `kernc` (self-contained, trimmed single-file) for

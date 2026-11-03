@@ -96,7 +96,7 @@ Optimization level, warnings-as-errors, macros on/off, debug info (source line t
    - `KERN_HOME` меняет корень кэша (`<KERN_HOME>/pkgs`), по умолчанию `~/.kern/pkgs`.
 3. Wrapper-like pinned launcher: `kernw` / `kernw.cmd` + a `kern-version` text file, downloads and runs the pinned `kernc`.
    - `kern-version`: первая строка — версия (можно `v0.1.0`), опционально `sha256-<rid>=<hex>` или `sha256=<hex>`; при наличии контрольная сумма архива проверяется.
-   - Кэш: `<KERN_HOME>/dist/<версия>/kern-<rid>/`, архив берётся из GitHub Releases (`SaihonFox/Kern`, тег `v<версия>`).
+   - Кэш: `<KERN_HOME>/dist/<версия>/kern-<rid>/`, архив берётся из GitHub Releases (`SaihonFox/Kern`, тег `v<версия>`). `KERNW_BASE_URL` переопределяет базу (зеркала/тесты); HTTP разрешён только при `KERNW_ALLOW_HTTP=1`.
    - `kernw` (sh) и `kernw.cmd` (PowerShell) передают все аргументы `kernc`; сеть только HTTPS.
 Network code needs a security review (hash mandatory, https only, no redirects to other hosts without hash match).
 
