@@ -48,6 +48,7 @@ public sealed partial class Binder
 		if (ordered is null)
 			return new BoundErrorExpression(span);
 
+		RecordCapabilities(resolution.Function!, span);
 		var returnType = CallResultType(resolution.Function!, resolution.ReturnType);
 		WarnDeprecated(resolution.Function!, span);
 		return new BoundCallExpression(resolution.Function!, ordered, returnType, span)

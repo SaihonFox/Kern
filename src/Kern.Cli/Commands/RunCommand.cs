@@ -35,7 +35,7 @@ internal static class RunCommand
 			return 2;
 
 		if (kind == SourceKind.Project && File.Exists(Path.Combine(path, BuildSession.ScriptName)))
-			return RunProject(path, programArguments, options, stdout, stderr, debugger);
+			return RunProject(path, programArguments, options, stdout, stderr, debugger, Policy(options));
 
 		CompileResult result = SourceCompiler.Compile(path, kind, options.Apply(CompileOptions.Default));
 		SourceCompiler.Report(result, stderr);
@@ -45,8 +45,13 @@ internal static class RunCommand
 		string workingDirectory = kind == SourceKind.Project
 			? Path.GetFullPath(path)
 			: Path.GetDirectoryName(Path.GetFullPath(path)) ?? Environment.CurrentDirectory;
-		return Execute(result.Program!, kind, programArguments, stdout, stderr, workingDirectory: workingDirectory, profile: options.RunProfile, debugger: debugger);
+		return Execute(result.Program!, kind, programArguments, stdout, stderr, workingDirectory: workingDirectory, profile: options.RunProfile, debugger: debugger, capabilities: Policy(options));
 	}
+
+	private static CapabilityPolicy? Policy(CliOptions options) =>
+		options.AllowCapabilities is null && options.DenyCapabilities is null
+			? null
+			: new CapabilityPolicy(options.AllowCapabilities, options.DenyCapabilities);
 
 	/// <summary><c>run</c> проекта с <c>build.kern</c>: компилирует app-цель без записи .kbc.</summary>
 	private static int RunProject(
@@ -55,7 +60,8 @@ internal static class RunCommand
 		CliOptions options,
 		TextWriter stdout,
 		TextWriter stderr,
-		IDebugHook? debugger)
+		IDebugHook? debugger,
+		CapabilityPolicy? capabilities)
 	{
 		BuildTargetResult built;
 		IReadOnlyDictionary<string, string> environment;
@@ -93,7 +99,8 @@ internal static class RunCommand
 			environment,
 			workingDirectory: projectRoot,
 			profile: options.RunProfile,
-			debugger: debugger);
+			debugger: debugger,
+			capabilities: capabilities);
 	}
 
 	/// <summary>Выполнить уже скомпилированный проект (встроенная задача <c>:run</c>).</summary>
@@ -114,7 +121,8 @@ internal static class RunCommand
 		IReadOnlyDictionary<string, string>? environment = null,
 		string? workingDirectory = null,
 		bool profile = false,
-		IDebugHook? debugger = null)
+		IDebugHook? debugger = null,
+		CapabilityPolicy? capabilities = null)
 	{
 		int entry = program.Module.EntryPoint;
 		if (entry < 0)
@@ -148,6 +156,8 @@ internal static class RunCommand
 				interpreter.Profiler = new Profiler();
 			if (debugger is not null)
 				interpreter.Debugger = debugger;
+			if (capabilities is not null)
+				interpreter.Capabilities = capabilities;
 			KValue[] mainArguments = entryPoint.ParamCount == 1
 				? [KValue.Obj(new KList(interpreter.Types.Prim(PrimKind.Str), programArguments.Select(KValue.Str)))]
 				: [];

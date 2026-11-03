@@ -103,6 +103,12 @@ public sealed class FunctionSymbol(string name, FunctionKind kind)
 	/// <summary>Атрибуты функции/метода/оператора/accessor'а в байткодовой форме (spec §7).</summary>
 	public IReadOnlyList<AttributeUse> Attributes { get; init; } = [];
 
+	/// <summary>Capabilities из <c>#[needs(...)]</c> (spec §7/§16).</summary>
+	public ISet<string> DeclaredCapabilities { get; } = new HashSet<string>(StringComparer.Ordinal);
+
+	/// <summary>Capabilities, которые требует нативная функция (из каталога).</summary>
+	public ISet<string> NativeCapabilities { get; } = new HashSet<string>(StringComparer.Ordinal);
+
 	public int GenericArity => GenericParameters.Count;
 
 	public IReadOnlyList<KernType> ParameterTypes => [.. Parameters.Select(parameter => parameter.Type)];

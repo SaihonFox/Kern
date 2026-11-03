@@ -39,6 +39,8 @@ public sealed partial class CodeGenerator
 			Flags = MemberFlags.Native | MemberFlags.Static,
 			NativeKey = symbol.NativeKey,
 		};
+		foreach (string capability in symbol.NativeCapabilities)
+			definition.Attributes.Add(new AttributeUse("kern.capability", KConst.Str(capability)));
 		_functionIndices[symbol] = _module.AddFunction(definition);
 	}
 

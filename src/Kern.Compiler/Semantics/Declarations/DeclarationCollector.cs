@@ -131,10 +131,18 @@ public sealed partial class DeclarationCollector
 		var moduleTypes = new Dictionary<string, TypeSymbol>(_types, StringComparer.Ordinal);
 		foreach (var (name, symbol) in _nativeTypes)
 			moduleTypes.TryAdd(name, symbol);
+		var moduleFunctions = FreezeFunctions();
+		foreach (var group in moduleFunctions.Values)
+			foreach (FunctionSymbol function in group)
+				function.DeclaredCapabilities.UnionWith(CapabilityParser.FromAttributes(function.Attributes));
+		foreach (TypeSymbol type in moduleTypes.Values)
+			foreach (var group in type.Members.OwnFunctions.Values)
+				foreach (FunctionSymbol function in group)
+					function.DeclaredCapabilities.UnionWith(CapabilityParser.FromAttributes(function.Attributes));
 		var module = new ModuleSymbol(
 			moduleName,
 			moduleTypes,
-			FreezeFunctions(),
+			moduleFunctions,
 			_globals,
 			extensions)
 		{

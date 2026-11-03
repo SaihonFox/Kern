@@ -37,6 +37,7 @@ public sealed class KernSqlite : IKernDb, IDisposable
 }
 
 [KernType("sqlite")]
+[KernCapability("db")]
 public static class SqliteApi
 {
 	[KernCtor]

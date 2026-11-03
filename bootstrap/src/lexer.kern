@@ -1,0 +1,125 @@
+// Первый срез компилятора Kern на самом Kern: лексер.
+// Дальше: парсер выражений/объявлений, AST, binder/typecheck, байткод.
+use tokens[token]
+use kern.test[assert_eq]
+
+fun is_digit(char c) -> bool c >= '0' && c <= '9'
+
+fun is_alpha(char c) -> bool
+	(c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_'
+
+fun is_ident(char c) -> bool is_alpha(c) || is_digit(c)
+
+fun is_space(char c) -> bool c == ' ' || c == '\t' || c == '\r'
+
+fun two_char_op(str text) -> bool
+	text == "==" || text == "!=" || text == "<=" || text == ">=" ||
+	text == "->" || text == "&&" || text == "||" || text == ".." ||
+	text == "+=" || text == "-=" || text == "*=" || text == "/="
+
+fun lex(str source) -> list<token> {
+	list<token> result = []
+	i32 index = 0
+	i32 line = 1
+	i32 column = 1
+	loop index < source.len {
+		char c = source[index]
+		if c == '\n' {
+			line += 1
+			column = 1
+			index += 1
+			next
+		}
+
+		if (is_space(c)) {
+			index += 1
+			column += 1
+			next
+		}
+
+		// // комментарий до конца строки
+		if c == '/' && index + 1 < source.len && source[index + 1] == '/' {
+			loop index < source.len && source[index] != '\n' {
+				index += 1
+				column += 1
+			}
+			next
+		}
+
+		i32 start = index
+		i32 startColumn = column
+
+		if (is_alpha(c)) {
+			loop index < source.len && is_ident(source[index]) {
+				index += 1
+				column += 1
+			}
+			result.add(token("ident", source[start..index], line, startColumn))
+			next
+		}
+
+		if (is_digit(c)) {
+			loop index < source.len && (is_digit(source[index]) || source[index] == '.') {
+				index += 1
+				column += 1
+			}
+			result.add(token("number", source[start..index], line, startColumn))
+			next
+		}
+
+		if c == '"' {
+			index += 1
+			column += 1
+			loop index < source.len && source[index] != '"' {
+				index += 1
+				column += 1
+			}
+			if index < source.len {
+				index += 1
+				column += 1
+			}
+			result.add(token("string", source[start..index], line, startColumn))
+			next
+		}
+
+		str text = c.to_str()
+		if index + 1 < source.len {
+			str pair = source[index..(index + 2)]
+			if (two_char_op(pair)) {
+				text = pair
+			}
+		}
+		index += text.len
+		column += text.len
+		result.add(token("op", text, line, startColumn))
+	}
+	result
+}
+
+#[test]
+fun lexes_number() {
+	list<token> tokens = lex("42")
+	assert_eq(1, tokens.len)
+	assert_eq("number", tokens[0].kind)
+	assert_eq("42", tokens[0].text)
+}
+
+#[test]
+fun lexes_keyword_and_operator() {
+	list<token> tokens = lex("i32 x = 1 + 2")
+	assert_eq(6, tokens.len)
+	assert_eq("i32", tokens[0].text)
+	assert_eq("x", tokens[1].text)
+	assert_eq("=", tokens[2].text)
+	assert_eq("1", tokens[3].text)
+	assert_eq("+", tokens[4].text)
+	assert_eq("2", tokens[5].text)
+}
+
+#[test]
+fun skips_comments_and_tracks_lines() {
+	list<token> tokens = lex("// hi\nfun main")
+	assert_eq(2, tokens.len)
+	assert_eq("fun", tokens[0].text)
+	assert_eq(2, tokens[0].line)
+}

@@ -2,6 +2,16 @@
 
 ## Now
 
+### Батч 2026-11-03 (owner request): capabilities
+
+Сделано и проверено (build 0 errors, тесты 619/619, style clean):
+- `#[needs(...)]`, `kernc run/debug --allow/--deny`, проверка в binder (`KRN2401`) и VM.
+- `[KernCapability]` на нативных модулях/методах; `kern.io` (файлы), `kern.http`,
+  `kern.net`, `kern.process` аннотированы. Path-scope парсится, но пока не ограничивает путь.
+- Тесты `CapabilityTests` (5).
+- Начат self-hosted компилятор: `bootstrap/src/lexer.kern` (лексер на Kern), `kernc test bootstrap`
+  (3 теста) и `kernc run bootstrap`; план — `docs/BOOTSTRAP.md`.
+
 ### Батч 2026-11-03 (owner request): identity, оптимизатор, async-генераторы
 
 Сделано и проверено (build 0 errors, тесты 613/613, style clean):

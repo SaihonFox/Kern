@@ -21,12 +21,14 @@ public static class FileApi
 
 	/// <summary><c>file.read_text(path)</c>: весь файл строкой.</summary>
 	[KernStatic]
+	[KernCapability("fs.read")]
 	[KernMember]
 	public static KResult<string, string> ReadText(string path) =>
 		Try(path, () => System.IO.File.ReadAllText(path, Utf8));
 
 	/// <summary><c>file.write_text(path, text)</c>: перезаписать файл (создать при отсутствии).</summary>
 	[KernStatic]
+	[KernCapability("fs.write")]
 	[KernMember]
 	public static KResult<bool, string> WriteText(string path, string text) =>
 		Try(path, () =>
@@ -37,6 +39,7 @@ public static class FileApi
 
 	/// <summary><c>file.append_text(path, text)</c>: дописать строку в конец файла.</summary>
 	[KernStatic]
+	[KernCapability("fs.write")]
 	[KernMember]
 	public static KResult<bool, string> AppendText(string path, string text) =>
 		Try(path, () =>
@@ -47,12 +50,14 @@ public static class FileApi
 
 	/// <summary><c>file.exists(path)</c>: существует ли файл или папка.</summary>
 	[KernStatic]
+	[KernCapability("fs.read")]
 	[KernMember]
 	public static bool Exists(string path) =>
 		System.IO.File.Exists(path) || System.IO.Directory.Exists(path);
 
 	/// <summary><c>file.delete(path)</c>: удалить файл; отсутствие файла — не ошибка.</summary>
 	[KernStatic]
+	[KernCapability("fs.write")]
 	[KernMember]
 	public static KResult<bool, string> Delete(string path) =>
 		Try(path, () =>
@@ -65,6 +70,7 @@ public static class FileApi
 	/// <summary><c>file.list_dir(path)</c>: имена файлов и папок каталога (сортировка по имени).</summary>
 	[KernStatic]
 	[KernName("list_dir")]
+	[KernCapability("fs.read")]
 	[KernMember]
 	public static KResult<KList<string>, string> ListDir(string path) =>
 		Try(path, () =>
@@ -80,11 +86,15 @@ public static class FileApi
 
 	/// <summary><c>file.copy(from, to)</c>: копия файла; существующий приёмник — <c>Err</c>.</summary>
 	[KernStatic]
+	[KernCapability("fs.read")]
+	[KernCapability("fs.write")]
 	[KernMember]
 	public static KResult<bool, string> Copy(string from, string to) => Copy(from, to, false);
 
 	/// <summary><c>file.copy(from, to, overwrite)</c>: копия файла с явной перезаписью.</summary>
 	[KernStatic]
+	[KernCapability("fs.read")]
+	[KernCapability("fs.write")]
 	[KernMember]
 	public static KResult<bool, string> Copy(string from, string to, bool overwrite) =>
 		Try(from, () =>
@@ -95,6 +105,7 @@ public static class FileApi
 
 	/// <summary><c>file.move(from, to)</c>: перенос/переименование; существующий приёмник — <c>Err</c>.</summary>
 	[KernStatic]
+	[KernCapability("fs.write")]
 	[KernMember]
 	public static KResult<bool, string> Move(string from, string to) =>
 		Try(from, () =>
@@ -106,6 +117,7 @@ public static class FileApi
 	/// <summary><c>file.create_dir(path)</c>: создать папку со всеми родителями.</summary>
 	[KernStatic]
 	[KernName("create_dir")]
+	[KernCapability("fs.write")]
 	[KernMember]
 	public static KResult<bool, string> CreateDir(string path) =>
 		Try(path, () =>
@@ -117,6 +129,7 @@ public static class FileApi
 	/// <summary><c>file.delete_dir(path, recursive)</c>: удалить папку.</summary>
 	[KernStatic]
 	[KernName("delete_dir")]
+	[KernCapability("fs.write")]
 	[KernMember]
 	public static KResult<bool, string> DeleteDir(string path, bool recursive) =>
 		Try(path, () =>
@@ -128,6 +141,7 @@ public static class FileApi
 	/// <summary><c>file.read_lines(path)</c>: строки файла (переводы строк не входят).</summary>
 	[KernStatic]
 	[KernName("read_lines")]
+	[KernCapability("fs.read")]
 	[KernMember]
 	public static KResult<KList<string>, string> ReadLines(string path) =>
 		Try(path, () => Strings(System.IO.File.ReadLines(path, Utf8)));
@@ -135,6 +149,7 @@ public static class FileApi
 	/// <summary><c>file.write_lines(path, lines)</c>: записать строки через <c>\n</c>.</summary>
 	[KernStatic]
 	[KernName("write_lines")]
+	[KernCapability("fs.write")]
 	[KernMember]
 	public static KResult<bool, string> WriteLines(string path, KList<string> lines) =>
 		Try(path, () =>
@@ -156,6 +171,7 @@ public static class FileApi
 	/// <summary><c>file.read_bytes(path)</c>: двоичное содержимое файла.</summary>
 	[KernStatic]
 	[KernName("read_bytes")]
+	[KernCapability("fs.read")]
 	[KernMember]
 	public static KResult<KList<byte>, string> ReadBytes(string path) =>
 		Try(path, () =>
@@ -168,6 +184,7 @@ public static class FileApi
 	/// <summary><c>file.write_bytes(path, bytes)</c>: записать двоичные данные.</summary>
 	[KernStatic]
 	[KernName("write_bytes")]
+	[KernCapability("fs.write")]
 	[KernMember]
 	public static KResult<bool, string> WriteBytes(string path, KList<byte> bytes) =>
 		Try(path, () =>

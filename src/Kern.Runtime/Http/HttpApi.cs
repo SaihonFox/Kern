@@ -63,6 +63,7 @@ public static class HttpReplyApi
 /// 2xx — <c>Err</c> с русским текстом, а не паника.
 /// </summary>
 [KernType("http")]
+[KernCapability("net")]
 public static class HttpApi
 {
 	internal static readonly HttpClient Shared = new(new HttpClientHandler { UseProxy = false })

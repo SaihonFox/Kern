@@ -323,6 +323,7 @@ public static class NativeSymbolBuilder
 				IsStatic = descriptor.IsStatic,
 				OpSymbol = descriptor.Operator,
 			};
+			symbol.NativeCapabilities.UnionWith(descriptor.Capabilities);
 			error = null;
 			return true;
 		}

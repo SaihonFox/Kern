@@ -10,6 +10,7 @@ namespace Kern.Lib.Db.Common;
 /// <c>sqlite</c>/<c>postgres</c>/<c>mysql</c>, но без привязки к конкретному драйверу.
 /// </summary>
 [KernType("database")]
+[KernCapability("db")]
 public static class DbApi
 {
 	[KernMember]

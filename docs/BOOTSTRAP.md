@@ -1,5 +1,7 @@
 # Бутстраппинг Kern — чего хватает и чего нет
 
+**Статус 2026-11-03:** B0 (лексер) начат — `bootstrap/src/tokens.kern`, `bootstrap/src/lexer.kern`, `bootstrap/src/main.kern`; `kernc test bootstrap` (3 теста) и `kernc run bootstrap` работают. Дальше: парсер/AST (B1).
+
 Цель бутстраппинга: компилятор Kern (lexer → parser → AST → binder → codegen/интерпретатор)
 написан на Kern и запускается существующим `kernc`. C# остаётся только VM/нативным слоем.
 Ниже — аудит по состоянию на 2026-11-02; это не обещание сделать всё сразу, а карта работ.
@@ -56,8 +58,9 @@
 
 ## Минимальные срезы бутстраппинга
 
-- **B0.** `bootstrap/lexer.kern`: читает файл, печатает токены `kind text line:col` в
+- **B0.** `bootstrap/src/lexer.kern`: читает файл, печатает токены `kind text line:col` в
   формате, совместимом с C#-лексером. Проверка: golden-файл на `examples/01_basics`.
+  **Начато 2026-11-03:** `bootstrap/src/{tokens,lexer,main}.kern`, 3 теста, `kernc run bootstrap`.
 - **B1.** `bootstrap/parser.kern`: AST как union-типы, рекурсивный спуск, диагностика через
   `parse_error`. Проверка: AST для 01–05 совпадает с эталоном (текстовый дамп).
 - **B2.** `bootstrap/binder.kern`: таблица символов, типы, перегрузки; проверка на
@@ -68,9 +71,10 @@
 ## Проверочные команды
 
 ```text
-kernc run bootstrap/lexer.kern examples/01_basics/src/main.kern
-kernc run --profile bootstrap/parser.kern examples/01_basics/src/main.kern
-kernc check bootstrap            # весь bootstrap-проект
+kernc run bootstrap
+kernc run bootstrap bootstrap/src/lexer.kern
+kernc test bootstrap          # тесты лексера
+kernc check bootstrap
 ```
 
 ## Вывод

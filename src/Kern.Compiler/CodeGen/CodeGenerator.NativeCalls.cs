@@ -51,6 +51,8 @@ public sealed partial class CodeGenerator
 			NativeKey = symbol.NativeKey,
 			NativeTypeArgs = typeArguments,
 		};
+		foreach (string capability in symbol.NativeCapabilities)
+			definition.Attributes.Add(new AttributeUse("kern.capability", KConst.Str(capability)));
 		int functionIndex = _module.AddFunction(definition);
 		_nativeInstances[(symbol, key)] = functionIndex;
 		return functionIndex;

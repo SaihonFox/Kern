@@ -11,6 +11,7 @@ namespace Kern.Runtime.Net;
 /// Полноценный сокет-клиент не входит в этот модуль; HTTP — в <c>kern.http</c>.
 /// </summary>
 [KernModule("kern.net")]
+[KernCapability("net")]
 public static class NetApi
 {
 	/// <summary><c>net.hostname()</c>: имя текущего хоста.</summary>

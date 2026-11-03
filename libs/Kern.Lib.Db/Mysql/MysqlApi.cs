@@ -40,6 +40,7 @@ public sealed class KernMysql : IKernDb, IDisposable
 }
 
 [KernType("mysql")]
+[KernCapability("db")]
 public static class MysqlApi
 {
 	[KernCtor]

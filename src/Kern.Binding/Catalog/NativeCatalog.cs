@@ -27,6 +27,9 @@ public sealed class NativeFunctionDescriptor
 
 	public bool IsStatic { get; init; } = true;
 
+	/// <summary>Capabilities, которые требует вызов (spec §7/§16).</summary>
+	public IReadOnlyList<string> Capabilities { get; init; } = [];
+
 	/// <summary>
 	/// Статический член Kern-типа (<c>[KernStatic]</c>): вызывается через имя типа
 	/// (<c>datetime.now()</c>, <c>duration.from_ms(1)</c>), приёмника-экземпляра нет.
@@ -227,6 +230,16 @@ public sealed class NativeCatalog
 		return new NativeCatalog(modules, types, allFunctions, diagnostics);
 	}
 
+	private static IReadOnlyList<string> CapabilitiesOf(Type owner, MethodInfo method)
+	{
+		var capabilities = new List<string>();
+		foreach (KernCapabilityAttribute attribute in owner.GetCustomAttributes<KernCapabilityAttribute>(inherit: false))
+			capabilities.Add(attribute.Name);
+		foreach (KernCapabilityAttribute attribute in method.GetCustomAttributes<KernCapabilityAttribute>(inherit: false))
+			capabilities.Add(attribute.Name);
+		return [.. capabilities.Distinct(StringComparer.Ordinal)];
+	}
+
 	private static void CheckDuplicateModules(IReadOnlyList<NativeModuleDescriptor> modules, List<string> diagnostics)
 	{
 		foreach (var group in modules.GroupBy(module => module.Name, StringComparer.Ordinal))
@@ -285,6 +298,7 @@ public sealed class NativeCatalog
 				KeyTypes = [.. parameters.Select(parameter => parameter.Type)],
 				GenericParameters = typeParameters,
 				NativeKey = key,
+				Capabilities = CapabilitiesOf(type, method),
 				Method = method,
 			});
 		}
@@ -356,6 +370,7 @@ public sealed class NativeCatalog
 					KeyTypes = [.. factoryParameters.Select(parameter => parameter.Type)],
 					GenericParameters = allParameters,
 					NativeKey = factoryKey,
+					Capabilities = CapabilitiesOf(type, method),
 					Method = method,
 				});
 				continue;
@@ -393,6 +408,7 @@ public sealed class NativeCatalog
 					KeyTypes = staticKeyTypes,
 					GenericParameters = allParameters,
 					NativeKey = staticKey,
+					Capabilities = CapabilitiesOf(type, method),
 					Method = method,
 				});
 				continue;
@@ -437,6 +453,7 @@ public sealed class NativeCatalog
 				KeyTypes = keyTypes,
 				GenericParameters = allParameters,
 				NativeKey = key,
+				Capabilities = CapabilitiesOf(type, method),
 				Method = method,
 			});
 		}

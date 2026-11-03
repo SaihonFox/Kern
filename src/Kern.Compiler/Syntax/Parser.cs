@@ -313,14 +313,37 @@ public sealed partial class Parser
 				var arguments = new List<string>();
 				if (Match(TokenKind.LeftParen))
 				{
-					while (!AtEnd && Current.Kind != TokenKind.RightParen)
+					var depth = 1;
+					while (!AtEnd && depth > 0)
 					{
+						if (Current.Kind == TokenKind.RightParen)
+						{
+							depth--;
+							if (depth == 0)
+							{
+								Advance();
+								break;
+							}
+
+							arguments.Add(Advance().Text);
+							continue;
+						}
+
+						if (Current.Kind == TokenKind.LeftParen)
+						{
+							depth++;
+							arguments.Add(Advance().Text);
+							continue;
+						}
+
+						if (Current.Kind == TokenKind.Comma && depth == 1)
+						{
+							Advance();
+							continue;
+						}
+
 						arguments.Add(Advance().Text);
-						if (Match(TokenKind.Comma)) continue;
-						if (Current.Kind != TokenKind.RightParen) continue;
-						break;
 					}
-					Consume(TokenKind.RightParen, "Ожидалась закрывающая скобка атрибута");
 				}
 				var itemEnd = Previous.Span.End;
 				attributes.Add(new AttributeNode(name.Text, arguments, new TextSpan(itemStart, itemEnd - itemStart)));

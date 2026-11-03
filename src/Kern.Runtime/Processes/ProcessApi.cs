@@ -191,6 +191,7 @@ public static class ProcessHandleMembers
 /// не ошибка; <c>Err</c> только если процесс не удалось запустить.
 /// </summary>
 [KernModule("kern.process")]
+[KernCapability("process")]
 public static class ProcessApi
 {
 	private static readonly UTF8Encoding Utf8 = new(encoderShouldEmitUTF8Identifier: false);

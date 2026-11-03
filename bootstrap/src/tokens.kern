@@ -1,0 +1,2 @@
+// Токен самописного компилятора Kern.
+type token(str kind, str text, i32 line, i32 column)

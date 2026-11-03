@@ -19,6 +19,7 @@ public static class BackendModule
 /// для кода, который импортирует модуль целиком.
 /// </summary>
 [KernModule("kern.backend.server")]
+[KernCapability("net")]
 public static class BackendServerModule
 {
 	[KernMember]

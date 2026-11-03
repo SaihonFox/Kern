@@ -344,6 +344,7 @@ public sealed partial class Binder
 		}
 
 		WarnDeprecated(resolution.Function!, span);
+		RecordCapabilities(resolution.Function!, span);
 		var returnType = CallResultType(resolution.Function!, resolution.ReturnType);
 		if (fromNative && receiver.Type is BuiltinGenericType builtin)
 		{
@@ -452,6 +453,7 @@ public sealed partial class Binder
 		if (ordered is null)
 			return new BoundErrorExpression(span);
 
+		RecordCapabilities(constructor, span);
 		WarnDeprecatedType(type, span);
 		return new BoundObjectCreationExpression(type, constructor, ordered, instanceType, span);
 	}

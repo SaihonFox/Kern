@@ -40,6 +40,7 @@ public sealed class KernPostgres : IKernDb, IDisposable
 }
 
 [KernType("postgres")]
+[KernCapability("db")]
 public static class PostgresApi
 {
 	[KernCtor]

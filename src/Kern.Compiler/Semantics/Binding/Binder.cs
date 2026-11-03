@@ -221,6 +221,7 @@ public sealed partial class Binder
 			_typeScope = _typeScope.Add(parameter);
 
 		_scope = new BoundScope(parent: null);
+		BeginCapabilityScope(symbol);
 		var parameters = new List<BoundParameter>();
 		if ((symbol.Owner is { } owner && !symbol.IsStatic) ||
 			(symbol.Owner is null && symbol.ReceiverType is not null && !symbol.IsStatic))

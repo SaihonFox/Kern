@@ -21,6 +21,7 @@ public static class AttributeCatalog
 		"if",
 		"allow",
 		"memo",
+		"needs",
 		"test",
 		"derive",
 		// HTTP-прокси (spec round 10): размечают абстрактные методы http_client.proxy.

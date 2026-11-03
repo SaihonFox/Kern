@@ -29,6 +29,20 @@ public sealed class KernTypeAttribute(string name) : Attribute
 	public string? Parent { get; init; }
 }
 
+/// <summary>
+/// Capability нативного модуля/члена (spec §7/§16): <c>net</c>, <c>fs.read</c>,
+/// <c>fs.write</c>, <c>process</c>, <c>db</c>. Несколько атрибутов на класс/метод
+/// объединяются; член важнее класса.
+/// </summary>
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Method, AllowMultiple = true, Inherited = false)]
+public sealed class KernCapabilityAttribute(string name) : Attribute
+{
+	public string Name { get; } = name;
+
+	/// <summary>Необязательный префикс пути для <c>fs.read</c>/<c>fs.write</c>.</summary>
+	public string? Scope { get; init; }
+}
+
 /// <summary>Явное Kern-имя члена/параметра; по умолчанию C#-имя переводится в <c>snake_case</c>.</summary>
 [AttributeUsage(AttributeTargets.Method | AttributeTargets.Property | AttributeTargets.Field | AttributeTargets.Parameter,
 	AllowMultiple = false, Inherited = false)]

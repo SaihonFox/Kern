@@ -91,6 +91,9 @@ public sealed partial class Interpreter
 	/// <summary>Хук отладчика (<c>kernc debug</c>); <c>null</c> — обычное исполнение.</summary>
 	public IDebugHook? Debugger { get; set; }
 
+	/// <summary>Политика capabilities (<c>--allow</c>/<c>--deny</c>); <c>null</c> — разрешено всё.</summary>
+	public CapabilityPolicy? Capabilities { get; set; }
+
 	/// <summary>
 	/// Новый интерпретатор для другого потока: общие модуль, типы и статика, собственные
 	/// планировщик, стек и кадры (DECISIONS §D, общая память).
@@ -454,6 +457,7 @@ public sealed partial class Interpreter
 	/// </summary>
 	private KValue InvokeNative(FunctionDef function, KValue[] arguments)
 	{
+		Capabilities?.Check(function);
 		if (_natives is null)
 			throw new KernPanic(
 				$"нативная функция '{function.Name}' не может быть вызвана: резолвер нативов не подключён");
