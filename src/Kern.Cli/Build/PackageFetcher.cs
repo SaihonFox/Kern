@@ -15,14 +15,16 @@ internal sealed class PackageFetcher
 
 	private readonly HttpClient _client;
 	private readonly string _cacheRoot;
+	private readonly string? _trustedPublicKeyPem;
 
-	public PackageFetcher(HttpMessageHandler? handler = null, string? cacheRoot = null)
+	public PackageFetcher(HttpMessageHandler? handler = null, string? cacheRoot = null, string? trustedPublicKeyPem = null)
 	{
 		_client = new HttpClient(handler ?? new HttpClientHandler { AllowAutoRedirect = false })
 		{
 			Timeout = Timeout,
 		};
 		_cacheRoot = cacheRoot ?? DefaultCacheRoot();
+		_trustedPublicKeyPem = trustedPublicKeyPem;
 	}
 
 	/// <summary>Скачать и распаковать пакет; вернуть корень содержимого (без лишней папки).</summary>
@@ -48,6 +50,7 @@ internal sealed class PackageFetcher
 			try
 			{
 				Extract(archive, temporary);
+				_ = PackageManifest.Read(ExtractedRoot(temporary), package, _trustedPublicKeyPem);
 				WriteCompleteMarker(temporary);
 				if (File.Exists(Marker(directory)))
 					Directory.Delete(temporary, recursive: true);
@@ -191,6 +194,12 @@ internal sealed class PackageFetcher
 	}
 
 	/// <summary>Убрать единственную корневую папку архива (частый случай <c>project-1.0/</c>).</summary>
+	private static string ExtractedRoot(string directory)
+	{
+		string[] entries = Directory.GetFileSystemEntries(directory);
+		return entries.Length == 1 && Directory.Exists(entries[0]) ? entries[0] : directory;
+	}
+
 	private static void WriteCompleteMarker(string directory)
 	{
 		string[] entries = Directory.GetFileSystemEntries(directory);

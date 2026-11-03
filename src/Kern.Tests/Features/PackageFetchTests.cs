@@ -65,6 +65,61 @@ public sealed class PackageFetchTests
 	}
 
 	[Fact]
+	public void Fetch_verifies_manifest_signature_and_rejects_bad_ones()
+	{
+		string cache = NewCacheRoot();
+		try
+		{
+			const string manifest = "{\"name\":\"mathx\",\"version\":\"1.0.0\",\"permissions\":[\"fs.read\"]}";
+			using RSA key = RSA.Create(2048);
+			string privatePem = key.ExportPkcs8PrivateKeyPem();
+			string publicPem = key.ExportSubjectPublicKeyInfoPem();
+			string signature = PackageManifest.Sign(manifest, privatePem);
+			byte[] archive = Zip(
+				("mathx/kern-package.json", manifest),
+				("mathx/kern-package.sig", signature),
+				("mathx/build.kern", PackageBuild),
+				("mathx/src/lib.kern", PackageSource));
+			string hash = Sha256(archive);
+			var fetcher = new PackageFetcher(
+				new FakeHandler(_ => Bytes(archive)),
+				cache,
+				publicPem);
+
+			string root = fetcher.Fetch(Package("mathx", "https://example.test/mathx.zip", hash));
+			Assert.True(File.Exists(Path.Combine(root, "build.kern")));
+
+			using RSA other = RSA.Create(2048);
+			byte[] badSignature = Zip(
+				("mathx/kern-package.json", manifest),
+				("mathx/kern-package.sig", PackageManifest.Sign(manifest, other.ExportPkcs8PrivateKeyPem())),
+				("mathx/build.kern", PackageBuild));
+			var badFetcher = new PackageFetcher(
+				new FakeHandler(_ => Bytes(badSignature)),
+				cache,
+				publicPem);
+			var bad = Assert.Throws<BuildException>(() =>
+				badFetcher.Fetch(Package("mathx", "https://example.test/bad.zip", Sha256(badSignature))));
+			Assert.Contains("подпись", bad.Message);
+
+			byte[] noSignature = Zip(
+				("mathx/kern-package.json", manifest),
+				("mathx/build.kern", PackageBuild));
+			var noSignatureFetcher = new PackageFetcher(
+				new FakeHandler(_ => Bytes(noSignature)),
+				cache,
+				publicPem);
+			var missing = Assert.Throws<BuildException>(() =>
+				noSignatureFetcher.Fetch(Package("mathx", "https://example.test/nosig.zip", Sha256(noSignature))));
+			Assert.Contains("kern-package.sig", missing.Message);
+		}
+		finally
+		{
+			Delete(cache);
+		}
+	}
+
+	[Fact]
 	public void Fetch_rejects_http_and_wrong_hash_and_zip_slip()
 	{
 		string cache = NewCacheRoot();

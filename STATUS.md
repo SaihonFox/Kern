@@ -2,6 +2,22 @@
 
 ## Now
 
+### Батч 2026-11-03 (owner request): модульные атрибуты, `op []=`, манифест пакета
+
+Сделано и проверено (build 0 errors, target tests green):
+- `#[module(...)]` в начале файла или перед `project a.b:` — модульные атрибуты;
+  остальные ведущие атрибуты по-прежнему относятся к первому объявлению.
+  `ModuleSymbol.Attributes` → `KbcModule.Attributes` → `reflect.module_attributes()`.
+  Тесты `ModuleAttributeTests` (3).
+- `op []=(i32 i, T v)` — пользовательский сеттер индексатора: `x[i] = v` и составное
+  `x[i] += v` (чтение через `op []` + комбинация + запись). Без сеттера — `KRN2106`.
+  Тесты `IndexAssignmentTests` (+2).
+- Пакеты: `kern-package.json` (`name`, `version`, `description`, `permissions`) и
+  `kern-package.sig` (RSA PKCS#1 SHA-256 по байтам манифеста; ключ из
+  `KERN_PACKAGE_PUBLIC_KEY`/`KERN_PACKAGE_KEY_FILE`). Имя должно совпадать с `t.pkg`,
+  пакеты без манифеста совместимы. Тест `PackageFetchTests` (+1); `docs/BUILDER.md` §8.
+- Обновлены spec §5/§7, `CHANGELOG_LANG.md`, `DECISIONS_NEEDED.md`.
+
 ### Батч 2026-11-03 (owner request): capabilities — только `--deny`
 
 Сделано и проверено (build 0 errors, тесты 627/627, style clean):

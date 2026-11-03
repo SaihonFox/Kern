@@ -62,6 +62,7 @@ public sealed partial class CodeGenerator
 	private CodegenResult GenerateCore(BoundModule module)
 	{
 		_module.Name = module.Symbol.Name;
+		_module.Attributes = [.. module.Symbol.Attributes];
 		DefineTypes(module);
 
 		foreach (var function in module.Functions)

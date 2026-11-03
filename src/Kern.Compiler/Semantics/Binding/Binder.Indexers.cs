@@ -12,6 +12,9 @@ public sealed partial class Binder
 	/// <summary>Каноническое имя пользовательского индексатора (B5a).</summary>
 	private const string IndexOperator = "[]";
 
+	/// <summary>Каноническое имя пользовательского сеттера индексатора (spec §5).</summary>
+	private const string IndexSetOperator = "[]=";
+
 	/// <summary>
 	/// Индексация <c>x[a, b]</c>: пользовательский <c>op [](...)</c> (B5a) либо встроенное
 	/// правило коллекций (B5b1) и строк (B5b2). Встроенные <c>list</c>/<c>array</c>/<c>dict</c>
@@ -81,6 +84,160 @@ public sealed partial class Binder
 			// Q30: пользовательский индексатор класса диспатчится по типу получателя.
 			Virtual = IsVirtualCall(target, selected),
 		};
+	}
+
+	/// <summary>
+	/// Пользовательский сеттер индексатора <c>op []=</c> (spec §5): простой <c>x[i] = v</c>
+	/// вызывает его напрямую; составное <c>x[i] += v</c> один раз вычисляет приёмник и индексы,
+	/// читает текущее значение через <c>op []</c>, комбинирует и вызывает сеттер.
+	/// </summary>
+	private BoundStatement BindUserIndexAssignment(
+		AssignmentStatement assignment,
+		IndexExpression index,
+		BoundExpression target,
+		IReadOnlyList<FunctionSymbol> setters)
+	{
+		var indexArguments = new List<BoundExpression>(index.Arguments.Count);
+		foreach (ExpressionNode argument in index.Arguments)
+		{
+			BoundExpression bound = BindExpression(argument);
+			if (IsError(bound.Type))
+				return new BoundBlock([], null, FallsThrough: true, assignment.Span);
+			indexArguments.Add(bound);
+		}
+
+		FunctionSymbol? setter = SelectUserIndexer(setters, indexArguments);
+		if (setter is null)
+		{
+			Report("KRN2102", "Не найден подходящий op []= для аргументов индексатора", index.Span);
+			return new BoundBlock([], null, FallsThrough: true, assignment.Span);
+		}
+
+		var convertedIndex = new List<BoundExpression>(indexArguments.Count);
+		for (var position = 0; position < indexArguments.Count; position++)
+		{
+			BoundExpression converted = Convert(
+				indexArguments[position], setter.Parameters[position].Type, indexArguments[position].Span);
+			if (IsError(converted.Type))
+				return new BoundBlock([], null, FallsThrough: true, assignment.Span);
+			convertedIndex.Add(converted);
+		}
+
+		KernType valueType = setter.Parameters[^1].Type;
+		if (assignment.Operator == "=")
+		{
+			BoundExpression value = Convert(
+				BindExpression(assignment.Value, valueType), valueType, assignment.Value.Span);
+			if (IsError(value.Type))
+				return new BoundBlock([], null, FallsThrough: true, assignment.Span);
+			var arguments = new List<BoundExpression>(convertedIndex.Count + 1);
+			arguments.AddRange(convertedIndex);
+			arguments.Add(value);
+			return new BoundExpressionStatement(
+				new BoundCallExpression(setter, arguments, CallResultType(setter, setter.ReturnType),
+					assignment.Span, target),
+				assignment.Span);
+		}
+
+		// Составное присваивание: приёмник и индексы — во временные локальные, чтобы
+		// побочные эффекты не выполнились дважды.
+		var statements = new List<BoundStatement>(convertedIndex.Count + 2);
+		BoundVariable targetVariable = DeclareLocal($"#indexTarget{_nextSlot}", target.Type, false, assignment.Span);
+		DeclareFlow(targetVariable, true, target.Type);
+		statements.Add(new BoundLocalDeclaration(
+			targetVariable.Name, targetVariable.Slot, target.Type, target, false, assignment.Span));
+		var targetReference = new BoundVariableExpression(
+			targetVariable.Name, targetVariable.Slot, target.Type, assignment.Span);
+
+		var indexReferences = new List<BoundExpression>(convertedIndex.Count);
+		for (var position = 0; position < convertedIndex.Count; position++)
+		{
+			KernType type = convertedIndex[position].Type;
+			BoundVariable variable = DeclareLocal($"#indexKey{_nextSlot}", type, false, assignment.Span);
+			DeclareFlow(variable, true, type);
+			statements.Add(new BoundLocalDeclaration(
+				variable.Name, variable.Slot, type, convertedIndex[position], false, assignment.Span));
+			indexReferences.Add(new BoundVariableExpression(variable.Name, variable.Slot, type, assignment.Span));
+		}
+
+		var getters = new List<FunctionSymbol>();
+		var owner = OwnerOf(target.Type);
+		if (owner is not null)
+			foreach (var function in owner.Members.Operators)
+				if (function.OpSymbol == IndexOperator && function.Parameters.Count == indexReferences.Count)
+					getters.Add(function);
+		FunctionSymbol? getter = SelectUserIndexer(getters, indexReferences);
+		if (getter is null)
+		{
+			Report("KRN2101", "Для составного присваивания через op []= нужен парный op []", index.Span);
+			return new BoundBlock([], null, FallsThrough: true, assignment.Span);
+		}
+
+		var getterCall = new BoundCallExpression(
+			getter,
+			indexReferences,
+			CallResultType(getter, getter.ReturnType),
+			index.Span,
+			targetReference);
+		var combined = BindBinaryOperator(
+			assignment.Operator.TrimEnd('='),
+			getterCall,
+			BindExpression(assignment.Value),
+			assignment.Span);
+		if (combined is BoundErrorExpression)
+			return new BoundBlock([], null, FallsThrough: true, assignment.Span);
+
+		BoundExpression combinedValue = Convert(combined, valueType, assignment.Value.Span);
+		if (IsError(combinedValue.Type))
+			return new BoundBlock([], null, FallsThrough: true, assignment.Span);
+
+		var setterArguments = new List<BoundExpression>(indexReferences.Count + 1);
+		setterArguments.AddRange(indexReferences);
+		setterArguments.Add(combinedValue);
+		statements.Add(new BoundExpressionStatement(
+			new BoundCallExpression(setter, setterArguments, CallResultType(setter, setter.ReturnType),
+				assignment.Span, targetReference),
+			assignment.Span));
+		return new BoundBlock(statements, null, FallsThrough: true, assignment.Span);
+	}
+
+	private static FunctionSymbol? SelectUserIndexer(
+		IReadOnlyList<FunctionSymbol> candidates,
+		IReadOnlyList<BoundExpression> arguments)
+	{
+		if (candidates.Count == 0)
+			return null;
+		foreach (FunctionSymbol candidate in candidates)
+		{
+			var exact = true;
+			for (var position = 0; position < arguments.Count; position++)
+			{
+				if (arguments[position].Type.Equals(candidate.Parameters[position].Type))
+					continue;
+				exact = false;
+				break;
+			}
+			if (exact)
+				return candidate;
+		}
+
+		foreach (FunctionSymbol candidate in candidates)
+		{
+			var convertible = true;
+			for (var position = 0; position < arguments.Count; position++)
+			{
+				if (IsError(arguments[position].Type) ||
+					!Conversions.TryClassify(arguments[position].Type, candidate.Parameters[position].Type, out _))
+				{
+					convertible = false;
+					break;
+				}
+			}
+			if (convertible)
+				return candidate;
+		}
+
+		return candidates[0];
 	}
 
 	/// <summary>
@@ -176,6 +333,21 @@ public sealed partial class Binder
 		if (IsError(target.Type))
 			return new BoundBlock([], null, FallsThrough: true, assignment.Span);
 
+		// spec §5: пользовательский `op []=` — сеттер индексатора. Ищем его до
+		// встроенного правила, но только для не-встроенных типов.
+		if (target.Type is not BuiltinGenericType &&
+			target.Type is not PrimitiveType { Primitive: PrimitiveKind.Str } &&
+			OwnerOf(target.Type) is { } owner)
+		{
+			var setters = new List<FunctionSymbol>();
+			foreach (var function in owner.Members.Operators)
+				if (function.OpSymbol == IndexSetOperator &&
+					function.Parameters.Count == index.Arguments.Count + 1)
+					setters.Add(function);
+			if (setters.Count > 0)
+				return BindUserIndexAssignment(assignment, index, target, setters);
+		}
+
 		if (target.Type is not BuiltinGenericType
 			{
 				BuiltinKind: BuiltinGenericKind.List or BuiltinGenericKind.Array or BuiltinGenericKind.Dict
@@ -183,7 +355,7 @@ public sealed partial class Binder
 		{
 			Report(
 				"KRN2106",
-				"Индексатор только для чтения: запись по индексу поддержана для list, array и dict",
+				"Индексатор только для чтения: запись по индексу поддержана для list, array, dict и op []= ",
 				index.Span);
 			return new BoundBlock([], null, FallsThrough: true, assignment.Span);
 		}

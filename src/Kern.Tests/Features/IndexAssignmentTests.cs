@@ -105,7 +105,46 @@ public sealed class IndexAssignmentTests
 	}
 
 	[Fact]
-	public void User_indexer_store_is_rejected_as_read_only()
+	public void User_indexer_setter_writes_through_op_index_set()
+	{
+		Assert.Equal(KValue.I32(5), Run("""
+			type Box(i32 value) {
+				op [](i32 i) -> i32 {
+					if i == 0 { ret $value }
+					0
+				}
+				op []=(i32 i, i32 v) {
+					if i == 0 { $value = v }
+				}
+			}
+
+			fun f() -> i32 {
+				Box b = Box(1)
+				b[0] = 5
+				b[0]
+			}
+			""", "f"));
+	}
+
+	[Fact]
+	public void User_indexer_compound_assignment_reads_then_writes()
+	{
+		Assert.Equal(KValue.I32(7), Run("""
+			type Box(i32 value) {
+				op [](i32 i) -> i32 $value
+				op []=(i32 i, i32 v) { $value = v }
+			}
+
+			fun f() -> i32 {
+				Box b = Box(1)
+				b[0] += 6
+				b[0]
+			}
+			""", "f"));
+	}
+
+	[Fact]
+	public void User_indexer_without_setter_is_rejected()
 	{
 		var diagnostic = Assert.Single(
 			CompileWithDiagnostics("""
@@ -120,7 +159,7 @@ public sealed class IndexAssignmentTests
 				""").Diagnostics,
 			item => item.Code == "KRN2106");
 		Assert.True(diagnostic.IsError);
-		Assert.Contains("только для чтения", diagnostic.Message, StringComparison.Ordinal);
+		Assert.Contains("запись по индексу", diagnostic.Message, StringComparison.Ordinal);
 	}
 
 	private static NativeCatalog Catalog() =>

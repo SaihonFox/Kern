@@ -1,3 +1,4 @@
+using Kern.Bytecode;
 using Kern.Compiler.Semantics.Types;
 using Kern.Compiler.Syntax;
 
@@ -34,6 +35,9 @@ public sealed record ModuleSymbol(
 	/// уже добавлены в <see cref="Functions"/>, члены встроенных типов ищутся binder'ом здесь.
 	/// </summary>
 	public IReadOnlyList<FunctionSymbol> NativeFunctions { get; init; } = [];
+
+	/// <summary>Атрибуты модуля (<c>#[module(...)]</c>), попадают в <c>.kbc</c>.</summary>
+	public IReadOnlyList<AttributeUse> Attributes { get; init; } = [];
 
 	/// <summary>Директивы <c>use</c> модуля в порядке исходника (M3-F).</summary>
 	public IReadOnlyList<UseDeclaration> Uses { get; init; } = [];

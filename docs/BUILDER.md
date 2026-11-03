@@ -91,6 +91,7 @@ Optimization level, warnings-as-errors, macros on/off, debug info (source line t
 1. Local first: `w.include(path)`, `t.kbc(path)`, `t.lib(name)`.
 2. Minimal remote packages: `t.pkg("name", url: "https://…", sha256: "…")` downloads a zip (a project with `build.kern` or a `.kbc`) to `~/.kern/pkgs/<sha256>/`, **verifies the hash**, then treats it as `include`/`kbc`. No registry, no version solving.
    - Сеть: только HTTPS (каждый шаг ручных перенаправлений, не более 5), SHA-256 обязателен, распаковка защищена от zip-slip, кэш помечается `.complete`, единственная корневая папка архива разворачивается.
+   - **Манифест и подпись (2026-11-03):** если в корне пакета есть `kern-package.json` (`name`, `version`, `description`, `permissions`), имя обязано совпадать с `t.pkg`, версия обязательна, а рядом должен лежать `kern-package.sig` — Base64 RSA PKCS#1 SHA-256 по точным байтам манифеста. Открытый ключ задаётся `KERN_PACKAGE_PUBLIC_KEY` (PEM) или `KERN_PACKAGE_KEY_FILE`; без ключа/подписи пакет с манифестом отклоняется. Пакеты без манифеста остаются совместимыми (только SHA-256). `permissions` — метаданные для будущей политики capabilities.
    - Проект с `build.kern` открывается как `w.include` и подключается зависимостью `<имя-пакета>:<цель>`; цель выбирается так: единственная, затем с именем пакета, затем единственная `lib`-цель.
    - `.kbc` (в корне или `out/`) добавляется в `t.kbc`.
    - `KERN_HOME` меняет корень кэша (`<KERN_HOME>/pkgs`), по умолчанию `~/.kern/pkgs`.

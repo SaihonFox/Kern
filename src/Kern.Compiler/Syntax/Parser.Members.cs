@@ -498,6 +498,12 @@ public sealed partial class Parser
 		{
 			Advance();
 			Advance();
+			// `op []=` — сеттер индексатора (spec §5).
+			if (Current.Kind == TokenKind.Equals)
+			{
+				Advance();
+				return "[]=";
+			}
 			return "[]";
 		}
 

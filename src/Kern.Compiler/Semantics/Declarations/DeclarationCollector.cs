@@ -146,7 +146,8 @@ public sealed partial class DeclarationCollector
 			_globals,
 			extensions)
 		{
-			Uses = [.. unit.Declarations.OfType<UseDeclaration>().Where(ConditionalCompilation.IsIncluded)]
+			Uses = [.. unit.Declarations.OfType<UseDeclaration>().Where(ConditionalCompilation.IsIncluded)],
+			Attributes = AttributeValues.Build(unit.Attributes)
 		};
 		return (module, [.. _diagnostics]);
 	}

@@ -89,6 +89,31 @@ public sealed partial class Parser
 		var declarations = new List<DeclarationNode>();
 		var start = Current.Span.Start;
 		string? project = null;
+
+		// Атрибуты модуля: либо все атрибуты перед `project`, либо ведущий `#[module(...)]`.
+		// Остальные ведущие атрибуты достаются первому объявлению, как раньше.
+		var leadingAttributes = ParseAttributes().ToList();
+		var moduleAttributes = new List<AttributeNode>();
+		if (leadingAttributes.Count > 0)
+			start = leadingAttributes[0].Span.Start;
+		if (Current.Kind == TokenKind.Project)
+		{
+			moduleAttributes.AddRange(leadingAttributes);
+			leadingAttributes.Clear();
+		}
+		else
+		{
+			var moduleCount = 0;
+			while (moduleCount < leadingAttributes.Count &&
+				string.Equals(leadingAttributes[moduleCount].Name, "module", StringComparison.Ordinal))
+				moduleCount++;
+			if (moduleCount > 0)
+			{
+				moduleAttributes.AddRange(leadingAttributes.Take(moduleCount));
+				leadingAttributes.RemoveRange(0, moduleCount);
+			}
+		}
+
 		if (Current.Kind == TokenKind.Project)
 		{
 			var projectStart = Advance().Span.Start;
@@ -102,9 +127,11 @@ public sealed partial class Parser
 			project = string.Join('.', parts);
 			start = projectStart;
 		}
+		var pendingAttributes = leadingAttributes;
 		while (!AtEnd)
 		{
-			var attributes = ParseAttributes();
+			var attributes = pendingAttributes.Count > 0 ? pendingAttributes : ParseAttributes();
+			pendingAttributes = [];
 			var modifiers = ParseModifierTokens();
 			if (Current.Kind == TokenKind.Fun)
 				declarations.Add(ParseFunction(attributes,
@@ -138,7 +165,11 @@ public sealed partial class Parser
 				RecoverDeclaration();
 			}
 		}
-		return new CompilationUnit(declarations, new TextSpan(start, Current.Span.End - start)) { Project = project };
+		return new CompilationUnit(declarations, new TextSpan(start, Current.Span.End - start))
+		{
+			Project = project,
+			Attributes = moduleAttributes,
+		};
 	}
 
 	private ExtensionOperatorDeclaration ParseExtensionOperator(
