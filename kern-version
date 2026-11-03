@@ -1,0 +1,6 @@
+0.1.0
+# Optional per-platform checksums of kern-<rid>.zip (release assets):
+# sha256-win-x64=<hex>
+# sha256-linux-x64=<hex>
+# sha256-osx-x64=<hex>
+# sha256-osx-arm64=<hex>

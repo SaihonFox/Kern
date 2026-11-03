@@ -19,7 +19,7 @@ Every milestone ends with: `dotnet build Kern.slnx` 0 errors · `dotnet test` gr
 | M10 | `.kbc` via `use`: stubs + linker, `kernc dll` | 2.5M | cli-dev |
 | M11 | `kernc fmt`, `kernc repl`, `-O2` peephole | 1.5M | compiler-dev + cli-dev |
 | M12 | Hardening: all stage-1 examples golden, GitHub Actions CI on 3 OS (owner pushes the repo), docs sync, regenerate the Russian spec | 2.5M | qa + lead |
-| M13 | (needs owner OK) package fetching + wrapper | — | cli-dev |
+| M13 | Package fetching + pinned `kernw` wrapper (implemented 2026-11-03) | — | cli-dev |
 | M14 | Round 27 additions: language, data structures, libraries, doc/tooling | 6M | compiler-dev + vm-dev + std-dev + cli-dev |
 
 ## M0 — Bootstrap

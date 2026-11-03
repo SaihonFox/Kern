@@ -78,6 +78,16 @@ internal sealed record ProfileModel
 	public IReadOnlyDictionary<string, string> Env { get; init; } = new Dictionary<string, string>();
 }
 
+/// <summary>Минимальный удалённый пакет (docs/BUILDER.md §8): zip по URL с обязательным SHA-256.</summary>
+internal sealed record PackageModel
+{
+	public required string Name { get; init; }
+
+	public required string Url { get; init; }
+
+	public required string Sha256 { get; init; }
+}
+
 /// <summary>Цель сборки: приложение или библиотека (§3, §4).</summary>
 internal sealed record TargetModel
 {
@@ -96,6 +106,8 @@ internal sealed record TargetModel
 	public IReadOnlyList<string> Libs { get; init; } = [];
 
 	public IReadOnlyList<string> LibPaths { get; init; } = [];
+
+	public IReadOnlyList<PackageModel> Packages { get; init; } = [];
 
 	public IReadOnlyList<string> Args { get; init; } = [];
 

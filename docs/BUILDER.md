@@ -87,10 +87,17 @@ Reading the real process environment inside `build.kern`: `w.env("NAME")` or `en
 ## 7a. Compiler settings [FINAL: wanted]
 Optimization level, warnings-as-errors, macros on/off, debug info (source line tables). Defaults: `-O1`, warnings not errors, macros on.
 
-## 8. Packages by name [FINAL: wanted in both forms; implement AFTER stage 1 — milestone M13, ask the owner before starting]
+## 8. Packages by name [FINAL: implemented 2026-11-03]
 1. Local first: `w.include(path)`, `t.kbc(path)`, `t.lib(name)`.
-2. Minimal remote packages: `t.pkg("name", url = "https://…", sha256 = "…")` downloads a zip (a project with `build.kern` or a `.kbc`) to `~/.kern/pkgs/<sha256>/`, **verifies the hash**, then treats it as `include`/`kbc`. No registry, no version solving.
+2. Minimal remote packages: `t.pkg("name", url: "https://…", sha256: "…")` downloads a zip (a project with `build.kern` or a `.kbc`) to `~/.kern/pkgs/<sha256>/`, **verifies the hash**, then treats it as `include`/`kbc`. No registry, no version solving.
+   - Сеть: только HTTPS (каждый шаг ручных перенаправлений, не более 5), SHA-256 обязателен, распаковка защищена от zip-slip, кэш помечается `.complete`, единственная корневая папка архива разворачивается.
+   - Проект с `build.kern` открывается как `w.include` и подключается зависимостью `<имя-пакета>:<цель>`; цель выбирается так: единственная, затем с именем пакета, затем единственная `lib`-цель.
+   - `.kbc` (в корне или `out/`) добавляется в `t.kbc`.
+   - `KERN_HOME` меняет корень кэша (`<KERN_HOME>/pkgs`), по умолчанию `~/.kern/pkgs`.
 3. Wrapper-like pinned launcher: `kernw` / `kernw.cmd` + a `kern-version` text file, downloads and runs the pinned `kernc`.
+   - `kern-version`: первая строка — версия (можно `v0.1.0`), опционально `sha256-<rid>=<hex>` или `sha256=<hex>`; при наличии контрольная сумма архива проверяется.
+   - Кэш: `<KERN_HOME>/dist/<версия>/kern-<rid>/`, архив берётся из GitHub Releases (`SaihonFox/Kern`, тег `v<версия>`).
+   - `kernw` (sh) и `kernw.cmd` (PowerShell) передают все аргументы `kernc`; сеть только HTTPS.
 Network code needs a security review (hash mandatory, https only, no redirects to other hosts without hash match).
 
 ## 9. Open points (put the answer you choose + reason into `DECISIONS_NEEDED.md`, do not block)

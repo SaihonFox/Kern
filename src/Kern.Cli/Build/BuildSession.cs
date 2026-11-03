@@ -25,13 +25,15 @@ internal sealed class BuildSession
 		string? scriptPath,
 		BuildModel workspace,
 		Interpreter? interpreter,
-		IReadOnlyList<BuildSession>? included = null)
+		IReadOnlyList<BuildSession>? included = null,
+		IReadOnlyDictionary<string, BuildSession>? packages = null)
 	{
 		Root = root;
 		ScriptPath = scriptPath;
 		Workspace = workspace;
 		Interpreter = interpreter;
 		Included = included ?? [];
+		Packages = packages ?? new Dictionary<string, BuildSession>(StringComparer.Ordinal);
 	}
 
 	/// <summary>Абсолютный путь корня проекта без завершающего разделителя.</summary>
@@ -48,12 +50,20 @@ internal sealed class BuildSession
 	/// <summary>Подпроекты из <c>w.include(path)</c> (docs/BUILDER.md §5).</summary>
 	public IReadOnlyList<BuildSession> Included { get; }
 
-	/// <summary>Найти подпроект по пути относительно этого проекта или по имени workspace.</summary>
+	/// <summary>Проекты из <c>t.pkg(...)</c> (docs/BUILDER.md §8), по имени пакета.</summary>
+	public IReadOnlyDictionary<string, BuildSession> Packages { get; }
+
+	/// <summary>Найти подпроект по пути относительно этого проекта, имени workspace или пакета.</summary>
 	public BuildSession? FindIncluded(string path)
 	{
 		if (string.IsNullOrWhiteSpace(path))
 			return null;
 		string normalized = path.Replace('\\', '/').Trim('/');
+		if (Packages.TryGetValue(normalized, out BuildSession? package))
+			return package;
+		foreach (BuildSession packageSession in Packages.Values)
+			if (packageSession.FindIncluded(normalized) is { } nestedPackage)
+				return nestedPackage;
 		foreach (BuildSession included in Included)
 		{
 			string relative = Path.GetRelativePath(Root, included.Root).Replace('\\', '/');
@@ -86,12 +96,12 @@ internal sealed class BuildSession
 	/// Читает проект и выполняет <c>build.kern</c>. Ошибки чтения, компиляции и выполнения
 	/// приходят как <see cref="BuildException"/> с готовым русским текстом.
 	/// </summary>
-	public static BuildSession Open(string directory)
-	{
-		return Open(directory, new HashSet<string>(StringComparer.OrdinalIgnoreCase));
-	}
+	public static BuildSession Open(string directory) => Open(directory, new PackageFetcher());
 
-	private static BuildSession Open(string directory, HashSet<string> visiting)
+	internal static BuildSession Open(string directory, PackageFetcher fetcher) =>
+		Open(directory, fetcher, new HashSet<string>(StringComparer.OrdinalIgnoreCase));
+
+	private static BuildSession Open(string directory, PackageFetcher fetcher, HashSet<string> visiting)
 	{
 		ArgumentNullException.ThrowIfNull(directory);
 		string root = ResolveRoot(directory);
@@ -99,7 +109,7 @@ internal sealed class BuildSession
 			throw new BuildException($"цикл include: проект уже открывается: {root}");
 		try
 		{
-			return OpenCore(root, visiting);
+			return OpenCore(root, fetcher, visiting);
 		}
 		finally
 		{
@@ -107,7 +117,7 @@ internal sealed class BuildSession
 		}
 	}
 
-	private static BuildSession OpenCore(string root, HashSet<string> visiting)
+	private static BuildSession OpenCore(string root, PackageFetcher fetcher, HashSet<string> visiting)
 	{
 		string scriptPath = Path.Combine(root, ScriptName);
 		if (!File.Exists(scriptPath))
@@ -149,6 +159,14 @@ internal sealed class BuildSession
 
 		BuildModel workspace = BuildObjectReader.ReadWorkspace(workspaceValue, root, scriptPath, hasBuildFile: true);
 		Validate(workspace);
+		// t.pkg: скачать/распаковать до открытия include, чтобы пакет-проект стал
+		// таким же include, а пакет-.kbc — зависимостью t.kbc (docs/BUILDER.md §8).
+		PackageResolver.Result packages = PackageResolver.Resolve(
+			workspace,
+			fetcher,
+			child => Open(child, fetcher, visiting));
+		workspace = packages.Workspace;
+
 		var included = new List<BuildSession>(workspace.Includes.Count);
 		foreach (string include in workspace.Includes)
 		{
@@ -159,10 +177,10 @@ internal sealed class BuildSession
 				: Path.GetFullPath(Path.Combine(root, include));
 			if (!Directory.Exists(child))
 				throw new BuildException($"{ScriptName}: включённый проект не найден: {include}");
-			included.Add(Open(child, visiting));
+			included.Add(Open(child, fetcher, visiting));
 		}
 
-		return new BuildSession(root, scriptPath, workspace, interpreter, included);
+		return new BuildSession(root, scriptPath, workspace, interpreter, included, packages.Projects);
 	}
 
 	/// <summary>Настройки компиляции цели с учётом настроек рабочей области (§7a).</summary>

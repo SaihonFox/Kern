@@ -72,6 +72,27 @@ Send the whole `dist/kern-win-x64.zip` (or the folder). Do not send only
 `kernc.exe`: programs that use `kern.db`/`kern.backend` need `libs/`, and
 examples need `examples/` if you want them to be runnable out of the box.
 
+## Pinned launcher `kernw`
+
+`kernw` (POSIX shell) and `kernw.cmd` (Windows) run the `kernc` version pinned in the
+`kern-version` file next to them:
+
+    ./kernw run examples/01_basics
+    kernw.cmd run examples\01_basics
+
+The wrapper downloads the matching `kern-<rid>.zip` from GitHub Releases
+(`SaihonFox/Kern`, tag `v<version>`) into `<KERN_HOME>/dist/<version>/kern-<rid>/` and
+passes all arguments through. `KERN_HOME` defaults to `~/.kern`. HTTPS is required.
+
+`kern-version` may contain optional per-platform checksums; when present, the downloaded
+archive is verified before extraction:
+
+    0.1.0
+    sha256-win-x64=...
+    sha256-linux-x64=...
+    sha256-osx-x64=...
+    sha256-osx-arm64=...
+
 ## GitHub Releases
 
 `.github/workflows/release.yml` builds `kernc` (self-contained, trimmed single-file) for

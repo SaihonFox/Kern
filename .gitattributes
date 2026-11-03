@@ -3,6 +3,9 @@
 # иначе Linux CI видит LF и падает на проверке стиля.
 * text=auto eol=crlf
 
+# POSIX-launcher обязан иметь LF, иначе shebang ломается на Linux/macOS.
+kernw text eol=lf
+
 # Бинарные файлы не трогаем.
 *.7z binary
 *.zip binary

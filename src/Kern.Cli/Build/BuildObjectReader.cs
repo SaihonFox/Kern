@@ -56,6 +56,7 @@ internal static class BuildObjectReader
 			KbcPaths = ReadStrings(target, "kbc_paths"),
 			Libs = ReadStrings(target, "libs"),
 			LibPaths = ReadStrings(target, "lib_paths"),
+			Packages = [.. ReadObjects(target, "packages").Select(ReadPackage)],
 			Args = ReadStrings(target, "args"),
 			Env = ReadStringMap(target, "env"),
 			Compiler = ReadSettings(Field(target, "compiler")),
@@ -71,6 +72,17 @@ internal static class BuildObjectReader
 			Name = ReadString(task, "name"),
 			After = ReadStrings(task, "after"),
 			Action = Field(task, "action"),
+		};
+	}
+
+	public static PackageModel ReadPackage(KValue value)
+	{
+		KObject package = Object(value, "package");
+		return new PackageModel
+		{
+			Name = ReadString(package, "name"),
+			Url = ReadString(package, "url"),
+			Sha256 = ReadString(package, "sha256"),
 		};
 	}
 

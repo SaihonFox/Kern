@@ -1,0 +1,110 @@
+#!/usr/bin/env sh
+# kernw — запускает kernc закреплённой версии из kern-version.
+# Скачивает официальный архив GitHub Releases в ~/.kern/dist/<версия>/kern-<rid>/
+# и передаёт все аргументы kernc. Пакеты кода (t.pkg) проверяются отдельно по SHA-256.
+set -eu
+
+root=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+version_file="$root/kern-version"
+if [ ! -f "$version_file" ]; then
+	echo "kernw: не найден $version_file" >&2
+	exit 1
+fi
+
+os=$(uname -s)
+arch=$(uname -m)
+case "$os" in
+	Darwin)
+		if [ "$arch" = "arm64" ]; then rid=osx-arm64; else rid=osx-x64; fi
+		;;
+	Linux)
+		case "$arch" in
+			aarch64|arm64) rid=linux-arm64 ;;
+			*) rid=linux-x64 ;;
+		esac
+		;;
+	*)
+		echo "kernw: неподдерживаемая ОС: $os" >&2
+		exit 1
+		;;
+esac
+
+version=
+sha_any=
+sha_rid=
+while IFS= read -r raw || [ -n "$raw" ]; do
+	line=$(printf '%s' "$raw" | tr -d '\r')
+	line=$(printf '%s' "$line" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+	[ -z "$line" ] && continue
+	case "$line" in
+		\#*) continue ;;
+	esac
+	case "$line" in
+		*=*)
+			key=$(printf '%s' "${line%%=*}" | tr 'A-Z' 'a-z' | tr -d '[:space:]')
+			value=$(printf '%s' "${line#*=}" | tr -d '[:space:]')
+			case "$key" in
+				version) version=$value ;;
+				sha256) sha_any=$value ;;
+				sha256-*) [ "$key" = "sha256-$rid" ] && sha_rid=$value ;;
+			esac
+			;;
+		*)
+			[ -z "$version" ] && version=$line
+			;;
+	esac
+done < "$version_file"
+version=${version#v}
+if [ -z "$version" ]; then
+	echo "kernw: в kern-version не указана версия" >&2
+	exit 1
+fi
+
+home=${KERN_HOME:-$HOME/.kern}
+cache="$home/dist/$version/kern-$rid"
+exe="$cache/kernc"
+if [ ! -x "$exe" ]; then
+	mkdir -p "$cache"
+	tmp=$(mktemp "${TMPDIR:-/tmp}/kernw.XXXXXX.zip")
+	trap 'rm -f "$tmp"' EXIT HUP INT TERM
+	url="https://github.com/SaihonFox/Kern/releases/download/v$version/kern-$rid.zip"
+	if command -v curl >/dev/null 2>&1; then
+		curl -fL --proto '=https' --proto-redir '=https' --tlsv1.2 "$url" -o "$tmp"
+	elif command -v wget >/dev/null 2>&1; then
+		wget -q "$url" -O "$tmp"
+	else
+		echo "kernw: нужен curl или wget" >&2
+		exit 1
+	fi
+
+	expected=${sha_rid:-$sha_any}
+	if [ -n "$expected" ]; then
+		actual=
+		if command -v sha256sum >/dev/null 2>&1; then
+			actual=$(sha256sum "$tmp" | awk '{print $1}')
+		elif command -v shasum >/dev/null 2>&1; then
+			actual=$(shasum -a 256 "$tmp" | awk '{print $1}')
+		else
+			echo "kernw: нет sha256sum/shasum для проверки контрольной суммы" >&2
+			exit 1
+		fi
+		expected=$(printf '%s' "$expected" | tr 'A-F' 'a-f')
+		actual=$(printf '%s' "$actual" | tr 'A-F' 'a-f')
+		if [ "$actual" != "$expected" ]; then
+			echo "kernw: SHA-256 не совпадает (ожидался $expected, получен $actual)" >&2
+			exit 1
+		fi
+	fi
+
+	if command -v unzip >/dev/null 2>&1; then
+		unzip -q "$tmp" -d "$cache"
+	elif command -v tar >/dev/null 2>&1; then
+		tar -xf "$tmp" -C "$cache"
+	else
+		echo "kernw: нужен unzip или tar" >&2
+		exit 1
+	fi
+	chmod +x "$exe" 2>/dev/null || true
+fi
+
+exec "$exe" "$@"

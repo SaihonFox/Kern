@@ -42,6 +42,8 @@ public static class BuildPrelude
 			dict<str, str> env = <str: str>[]
 		}
 
+		type package(str name, str url, str sha256)
+
 		type target(str name) {
 			str kind = "app"
 			list<str> src = ["src"]
@@ -50,6 +52,7 @@ public static class BuildPrelude
 			list<str> kbc_paths = <str>[]
 			list<str> libs = <str>[]
 			list<str> lib_paths = <str>[]
+			list<package> packages = <package>[]
 			list<str> args = <str>[]
 			dict<str, str> env = <str: str>[]
 			compiler_settings compiler = compiler_settings()
@@ -101,6 +104,10 @@ public static class BuildPrelude
 
 		fun target.kbc(str path) {
 			$kbc_paths.add(path)
+		}
+
+		fun target.pkg(str name, str url, str sha256) {
+			$packages.add(package(name, url, sha256))
 		}
 
 		fun target.lib(str module) {
