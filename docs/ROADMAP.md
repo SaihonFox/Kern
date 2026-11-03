@@ -126,7 +126,7 @@ Cross-cutting milestone for the owner's round-27 items (spec «Раунд 27», 
 2. **Binder/types:** generic union alias substitution; `is` pattern bindings and smart casts; generator typing (`seq<T>`); `result` label equivalence; nesting limit 256 (configurable).
 3. **Codegen/VM:** ~~direct tail-call optimization~~ (done 2026-11-02); `with` copies for `unit`/`type`; labeled jumps; ~~generators and lazy `seq<T>`~~ (done 2026-11-02); VM frame limit 10,000 (configurable; code currently 65_536 and not configurable); `span<T>`, `frozen_*`, `deque`, `priority_queue`, `sorted_dict`, `sorted_set`, `bitset`, `ring_buffer`, `lazy<T>` (done 2026-11-02).
 4. **Std libraries:** done 2026-11-02 — `kern.process`, `kern.path`, `kern.log`, `kern.cli`, `kern.config`, `kern.random`, `kern.auth`, `kern.net`, `kern.ansi`, `kern.toml`, `kern.ini`, time zones in `kern.time`.
-5. **Docs/CLI:** ~~`///` capture, doctest (compile + run, `// expect:` check), `kernc doc`~~ (done 2026-11-02); ~~`kernc new app|lib|service`~~, ~~`kernc run --watch`~~ (done 2026-11-02); `kernc wasm` (WASI) **not implemented** — needs a WASI host or a WASM backend, see `DECISIONS_NEEDED.md`.
+5. **Docs/CLI:** ~~`///` capture, doctest (compile + run, `// expect:` check), `kernc doc`~~ (done 2026-11-02); ~~`kernc new app|lib|service`~~, ~~`kernc run --watch`~~ (done 2026-11-02); `kernc wasm` (WASI) **not implemented** — decided 2026-11-03 to use NetWasm for a WASI P2 host, see `DECISIONS_NEEDED.md`.
 
 Accept: new syntax has parser/binder/codegen tests; tail recursion runs a deep loop without stack growth; generators are lazy; data structures/libraries have std tests and examples; doctest/tooling covered by CLI tests; full baseline green. Already done: first-line shebang and numeric separators (`LexerTests`, `CodeGeneratorTests`).
 
@@ -166,3 +166,6 @@ Run + golden: 01-12, 14, 18, 21-24, 28-31 (04 is active since Q25). Compile-only
 **Status 2026-11-02 - streaming, ORM migrations/relations, transpile:** backend `res.stream`/`res_writer` with cooperative `ctx.cancelled`; ORM `migrate()` and `belongs_to`/`has_many`; external `libs/Kern.Lib.Transpile` with C#/Kotlin targets, `transpiler`/`map_script`/`text|file|project`; examples 25 and 31 check/run. Suite **420/420**; examples clean **30/31** (only 19_gui).
 
 ## Stage 2 (needs explicit owner go-ahead) — see `docs/WISHLIST.md`
+
+Order (owner, 2026-11-03): finish the main stage-1 work first; **`kern.ui` is implemented last**.
+`kernc wasm` targets WASI Preview 2 via NetWasm (see `DECISIONS_NEEDED.md`).

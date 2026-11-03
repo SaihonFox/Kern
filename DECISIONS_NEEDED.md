@@ -98,25 +98,32 @@ Owner request: «на шарп-проекте сделай нормальную 
 Пока выбран вариант 1 (текущая реализация); для variant 2 нужен отдельный срез и
 owner-approval. См. `docs/BOOTSTRAP.md` и `docs/KNOWN_ISSUES.md`.
 
-## Open — `kernc wasm` for WASI (2026-11-02)
+## Решено — `kernc wasm` через NetWasm (2026-11-03), не реализовано
 
-`kernc new`, `kernc doc` (with doctest) и `kernc run --watch` реализованы. `kernc wasm` нельзя
-сделать тем же путём, что остальные команды: проект компилируется в `.kbc` для стековой VM, а
-для WASI нужен отдельный хост. Установленный SDK имеет workload `wasm-tools` только с
-`browser-wasm`; runtime-pack `wasi-wasm` отсутствует. Требуется решение:
+Owner предложил библиотеку **NetWasm** — <https://github.com/zion-sati/NetWasm/>. Проверено:
+репозиторий существует (282★, pre-1.0), пакеты есть на NuGet (последняя версия `0.10.7`),
+нужен .NET SDK 10.0.303+. NetWasm компилирует C#/CIL в самостоятельный **WASI Preview 2
+Component** с встроенным runtime и precise GC (Compact/NetWasmGC/Bump), без desktop CLR/Mono
+и без `dotnet.js`.
 
-1. **WASI через .NET (`wasi-experimental`)** — поставить workload, добавить `Kern.WasiHost`
-   (KbcReader + VM + reflection-резолвер нативов без `Expression.Compile`), встраивать
-   `program.kbc` как ресурс и вызывать `dotnet publish -r wasi-wasm`. Работает только
-   синхронное подмножество (без потоков/сетевого backend), размер большой. Оценка: L.
-2. **Собственный WASM-бэкенд** — генерировать `.wasm`/WAT напрямую из bound tree. Полный
-   контроль и малый размер, но нужно реализовать кодогенерацию, GC/строки/коллекции и
-   runtime; фактически второй codegen. Оценка: XL.
-3. **Browser-wasm вместо WASI** — использовать установленный `browser-wasm`: получится
-   браузерный модуль с JS-обвязкой, а не WASI-команда; придётся изменить спецификацию.
-4. **Отложить `kernc wasm`** — оставить команду задокументированной как нереализованную,
-   продолжать остальные инструменты. Рекомендация на сейчас: сначала закрыть M14-структуры,
-   затем вернуться к варианту 1 по отдельному решению.
+План (когда дойдём до `kernc wasm`):
+
+1. Добавить `Kern.WasiHost`: `KbcReader` + VM + **AOT-дружественный резолвер нативов**;
+   встраивать `program.kbc` ресурсом и публиковать через NetWasm (`dotnet publish`).
+2. Собрать `kernc wasm <проект> -o out.wasm`; запуск — любой WASI P2-хост (Wasmtime).
+
+Ограничения NetWasm, которые надо учесть заранее:
+- нет общего runtime reflection, `dynamic`, загрузки сборок в рантайме и managed threading;
+- нет `System.IO.File`/`Directory`/`FileStream`, raw sockets и subprocess API;
+- проект pre-1.0, ABI/пакеты могут меняться между minor-версиями;
+- лицензия: runtime/CoreLib — MIT, компилятор/тулинг — NetWasm Community License 1.0
+  (бесплатно для физлиц, образования, open-source и компаний < 250 сотрудников и < $10M
+  годовой выручки; крупным — спонсорство от $149/мес).
+
+Риск для Kern: `NativeCatalog`/`NativeResolver` и часть `Kern.Runtime` (`kern.reflection`,
+mocks, http proxy) сейчас опираются на `System.Reflection`/`MethodInfo.Invoke`. Для wasm-профиля
+нужен reflection-free режим привязки (сгенерированный резолвер или таблица делегатов) либо
+явное урезание std до «wasm-safe» набора. Потоки, backend, БД и FFI в WASI-профиль не входят.
 
 ## Decided - owner answers (2026-11-01, "доделай всё")
 

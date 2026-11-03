@@ -7,6 +7,8 @@ Language details live in `docs/spec/kern.en.md`; this file is the index of *why*
 - [FINAL] Build **from scratch by the spec**; old code is `reference/` (copy piece by piece, only after verifying; see `KNOWN_ISSUES.md`).
 - [FINAL] Instructions in English; **code comments and diagnostics in Russian**; no git required for agents.
 - [FINAL] First pass scope = **core + std + CLI** (see `ROADMAP.md`). Stage-2 = external libraries, UI, architecture examples; LSP MVP implemented 2026-11-02.
+- [FINAL] `kern.ui` (2026-11-03): implement **last**, after all main work is done (owner decision).
+- [FINAL] `kernc wasm` (2026-11-03): target **WASI Preview 2 via NetWasm** (<https://github.com/zion-sati/NetWasm/>), not Microsoft `wasi-experimental`; not implemented yet. NetWasm compiles C#/CIL to a standalone Wasm component with its own runtime/GC. Constraints: no general runtime reflection/`dynamic`/runtime assembly loading/managed threading, no general file/socket/subprocess APIs, pre-1.0, Community+MIT license. Requires a reflection-free native-binding mode in `Kern.WasiHost`.
 - [FINAL] Correctness bar: **examples are golden tests + xunit tests**.
 - [FINAL] When a decision proves bad → **stop and ask the owner** (`DECISIONS_NEEDED.md`), do not silently redesign.
 - [FINAL] Permissions: agents may run `dotnet` and edit files in the project folder; anything else → ask.
