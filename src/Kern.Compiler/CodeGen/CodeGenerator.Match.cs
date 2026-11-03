@@ -127,6 +127,10 @@ public sealed partial class CodeGenerator
 				EmitListPatternTest(list);
 				break;
 
+			case BoundTuplePattern tuple:
+				EmitTuplePatternTest(tuple);
+				break;
+
 			case BoundNilPattern:
 				Emit(OpCode.PushNil);
 				Emit(OpCode.Eq);
@@ -257,6 +261,32 @@ public sealed partial class CodeGenerator
 			}
 			Emit(OpCode.ListSlice);
 			Emit(OpCode.StoreLocal, rest.Slot);
+		}
+
+		Emit(OpCode.PushTrue);
+		var endJump = EmitJump(OpCode.Jmp);
+		foreach (var jump in failJumps)
+			Patch(jump, Position);
+		Emit(OpCode.PushFalse);
+		Patch(endJump, Position);
+	}
+
+	/// <summary>
+	/// Паттерн кортежа: субъект снимается в слот, затем элементы читаются <c>TupleGet</c>
+	/// по порядку и проверяются вложенными паттернами. Провал любой проверки — общий <c>false</c>.
+	/// </summary>
+	private void EmitTuplePatternTest(BoundTuplePattern pattern)
+	{
+		var subjectSlot = AllocateLocalSlot();
+		Emit(OpCode.StoreLocal, subjectSlot);
+
+		var failJumps = new List<int>();
+		for (var index = 0; index < pattern.Items.Count; index++)
+		{
+			Emit(OpCode.LoadLocal, subjectSlot);
+			Emit(OpCode.TupleGet, index);
+			EmitPatternTestOnStack(pattern.Items[index], pattern.Items[index].Span);
+			failJumps.Add(EmitJump(OpCode.JmpIfNot));
 		}
 
 		Emit(OpCode.PushTrue);

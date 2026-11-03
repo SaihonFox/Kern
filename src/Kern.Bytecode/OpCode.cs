@@ -183,6 +183,14 @@ public enum OpCode
 
 	// --- срез с шагом (spec §3, раунд 27) ---
 	SliceStep,        // inclusive: стек [list/array/str, start i32, end i32, step i32] -> новый срез
+
+	// --- открытые срезы (spec §3): `xs[a..]`, `xs[..]`, `xs[a..:step]` ---
+	SliceFrom,        // нет операндов: [list/array/str, start i32] -> срез от start до конца
+	SliceStepFrom,    // нет операндов: [list/array/str, start i32, step i32] -> срез с шагом до конца
+
+	// --- конверсии str <-> list<char> (spec §3) ---
+	StrChars,         // нет операндов: [str] -> list<char>
+	CharsToStr,       // нет операндов: [list<char>] -> str
 }
 
 /// <summary>Раскладка операндов и вспомогательные проверки для <see cref="OpCode"/>.</summary>
@@ -212,7 +220,7 @@ public static class OpCodeInfo
 	public static bool IsJump(OpCode op) => op is OpCode.Jmp or OpCode.JmpIf or OpCode.JmpIfNot;
 
 	/// <summary>Известен ли номер опкода (защита от мусора в .kbc).</summary>
-	public static bool IsDefined(int value) => value >= 0 && value <= (int)OpCode.SliceStep;
+	public static bool IsDefined(int value) => value >= 0 && value <= (int)OpCode.CharsToStr;
 
 	public static bool IsDefined(OpCode op) => IsDefined((int)op);
 }

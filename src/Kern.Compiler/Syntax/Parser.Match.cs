@@ -104,6 +104,29 @@ public sealed partial class Parser
 				name = Advance().Text;
 			return new RestPattern(name, new TextSpan(token.Span.Start, Previous.Span.End - token.Span.Start));
 		}
+		if (token.Kind == TokenKind.LeftParen)
+		{
+			// `(p1, p2)` — паттерн кортежа; `(p)` — обычная группировка.
+			Advance();
+			var items = new List<PatternNode>();
+			while (!AtEnd && Current.Kind != TokenKind.RightParen)
+			{
+				var before = _position;
+				items.Add(ParsePattern());
+				if (!Match(TokenKind.Comma)) break;
+				if (_position == before) Advance();
+			}
+			var close = Consume(TokenKind.RightParen, "Ожидалась закрывающая скобка паттерна кортежа");
+			if (items.Count == 1)
+				return items[0];
+			if (items.Count == 0)
+			{
+				Report("PAR006", "Паттерн кортежа не может быть пустым");
+				return new WildcardPattern(token.Span);
+			}
+
+			return new TuplePattern(items, new TextSpan(token.Span.Start, close.Span.End - token.Span.Start));
+		}
 		if (token.Kind == TokenKind.LeftBracket)
 		{
 			// B4b1: `[p1, p2]` — паттерн списка фиксированной длины. `..rest` разбирается

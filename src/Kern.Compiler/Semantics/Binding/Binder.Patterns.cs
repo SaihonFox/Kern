@@ -26,6 +26,7 @@ public sealed partial class Binder
 		RangePattern range => BindRangePattern(range, subject),
 		OrPattern or => BindOrPattern(or, subject, bindings),
 		ListPattern list => BindListPattern(list, subject, bindings),
+		TuplePattern tuple => BindTuplePattern(tuple, subject, bindings),
 		RestPattern rest => UnsupportedPattern(rest, "rest-паттерн"),
 		_ => UnsupportedPattern(pattern, pattern.GetType().Name)
 	};
@@ -118,6 +119,46 @@ public sealed partial class Binder
 		}
 
 		return new BoundListPattern(items, itemsBeforeRest, elementType, restBinding, pattern.Span);
+	}
+
+	/// <summary>
+	/// Паттерн кортежа <c>(p1, p2)</c>: субъект обязан быть кортежем той же арности;
+	/// каждый элемент связывается с типом соответствующего элемента субъекта.
+	/// </summary>
+	private BoundPattern BindTuplePattern(
+		TuplePattern pattern,
+		KernType? subject,
+		List<BoundPatternBinding> bindings)
+	{
+		IReadOnlyList<TupleElement>? elements = null;
+		if (subject is not null && !IsError(subject))
+		{
+			if (subject is not TupleType tuple)
+			{
+				Report("KRN2112", $"Паттерн кортежа требует кортеж, получено '{subject}'", pattern.Span);
+				return new BoundUnsupportedPattern(pattern.Span);
+			}
+
+			if (tuple.Elements.Count != pattern.Items.Count)
+			{
+				Report(
+					"KRN2112",
+					$"Паттерн кортежа из {pattern.Items.Count} элементов не подходит к '{subject}'",
+					pattern.Span);
+				return new BoundUnsupportedPattern(pattern.Span);
+			}
+
+			elements = tuple.Elements;
+		}
+
+		var items = new List<BoundPattern>(pattern.Items.Count);
+		for (var index = 0; index < pattern.Items.Count; index++)
+		{
+			KernType elementType = elements is null ? ErrorType.Instance : elements[index].Type;
+			items.Add(BindPattern(pattern.Items[index], elementType, bindings));
+		}
+
+		return new BoundTuplePattern(items, pattern.Span);
 	}
 
 	/// <summary>Связывает ли альтернатива имя (в or-паттерне это пока запрещено).</summary>

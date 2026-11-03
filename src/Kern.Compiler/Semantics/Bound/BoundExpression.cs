@@ -227,7 +227,7 @@ public sealed record BoundIndexExpression(
 public sealed record BoundSliceExpression(
 	BoundExpression Target,
 	BoundExpression Start,
-	BoundExpression End,
+	BoundExpression? End,
 	bool Inclusive,
 	KernType Type,
 	TextSpan Span,

@@ -552,55 +552,22 @@ public sealed partial class Interpreter
 							break;
 						}
 					case OpCode.Slice:
-						{
-							// B5b2: стек [list/array/str, начало i32, конец i32], операнд — флаг
-							// включительного конца (1/0). Отрицательные границы считаются с конца,
-							// затем диапазон проверяется (паника) и копируется в новый list/str.
-							bool inclusive = code[pc++] != 0;
-							KValue endValue = stack.Pop();
-							KValue startValue = stack.Pop();
-							KValue receiver = stack.Pop();
-							if (startValue.Kind != ValueKind.I32)
-								throw new KernPanic($"Slice: ожидалось начало i32, получено {startValue.TypeName}");
-							if (endValue.Kind != ValueKind.I32)
-								throw new KernPanic($"Slice: ожидался конец i32, получено {endValue.TypeName}");
-							int start = startValue.AsI32;
-							int end = endValue.AsI32;
-							if (receiver.Kind == ValueKind.Str)
-							{
-								string text = receiver.AsStr;
-								(int from, int to) = NormalizeSlice(start, end, inclusive, text.Length);
-								stack.Push(KValue.Str(text.Substring(from, to - from)));
-								break;
-							}
-
-							switch (receiver.Ref)
-							{
-								case KList list:
-									{
-										(int from, int to) = NormalizeSlice(start, end, inclusive, list.Count);
-										stack.Push(KValue.Obj(new KList(
-											list.ElementType,
-											SliceItems(list.Count, index => list[index], from, to))));
-										break;
-									}
-								case KArray array:
-									{
-										(int from, int to) = NormalizeSlice(start, end, inclusive, array.Length);
-										stack.Push(KValue.Obj(new KList(
-											array.ElementType,
-											SliceItems(array.Length, index => array[index], from, to))));
-										break;
-									}
-								default:
-									throw new KernPanic(
-										$"Slice: ожидался list, array или str, получено {receiver.TypeName}");
-							}
-
-							break;
-						}
+						Slice(ref stack, code[pc++] != 0);
+						break;
 					case OpCode.SliceStep:
 						SliceStep(ref stack, code[pc++] != 0);
+						break;
+					case OpCode.SliceFrom:
+						SliceToEnd(ref stack, withStep: false);
+						break;
+					case OpCode.SliceStepFrom:
+						SliceToEnd(ref stack, withStep: true);
+						break;
+					case OpCode.StrChars:
+						StrChars(ref stack);
+						break;
+					case OpCode.CharsToStr:
+						CharsToStr(ref stack);
 						break;
 					case OpCode.NewArray:
 						{

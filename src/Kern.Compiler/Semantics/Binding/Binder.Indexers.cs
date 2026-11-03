@@ -296,13 +296,21 @@ public sealed partial class Binder
 		RangeExpression range,
 		KernType resultType)
 	{
-		var start = Convert(BindExpression(range.Start), PrimitiveType.I32, range.Start.Span);
+		// Открытое начало `xs[..b]` — это срез с нуля; открытый конец `xs[a..]` остаётся
+		// null и codegen берёт длину коллекции (SliceFrom/SliceStepFrom).
+		BoundExpression start = range.Start is null
+			? IntLiteral("0", range.Span)
+			: Convert(BindExpression(range.Start), PrimitiveType.I32, range.Start.Span);
 		if (IsError(start.Type))
 			return new BoundErrorExpression(index.Span);
 
-		var end = Convert(BindExpression(range.End), PrimitiveType.I32, range.End.Span);
-		if (IsError(end.Type))
-			return new BoundErrorExpression(index.Span);
+		BoundExpression? end = null;
+		if (range.End is not null)
+		{
+			end = Convert(BindExpression(range.End), PrimitiveType.I32, range.End.Span);
+			if (IsError(end.Type))
+				return new BoundErrorExpression(index.Span);
+		}
 
 		BoundExpression? step = null;
 		if (range.Step is not null)

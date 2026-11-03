@@ -32,6 +32,91 @@ public sealed partial class Interpreter
 		return (from, to);
 	}
 
+	/// <summary>
+	/// B5b2: срез <c>start..end</c> из <c>list</c>/<c>array</c>/<c>str</c>. Стек:
+	/// <c>[receiver, start, end]</c>; <paramref name="inclusive"/> — включительный конец.
+	/// Отрицательные границы считаются с конца, затем диапазон проверяется (паника)
+	/// и копируется в новый list/str.
+	/// </summary>
+	private static void Slice(ref OperandStack stack, bool inclusive)
+	{
+		KValue endValue = stack.Pop();
+		KValue startValue = stack.Pop();
+		KValue receiver = stack.Pop();
+		if (startValue.Kind != ValueKind.I32)
+			throw new KernPanic($"Slice: ожидалось начало i32, получено {startValue.TypeName}");
+		if (endValue.Kind != ValueKind.I32)
+			throw new KernPanic($"Slice: ожидался конец i32, получено {endValue.TypeName}");
+		int start = startValue.AsI32;
+		int end = endValue.AsI32;
+		if (receiver.Kind == ValueKind.Str)
+		{
+			string text = receiver.AsStr;
+			(int from, int to) = NormalizeSlice(start, end, inclusive, text.Length);
+			stack.Push(KValue.Str(text.Substring(from, to - from)));
+			return;
+		}
+
+		switch (receiver.Ref)
+		{
+			case KList list:
+				{
+					(int from, int to) = NormalizeSlice(start, end, inclusive, list.Count);
+					stack.Push(KValue.Obj(new KList(
+						list.ElementType,
+						SliceItems(list.Count, index => list[index], from, to))));
+					break;
+				}
+			case KArray array:
+				{
+					(int from, int to) = NormalizeSlice(start, end, inclusive, array.Length);
+					stack.Push(KValue.Obj(new KList(
+						array.ElementType,
+						SliceItems(array.Length, index => array[index], from, to))));
+					break;
+				}
+			default:
+				throw new KernPanic(
+					$"Slice: ожидался list, array или str, получено {receiver.TypeName}");
+		}
+	}
+
+	/// <summary>
+	/// Открытый срез <c>xs[start..]</c>/<c>xs[start..:step]</c>: конец — длина коллекции.
+	/// Стек: <c>[receiver, start]</c> или <c>[receiver, start, step]</c>.
+	/// </summary>
+	private static void SliceToEnd(ref OperandStack stack, bool withStep)
+	{
+		int step = 1;
+		if (withStep)
+		{
+			KValue stepValue = stack.Pop();
+			if (stepValue.Kind != ValueKind.I32)
+				throw new KernPanic($"Slice: ожидался шаг i32, получено {stepValue.TypeName}");
+			step = stepValue.AsI32;
+		}
+
+		KValue startValue = stack.Pop();
+		KValue receiver = stack.Pop();
+		if (startValue.Kind != ValueKind.I32)
+			throw new KernPanic($"Slice: ожидалось начало i32, получено {startValue.TypeName}");
+		stack.Push(SliceToEnd(receiver, startValue.AsI32, step));
+	}
+
+	private static KValue SliceToEnd(KValue receiver, int start, int step)
+	{
+		int count = receiver.Kind == ValueKind.Str
+			? receiver.AsStr.Length
+			: receiver.Ref switch
+			{
+				KList list => list.Count,
+				KArray array => array.Length,
+				_ => throw new KernPanic(
+					$"Slice: ожидался list, array или str, получено {receiver.TypeName}")
+			};
+		return SliceWithStep(receiver, start, count, inclusive: false, step);
+	}
+
 	/// <summary>Снять <c>[receiver, start, end, step]</c> и положить срез с шагом.</summary>
 	private static void SliceStep(ref OperandStack stack, bool inclusive)
 	{

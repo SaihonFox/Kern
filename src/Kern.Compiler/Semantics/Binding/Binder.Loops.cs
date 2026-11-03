@@ -446,6 +446,13 @@ public sealed partial class Binder
 		increment = EmptyLoopBlock(range.Span);
 		elementType = ErrorType.Instance;
 
+		// Открытые границы допустимы только в срезе `xs[a..]`; цикл требует обе.
+		if (range.Start is null || range.End is null)
+		{
+			Report("KRN2101", "В диапазоне цикла нужны обе границы", range.Span);
+			return false;
+		}
+
 		var start = BindExpression(range.Start);
 		var end = BindExpression(range.End);
 		if (IsError(start.Type) || IsError(end.Type))

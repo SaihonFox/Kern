@@ -139,6 +139,20 @@ public sealed partial class CodeGenerator
 	{
 		EmitExpression(slice.Target);
 		EmitExpression(slice.Start);
+		// Открытый конец `xs[a..]`: длину знает VM, поэтому кладём только начало.
+		if (slice.End is null)
+		{
+			if (slice.Step is null)
+			{
+				Emit(OpCode.SliceFrom);
+				return;
+			}
+
+			EmitExpression(slice.Step);
+			Emit(OpCode.SliceStepFrom);
+			return;
+		}
+
 		EmitExpression(slice.End);
 		if (slice.Step is null)
 		{

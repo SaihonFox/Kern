@@ -2,6 +2,20 @@
 
 ## Now
 
+### Батч 2026-11-03 (owner request): закрытие языковых пробелов
+
+Сделано и проверено (build 0 errors, тесты 579/579, style clean):
+- Открытые границы срезов (spec §3): `xs[..end]`, `xs[start..]`, `xs[..]`, `xs[start..:step]`
+  для `list`/`array`/`str`; новые опкоды `SliceFrom`/`SliceStepFrom`. Тесты `OpenSliceTests` (4).
+- Паттерны кортежей (spec §11): `(p1, p2)` в `match` и справа от `is`; кортеж из связываний
+  считается безусловной ветвью для KRN2110/KRN2111. Тесты `TuplePatternTests` (4).
+- Контекстные `str` ↔ `list<char>`: опкоды `StrChars`/`CharsToStr`, классификация
+  `ConversionKind.StrToListChar`/`ListCharToStr`. Тесты `CharListConversionTests` (2).
+- `fail` из `kern.test` имеет тип `never`, поэтому допустим в позиции значения. Тесты
+  `FailNeverTests` (2).
+- Отложены с вопросами в `DECISIONS_NEEDED.md`: `seq.len`/повторная итерация, async-генераторы,
+  запись через пользовательский `op []`, `in/ref/out`.
+
 ### Батч 2026-11-02 (owner request): размер, проекты, диагностика, инструменты, библиотеки
 
 Сделано и проверено (build 0 errors, тесты 549/549):
@@ -45,7 +59,7 @@ self-contained single-file (не NativeAOT).
 - UI: `kern.ui` / `libs/Kern.Lib.Ui` отсутствует, `examples/19_gui` не запускается.
 - Инструменты: `kernc wasm` (WASI; нужен отдельный хост/бэкенд — `DECISIONS_NEEDED.md`), package fetching (M13), отладчик, архитектурные примеры. `kernc new`, `kernc doc` (doctest) и `kernc run --watch` реализованы 2026-11-02.
 - Язык: префиксы строк `r`/`f`/`x`/`v` в любом порядке (`rf`=`fr`, `xf`=`fx`, `xrf`=`frx`); `use dotnet.X[...]` (только статические члены BCL), `in/ref/out`, identity для `unit`, запись через пользовательский `op []`, async-генераторы, `seq.len`/повторный обход.
-- Известные ограничения: `fail` из `kern.test` — `void`, не `never`; `define_type` без методов/свойств (generics/родители и `instantiate()` атрибута есть); макросы не раскрываются в одиночном `CompileCore`; LSP видит только каталог `Kern.Runtime`.
+- Известные ограничения: `define_type` без методов/свойств (generics/родители и `instantiate()` атрибута есть); макросы не раскрываются в одиночном `CompileCore`; LSP видит только каталог `Kern.Runtime`.
 
 - **Remaining std modules implemented (2026-11-02, owner request):** `kern.ansi` (colors/styles/strip/256/RGB), `kern.ini` (sections ↔ dict), `kern.toml` (tables/arrays/scalars), `kern.net` (hostname/resolve/IP/reachability), time zones in `kern.time` (`time.zone(s)`, `datetime.now_in/in_zone`, `zone_name`); `StdModulesExtraTests` (5).
 - **M14 data structures implemented (2026-11-02, owner request):** `deque`, `priority_queue`, `sorted_dict`, `sorted_set`, `bitset`, `ring_buffer`, `lazy`, `frozen_list/frozen_dict/frozen_set`, `span`; shared `KValue` ordering (`op compare` for user types); example `32_data_structures`; `DataStructuresTests` (14). Native generic member return types now substitute receiver arguments (`SubstituteNativeReturn`).

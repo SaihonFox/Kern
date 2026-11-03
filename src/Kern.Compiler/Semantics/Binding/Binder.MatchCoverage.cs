@@ -46,11 +46,15 @@ public sealed partial class Binder
 			if (arm.Guard is not null)
 				continue;
 
+			// `_`, связывание, or-паттерн с такой альтернативой или кортеж из них покрывают всё.
+			if (IsCatchAllPattern(arm.Pattern))
+			{
+				hasCatchAll = true;
+				continue;
+			}
+
 			switch (arm.Pattern)
 			{
-				case BoundWildcardPattern or BoundBindingPattern:
-					hasCatchAll = true;
-					break;
 				case BoundOrPattern or:
 					// B4a2: альтернативы учитываются по отдельности; wildcard внутри or-паттерна
 					// делает его catch-all, поэтому следующие ветви недостижимы.
@@ -58,9 +62,6 @@ public sealed partial class Binder
 					{
 						switch (alternative)
 						{
-							case BoundWildcardPattern or BoundBindingPattern:
-								hasCatchAll = true;
-								break;
 							case BoundLiteralPattern literal:
 								literals.Add(literal);
 								break;
@@ -274,9 +275,19 @@ public sealed partial class Binder
 			? or.Alternatives.SelectMany(PatternAlternatives)
 			: [pattern];
 
-	/// <summary>Ловит все значения: <c>_</c>, связывание или or-паттерн с такой альтернативой.</summary>
+	/// <summary>
+	/// Ловит все значения: <c>_</c>, связывание, кортеж из таких паттернов или or-паттерн
+	/// с такой альтернативой.
+	/// </summary>
 	private static bool IsCatchAllPattern(BoundPattern pattern) =>
-		PatternAlternatives(pattern).Any(alternative => alternative is BoundWildcardPattern or BoundBindingPattern);
+		PatternAlternatives(pattern).Any(IsCatchAllAlternative);
+
+	private static bool IsCatchAllAlternative(BoundPattern pattern) => pattern switch
+	{
+		BoundWildcardPattern or BoundBindingPattern => true,
+		BoundTuplePattern tuple => tuple.Items.Count > 0 && tuple.Items.All(IsCatchAllPattern),
+		_ => false
+	};
 
 	private static bool SameLiteral(BoundLiteralPattern left, BoundLiteralPattern right) =>
 		TryGetLiteral(left, out var leftValue, out var leftType) &&

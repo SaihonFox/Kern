@@ -19,6 +19,9 @@ public sealed partial class Binder
 			return expression;
 		if (Conversions.TryClassify(expression.Type, target, out var conversion))
 			return new BoundConversionExpression(expression, conversion, target, span);
+		// Контекстные конверсии spec §3: `str` ↔ `list<char>` (только по ожидаемому типу).
+		if (Conversions.TryClassifyContextual(expression.Type, target, out var contextual))
+			return new BoundConversionExpression(expression, contextual, target, span);
 		// C#-подобное константное преобразование: `u8 small = 5` (spec §3/§15).
 		// Идёт после обычных неявных преобразований, чтобы расширение литерала
 		// по-прежнему оставалось NumericWidening.

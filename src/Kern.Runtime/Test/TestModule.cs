@@ -114,6 +114,7 @@ public static class TestModule
 	/// <summary><c>fail(message)</c>: безусловная паника (по смыслу — <c>never</c>).</summary>
 	[KernName("fail")]
 	[KernMember]
+	[KernReturn("never")]
 	public static void Fail(string message) => throw new KernPanic(message);
 
 	private static string Number(double value) => value.ToString("R", CultureInfo.InvariantCulture);

@@ -57,14 +57,15 @@ public sealed partial class Parser
 			if (Current.Kind == TokenKind.Operator && (Current.Text == ".." || Current.Text == "..="))
 			{
 				var rangeToken = Advance();
-				var end = ParseExpression(1);
+				// Открытый конец `xs[1..]`: за `..` сразу идёт закрывающая скобка/запятая.
+				ExpressionNode? end = IsRangeEndMissing() ? null : ParseExpression(1);
 				ExpressionNode? step = null;
 				if (Current.Kind == TokenKind.Colon)
 				{
 					Advance();
 					step = ParseExpression(1);
 				}
-				var rangeEnd = step?.Span.End ?? end.Span.End;
+				var rangeEnd = step?.Span.End ?? end?.Span.End ?? rangeToken.Span.End;
 				left = new RangeExpression(left, end, rangeToken.Text == "..=", step,
 					new TextSpan(left.Span.Start, rangeEnd - left.Span.Start));
 				continue;
@@ -185,13 +186,41 @@ public sealed partial class Parser
 		var arguments = new List<ExpressionNode>();
 		while (!AtEnd && Current.Kind != TokenKind.RightBracket)
 		{
-			arguments.Add(ParseExpression());
+			// Открытое начало среза `xs[..b]`/`xs[..]`: диапазон начинается с `..`.
+			if (Current.Kind == TokenKind.Operator && Current.Text is ".." or "..=")
+				arguments.Add(ParseOpenStartRange());
+			else
+				arguments.Add(ParseExpression());
 			if (!Match(TokenKind.Comma))
 				break;
 		}
 		var close = Consume(TokenKind.RightBracket, "Ожидалась закрывающая квадратная скобка");
 		return new IndexExpression(target, arguments, new TextSpan(target.Span.Start, close.Span.End - target.Span.Start));
 	}
+
+	/// <summary>
+	/// Срез с открытым началом <c>xs[..b]</c>/<c>xs[..=b]</c>/<c>xs[..]</c> (spec §3):
+	/// диапазон начинается прямо с <c>..</c>.
+	/// </summary>
+	private RangeExpression ParseOpenStartRange()
+	{
+		var rangeToken = Advance();
+		ExpressionNode? end = IsRangeEndMissing() ? null : ParseExpression(1);
+		ExpressionNode? step = null;
+		if (Current.Kind == TokenKind.Colon)
+		{
+			Advance();
+			step = ParseExpression(1);
+		}
+
+		var rangeEnd = step?.Span.End ?? end?.Span.End ?? rangeToken.Span.End;
+		return new RangeExpression(null, end, rangeToken.Text == "..=", step,
+			new TextSpan(rangeToken.Span.Start, rangeEnd - rangeToken.Span.Start));
+	}
+
+	/// <summary>Стоит ли после <c>..</c> закрывающая скобка/запятая/двоеточие (открытый конец).</summary>
+	private bool IsRangeEndMissing() => AtEnd || Current.Kind is TokenKind.RightBracket or TokenKind.RightParen
+		or TokenKind.RightBrace or TokenKind.Comma or TokenKind.Colon or TokenKind.Semicolon;
 
 	private WithExpression ParseWith(ExpressionNode target)
 	{

@@ -55,6 +55,12 @@ public sealed record BoundListPattern(
 	public bool HasRest => ItemsBeforeRest >= 0;
 }
 
+/// <summary>
+/// Паттерн кортежа <c>(p1, p2)</c>: субъект — кортеж той же арности, элементы проверяются
+/// по порядку через <c>TupleGet</c>.
+/// </summary>
+public sealed record BoundTuplePattern(IReadOnlyList<BoundPattern> Items, TextSpan Span) : BoundPattern(Span);
+
 /// <summary><c>nil</c>; допустим только для nullable-субъекта.</summary>
 public sealed record BoundNilPattern(KernType Type, TextSpan Span) : BoundPattern(Span);
 
