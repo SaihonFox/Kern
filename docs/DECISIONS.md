@@ -44,7 +44,8 @@ Language details live in `docs/spec/kern.en.md`; this file is the index of *why*
 - [FINAL] Unified collection interface: `collection<T>` root, inheriting derived from the C# class hierarchy for native types (`set<T>`, `queue<T>`, `stack<T>`, `observable<T>`); builtin `list/array/str/dict` get the parent by the compiler rule `Conversions.TryCollectionUpcast` (no separate `range` type). Kern types do NOT inherit native types.
 - [FINAL] Reflection Kotlin+C# style at runtime (`kern.reflection`) **and** compile-time (`name_of<T>()`, `field_names<T>()`…); dynamic types (`reflect.define_type`).
 - [FINAL] Macros (compile-time codegen): macro = Kern function over a description of the AST, expanded **as text before parsing**; v1: add members, generate types/functions, expression macros `f!(…)`, compile diagnostics.
-- [DEFERRED] `in/ref/out`; identity semantics for `unit`. Generics for unions are **answered** in §J (round 27).
+- [DEFERRED] identity semantics for `unit`. Generics for unions are **answered** in §J (round 27).
+- [FINAL] `in`/`ref` parameters (2026-11-03, **not implemented** — owner said remember, do not implement): `in` is written `&T` (`fun f(&str s)`), `ref` is written `*T` (`fun f(*str s)`) and works like C# `ref`; there is no separate `out` — emulate it with `*T`. Call-site form and const/aliasing rules are to be decided when the slice starts.
 
 ### New in the final decision round (2026-10-18/19)
 - [FINAL] **`str * inum`, `char * inum` (→ `str`), `inum * str`, `inum * char`, `list<T> * inum` (→ `list<T>`)**; negative multiplier = `panic`; 0 → empty. (Replaces the old docs example `op i32.*(str)`.)

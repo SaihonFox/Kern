@@ -18,7 +18,7 @@
 | 13 | Recursion limit | spec says default depth 10_000 frames and configurable; code currently uses `Interpreter.MaxCallDepth = 65_536` and it is not configurable (see `KNOWN_ISSUES.md`) |
 | 14 | ~~Generics for unions (`type Option<T> = [Some<T>, None]`)~~ **ANSWERED** (round 27, DECISIONS §J): variants are separate units; the alias lists them | — |
 | 15 | `unit` identity (spec §9 "not defined yet") | none (skip) |
-| 16 | `in/ref/out` parameters | deferred by owner; do not implement |
+| 16 | `in/ref/out` parameters | **ANSWERED** (2026-11-03, DECISIONS §C): `&T` = `in`, `*T` = `ref`, no `out` (use `*T`); not implemented yet |
 | 17 | Exact members of round-27 data structures (`span<T>`, `frozen_*`, `deque`, `priority_queue`, `sorted_dict`, `sorted_set`, `bitset`, `ring_buffer`, `lazy<T>`) and the remaining `kern.*` libraries | names per `DECISIONS.md` §J; design each API in its M14 slice before implementing. `seq<T>` is done (2026-11-02) |
 
 ## Std / API gaps
