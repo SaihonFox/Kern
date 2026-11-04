@@ -82,7 +82,7 @@ This section lists only **current** gaps. Items that were fixed earlier are reco
 
 ### Tools / runtime
 - **Capabilities:** `fs.read("scope")`/`fs.write("scope")` scopes are parsed but only capability names are enforced; package `permissions` are metadata only.
-- **Profiler:** now reports inclusive and self time, but no call tree; async frames that interleave across `await` may attribute child time imperfectly.
+- **Profiler:** flat function table plus a call tree (parent/child by call token, so `await` resumes keep attribution); line counters remain approximate on async interleaving.
 - **Debugger:** synchronous only. `--dap <port>` provides a DAP server for remote/IDE debugging; attaching to an already-running process by PID is not possible. `.kbc` v4 stores local slot names, so `locals`/`print <name>` work; `print` evaluates literals, locals, arithmetic/comparison/logic, fields, indexes and calls (no `match`/lambdas/object creation). Step pauses on the next bytecode instruction.
 - **Profiler:** flat function table plus a call tree (parent/child by call token, so `await` resumes keep attribution); line counters remain approximate on async interleaving.
 - **Optimizer:** `-O2` inlines `#[inline]` functions with branches/loops/multiple `ret`; async/generator/ctor/memo/native/ref stay calls; dead-function elimination keeps type methods and `Pub`/`#[test]` functions.
