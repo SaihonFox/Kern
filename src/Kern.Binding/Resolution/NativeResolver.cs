@@ -5,6 +5,7 @@ using Kern.Binding.Attributes;
 using Kern.Binding.Catalog;
 using Kern.Binding.Marshalling;
 using Kern.Binding.Values;
+using Kern.Bytecode;
 using Kern.Vm.Async;
 using Kern.Vm.Execution;
 using Kern.Vm.Native;
@@ -34,6 +35,9 @@ public sealed class NativeResolver : INativeResolver
 
 	private static readonly MethodInfo FromPlainTaskMethod = typeof(KMarshal)
 		.GetMethod(nameof(KMarshal.FromTask), [typeof(Task)])!;
+
+	private static readonly MethodInfo FromHandleMethod = typeof(KMarshal)
+		.GetMethod(nameof(KMarshal.FromHandle), [typeof(object)])!;
 
 	private static readonly MethodInfo FromKTaskMethod = typeof(KMarshal)
 		.GetMethod(nameof(KMarshal.FromKTask))!;
@@ -120,6 +124,10 @@ public sealed class NativeResolver : INativeResolver
 		Type? type = DotnetCatalog.FindType(typeName);
 		if (type is null)
 			return false;
+		string ownerName = DotnetCatalog.SimpleTypeName(type);
+		IReadOnlyList<string>? typeParameters = type.IsGenericTypeDefinition
+			? [.. type.GetGenericArguments().Select(argument => argument.Name)]
+			: null;
 
 		if (kind == NativeMemberKind.Constructor)
 		{
@@ -127,7 +135,7 @@ public sealed class NativeResolver : INativeResolver
 			{
 				if (constructor.GetParameters().Length != expected)
 					continue;
-				if (!DotnetCatalog.TryBuildConstructor(constructor, type, type.Name,
+				if (!DotnetCatalog.TryBuildConstructor(constructor, type, ownerName, typeParameters,
 					out NativeFunctionDescriptor? candidate))
 					continue;
 				if (candidate!.NativeKey != key)
@@ -154,8 +162,8 @@ public sealed class NativeResolver : INativeResolver
 
 			NativeFunctionDescriptor? candidate;
 			bool built = method.IsStatic
-				? DotnetCatalog.TryBuild(method, type, type.Name, kind, out candidate)
-				: DotnetCatalog.TryBuildInstance(method, type, type.Name, kind, out candidate);
+				? DotnetCatalog.TryBuild(method, type, ownerName, typeParameters, kind, out candidate)
+				: DotnetCatalog.TryBuildInstance(method, type, ownerName, typeParameters, kind, out candidate);
 			if (!built)
 				continue;
 			if (candidate!.Name != name && !method.Name.Equals(name, StringComparison.Ordinal))
@@ -170,8 +178,10 @@ public sealed class NativeResolver : INativeResolver
 
 	private static NativeBinding Build(NativeFunctionDescriptor descriptor)
 	{
-		if (!RuntimeFeature.IsDynamicCodeSupported)
-			return BuildWithoutDynamicCode(descriptor);
+		Type? declaring = descriptor.Method?.DeclaringType ?? descriptor.Constructor?.DeclaringType;
+		bool openGeneric = declaring?.IsGenericTypeDefinition == true;
+		if (!RuntimeFeature.IsDynamicCodeSupported || openGeneric || NeedsReflection(descriptor))
+			return BuildReflection(descriptor);
 
 		ConstructorInfo? constructor = descriptor.Constructor;
 		MethodInfo? method = descriptor.Method;
@@ -234,7 +244,7 @@ public sealed class NativeResolver : INativeResolver
 				? Expression.Call(method!, callArguments)
 				: Expression.Call(receiver, method!, callArguments);
 		Type returnType = constructor is not null ? constructor.DeclaringType! : method!.ReturnType;
-		Expression body = ConvertReturn(call, returnType, interpreter);
+		Expression body = ConvertReturn(call, returnType, interpreter, IsDotnetHandle(descriptor, returnType));
 		var compiled = Expression.Lambda<NativeInvoke>(body, interpreter, arguments, typeArguments).Compile();
 
 		return new NativeBinding
@@ -260,22 +270,50 @@ public sealed class NativeResolver : INativeResolver
 		};
 	}
 
-	private static NativeBinding BuildWithoutDynamicCode(NativeFunctionDescriptor descriptor)
+	/// <summary>
+	/// Нужен ли рефлексионный путь вместо скомпилированного делегата: <c>ref</c>/<c>out</c>
+	/// параметры, делегаты CLR и открытые generic-типы (их нельзя закрыть до вызова).
+	/// </summary>
+	private static bool NeedsReflection(NativeFunctionDescriptor descriptor)
+	{
+		ParameterInfo[] parameters = descriptor.Constructor?.GetParameters() ?? descriptor.Method?.GetParameters() ?? [];
+		foreach (ParameterInfo parameter in parameters)
+		{
+			if (parameter.ParameterType.IsByRef)
+				return true;
+			if (typeof(Delegate).IsAssignableFrom(parameter.ParameterType))
+				return true;
+		}
+
+		return false;
+	}
+
+	/// <summary>Результат — объект импортированного <c>use dotnet</c>-типа (нативный handle).</summary>
+	private static bool IsDotnetHandle(NativeFunctionDescriptor descriptor, Type returnType) =>
+		descriptor.NativeKey.StartsWith("dotnet:", StringComparison.Ordinal) &&
+		DotnetCatalog.IsImportedClr(returnType);
+
+	/// <summary>
+	/// Рефлексионный вызов: <c>ref</c>/<c>out</c> с записью обратно в ячейку, делегаты CLR
+	/// как обёртки Kern-функций и закрытие открытых generic-типов аргументами вызова.
+	/// Используется, когда скомпилированный делегат невозможен или невыгоден (spec §12.10).
+	/// </summary>
+	private static NativeBinding BuildReflection(NativeFunctionDescriptor descriptor)
 	{
 		ConstructorInfo? constructor = descriptor.Constructor;
 		MethodInfo? method = descriptor.Method;
 		if (constructor is null && method is null)
 			throw new KernPanic(
 				$"native '{Kern.Vm.Native.NativeKey.Describe(descriptor.NativeKey)}': нет CLR-члена");
-		if (method is { IsGenericMethodDefinition: true })
+		if (method is { IsGenericMethodDefinition: true } && method.DeclaringType?.IsGenericTypeDefinition != true)
 			throw new KernPanic(
-				$"native '{Kern.Vm.Native.NativeKey.Describe(descriptor.NativeKey)}': generic-натив не поддерживается в NativeAOT");
+				$"native '{Kern.Vm.Native.NativeKey.Describe(descriptor.NativeKey)}': generic-метод не поддерживается в NativeAOT");
 
-		ParameterInfo[] parameters = constructor is not null ? constructor.GetParameters() : method!.GetParameters();
-		Type? selfType = constructor is null && !method!.IsStatic
-			? descriptor.SelfClrType ?? method.DeclaringType
-			: null;
-		Type returnType = constructor is not null ? constructor.DeclaringType! : method!.ReturnType;
+		Type? declaring = method?.DeclaringType ?? constructor!.DeclaringType;
+		bool openGeneric = declaring?.IsGenericTypeDefinition == true;
+		bool instance = constructor is null && !method!.IsStatic;
+		Type? selfType = instance ? descriptor.SelfClrType ?? declaring : null;
+		string description = Kern.Vm.Native.NativeKey.Describe(descriptor.NativeKey);
 
 		return new NativeBinding
 		{
@@ -284,30 +322,84 @@ public sealed class NativeResolver : INativeResolver
 			{
 				try
 				{
+					MethodInfo? callMethod = method;
+					ConstructorInfo? callConstructor = constructor;
+					Type? receiverType = selfType;
+					if (openGeneric)
+					{
+						Type[] genericArguments = CloseGenericArguments(
+							descriptor, typeArguments, arguments, instance);
+						Type closed = declaring!.MakeGenericType(genericArguments);
+						receiverType = instance ? closed : null;
+						callMethod = method is null ? null : CloseMethod(method, closed);
+						callConstructor = constructor is null ? null : CloseConstructor(constructor, closed);
+						if ((method is not null && callMethod is null) ||
+							(constructor is not null && callConstructor is null))
+						{
+							throw new KernPanic(
+								$"нативный вызов '{description}': не удалось закрыть generic-тип '{closed}'");
+						}
+					}
+
 					var argumentIndex = 0;
 					object? target = null;
-					if (selfType is not null)
-						target = KMarshal.To(arguments[argumentIndex++], selfType);
+					if (instance)
+						target = KMarshal.To(arguments[argumentIndex++], receiverType!);
 
+					ParameterInfo[] parameters = callConstructor?.GetParameters() ?? callMethod!.GetParameters();
 					var callArguments = new object?[parameters.Length];
+					var byRefTargets = new List<(int Index, IValueCell Cell, Type Element)>();
 					for (var index = 0; index < parameters.Length; index++)
 					{
 						ParameterInfo parameter = parameters[index];
-						if (parameter.ParameterType == typeof(Interpreter))
+						if (parameter.ParameterType == typeof(Kern.Vm.Execution.Interpreter))
+						{
 							callArguments[index] = interpreter;
-						else if (parameter.GetCustomAttribute<KernTypeArgsAttribute>() is not null)
+							continue;
+						}
+
+						if (parameter.GetCustomAttribute<KernTypeArgsAttribute>() is not null)
+						{
 							callArguments[index] = typeArguments;
-						else
-							callArguments[index] = KMarshal.To(arguments[argumentIndex++], parameter.ParameterType);
+							continue;
+						}
+
+						Type parameterType = parameter.ParameterType;
+						if (parameterType.IsByRef)
+						{
+							Type element = parameterType.GetElementType()!;
+							KValue cellValue = arguments[argumentIndex++];
+							if (cellValue.Ref is not IValueCell cell)
+							{
+								throw new KernPanic(
+									$"нативный вызов '{description}': параметр '{parameter.Name}' объявлен как ref/out — передайте '*переменная' или '*поле'");
+							}
+
+							callArguments[index] = InitialCellValue(cell.Get(), element);
+							byRefTargets.Add((index, cell, element));
+							continue;
+						}
+
+						callArguments[index] = ConvertArgument(
+							arguments[argumentIndex++], parameterType, interpreter, description);
 					}
 
-					object? result = constructor is not null
-						? constructor.Invoke(callArguments)
-						: method!.Invoke(target, callArguments);
+					object? result = callConstructor is not null
+						? callConstructor.Invoke(callArguments)
+						: callMethod!.Invoke(target, callArguments);
+					foreach (var (index, cell, element) in byRefTargets)
+						cell.Set(callArguments[index] is null
+							? DefaultValue(element)
+							: KMarshal.FromObject(callArguments[index]));
+
+					Type returnType = callConstructor?.DeclaringType ?? callMethod!.ReturnType;
 					if (returnType == typeof(void))
 						return KValue.Void;
 					if (result is KTask task)
 						return KMarshal.FromKTask(task);
+					if (IsDotnetHandle(descriptor, returnType) ||
+						(result is not null && DotnetCatalog.IsImportedClr(result.GetType())))
+						return KMarshal.FromHandle(result);
 					return KMarshal.FromReturn(result);
 				}
 				catch (KernPanic)
@@ -317,23 +409,177 @@ public sealed class NativeResolver : INativeResolver
 				catch (TargetInvocationException exception) when (exception.InnerException is not null)
 				{
 					throw new KernPanic(
-						$"нативный вызов '{Kern.Vm.Native.NativeKey.Describe(descriptor.NativeKey)}' завершился ошибкой: {exception.InnerException.Message}",
+						$"нативный вызов '{description}' завершился ошибкой: {exception.InnerException.Message}",
 						exception.InnerException);
 				}
 				catch (Exception exception)
 				{
 					throw new KernPanic(
-						$"нативный вызов '{Kern.Vm.Native.NativeKey.Describe(descriptor.NativeKey)}' завершился ошибкой: {exception.Message}",
+						$"нативный вызов '{description}' завершился ошибкой: {exception.Message}",
 						exception);
 				}
 			},
 		};
 	}
 
-	private static Expression ConvertReturn(Expression call, Type returnType, ParameterExpression interpreter)
+	/// <summary>Начальное значение ref/out-параметра: содержимое ячейки или default(T).</summary>
+	private static object? InitialCellValue(KValue value, Type element) =>
+		value.Kind is ValueKind.None or ValueKind.Void or ValueKind.Nil
+			? DefaultValue(element)
+			: KMarshal.To(value, element);
+
+	private static KValue DefaultValue(Type type) =>
+		type.IsValueType ? KMarshal.FromObject(Activator.CreateInstance(type)) : KValue.Nil;
+
+	/// <summary>
+	/// Kern-значение → CLR-аргумент. Делегат CLR получает обёртку Kern-функции; остальные
+	/// типы идут обычным маршаллингом (spec §12.4).
+	/// </summary>
+	private static object? ConvertArgument(
+		KValue value,
+		Type target,
+		Interpreter interpreter,
+		string description)
+	{
+		if (!typeof(Delegate).IsAssignableFrom(target))
+			return KMarshal.To(value, target);
+
+		if (value.Ref is not (KClosure or Kern.Bytecode.FunctionDef))
+		{
+			throw new KernPanic(
+				$"нативный вызов '{description}': ожидался делегат '{target.Name}', получено {value.TypeName}");
+		}
+
+		if (!RuntimeFeature.IsDynamicCodeSupported)
+			throw new KernPanic($"нативный вызов '{description}': делегаты CLR не поддержаны в NativeAOT");
+		return DelegateAdapter.Create(value, target, interpreter);
+	}
+
+	/// <summary>Аргументы открытого generic-типа: reified-типы вызова или тип получателя.</summary>
+	private static Type[] CloseGenericArguments(
+		NativeFunctionDescriptor descriptor,
+		KType[] typeArguments,
+		KValue[] arguments,
+		bool instance)
+	{
+		int arity = descriptor.GenericParameters.Count;
+		if (arity == 0)
+			return [];
+
+		var result = new Type[arity];
+		if (typeArguments.Length >= arity)
+		{
+			for (var index = 0; index < arity; index++)
+				result[index] = ClrType(typeArguments[index]) ?? throw new KernPanic(
+					$"нативный вызов '{Kern.Vm.Native.NativeKey.Describe(descriptor.NativeKey)}': " +
+					$"generic-аргумент '{typeArguments[index].Canonical}' не имеет CLR-представления");
+			return result;
+		}
+
+		if (instance && arguments.Length > 0)
+		{
+			object? receiver = arguments[0].Ref is KNativeBox box ? box.Value : arguments[0].Ref;
+			Type? actual = receiver?.GetType();
+			if (actual is { IsGenericType: true } && actual.GetGenericArguments().Length == arity)
+				return actual.GetGenericArguments();
+		}
+
+		throw new KernPanic(
+			$"нативный вызов '{Kern.Vm.Native.NativeKey.Describe(descriptor.NativeKey)}': " +
+			"не удалось определить аргументы открытого generic-типа");
+	}
+
+	/// <summary>Reified-тип VM → CLR-тип (для закрытия generic-типов <c>use dotnet</c>).</summary>
+	private static Type? ClrType(KType type) => type switch
+	{
+		KPrimType primitive => primitive.Prim switch
+		{
+			PrimKind.Bool => typeof(bool),
+			PrimKind.Char => typeof(char),
+			PrimKind.Str => typeof(string),
+			PrimKind.I8 => typeof(sbyte),
+			PrimKind.I16 => typeof(short),
+			PrimKind.I32 => typeof(int),
+			PrimKind.I64 => typeof(long),
+			PrimKind.U8 => typeof(byte),
+			PrimKind.U16 => typeof(ushort),
+			PrimKind.U32 => typeof(uint),
+			PrimKind.U64 => typeof(ulong),
+			PrimKind.F16 => typeof(Half),
+			PrimKind.F32 => typeof(float),
+			PrimKind.F64 => typeof(double),
+			PrimKind.Object => typeof(object),
+			_ => null,
+		},
+		KClassType @class => DotnetCatalog.FindImportedType(@class.Definition.Name),
+		KNullableType nullable => ClrType(nullable.Inner) is { IsValueType: true } inner
+			? typeof(Nullable<>).MakeGenericType(inner)
+			: null,
+		KBuiltinGenericType builtin => CloseBuiltin(builtin),
+		_ => null,
+	};
+
+	private static Type? CloseBuiltin(KBuiltinGenericType builtin)
+	{
+		Type definition = builtin.Builtin switch
+		{
+			BuiltinGenericKind.List => typeof(KList<>),
+			BuiltinGenericKind.Array => typeof(KArray<>),
+			BuiltinGenericKind.Dict => typeof(KDict<,>),
+			_ => null!,
+		};
+		if (definition is null)
+			return null;
+
+		var arguments = new Type[builtin.TypeArgs.Length];
+		for (var index = 0; index < arguments.Length; index++)
+		{
+			if (ClrType(builtin.TypeArgs[index]) is not { } argument)
+				return null;
+			arguments[index] = argument;
+		}
+
+		return definition.MakeGenericType(arguments);
+	}
+
+	/// <summary>Метод закрытого generic-типа: тот же metadata token, что у открытого определения.</summary>
+	private static MethodInfo? CloseMethod(MethodInfo open, Type closed)
+	{
+		foreach (MethodInfo candidate in closed.GetMethods(
+			BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static))
+		{
+			if (candidate.MetadataToken == open.MetadataToken &&
+				candidate.Module == open.Module &&
+				candidate.Name == open.Name)
+				return candidate;
+		}
+
+		return null;
+	}
+
+	private static ConstructorInfo? CloseConstructor(ConstructorInfo open, Type closed)
+	{
+		foreach (ConstructorInfo candidate in closed.GetConstructors(
+			BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
+		{
+			if (candidate.MetadataToken == open.MetadataToken && candidate.Module == open.Module)
+				return candidate;
+		}
+
+		return null;
+	}
+
+	private static Expression ConvertReturn(
+		Expression call,
+		Type returnType,
+		ParameterExpression interpreter,
+		bool handle = false)
 	{
 		if (returnType == typeof(void))
 			return Expression.Block(call, Expression.Constant(KValue.Void));
+
+		if (handle)
+			return Expression.Call(FromHandleMethod, Expression.Convert(call, typeof(object)));
 
 		if (returnType == typeof(KTask))
 		{

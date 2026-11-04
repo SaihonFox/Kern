@@ -89,9 +89,14 @@ println(String.Join("-", parts))
 println(b.Length)
 ```
 
-*Ограничения:* открытые generic-типы BCL и члены с не импортированными типами
-пропускаются; `params` импортируется как `array<T>` (массив передаётся явно), by-ref/`out`
-и делегаты не поддержаны. Тип должен быть в загруженной сборке (явно пробуются
+*Открытые generic-типы и продвинутые сигнатуры:* `use dotnet.System.Collections.Generic[List, Dictionary]`
+даёт `List<i32>`, `Dictionary<str, i32>`; `params T[]` принимает и развёрнутый список, и
+массив; `ref`/`out` отображаются на `*T` (`Int32.TryParse("42", *value)`); делегаты
+`Action`/`Func`/`Predicate`/`Comparison`/`Converter` принимают Kern-функции
+(`xs.ForEach(fun(i32 x) ...)`). *Ограничения:* generic-методы BCL и члены с не
+импортированными типами пропускаются; делегаты работают только Kern → CLR и не в
+NativeAOT; открытый generic-тип закрывается примитивами, Kern-коллекциями или типами из
+того же `use dotnet`. Тип должен быть в загруженной сборке (явно пробуются
 `System.Runtime`, `System.Console`, `System.IO.FileSystem`).
 
 

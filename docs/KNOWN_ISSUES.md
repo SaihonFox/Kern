@@ -57,9 +57,11 @@ This section lists only **current** gaps. Items that were fixed earlier are reco
 - **`array<T>[...]` prefix syntax is intentionally not supported.** The approved form is `<T>[...]` with an expected `array<T>`.
 
 ### `use dotnet.X[...]`
-- Open generic BCL types (`List<T>`, `Dictionary<K,V>`, …) are skipped.
-- `params` is imported as an explicit `array<T>` parameter; C#-style variadic call syntax is not supported.
-- by-ref/`out` parameters and delegates are not imported.
+- Open generic BCL types are imported (`List<T>`, `Dictionary<K,V>`, …), but generic *methods* (`List<T>.ConvertAll<TOutput>`) are still skipped.
+- `params T[]` accepts both the expanded form and an explicit array.
+- `ref`/`out` parameters map to Kern `*T` (argument must be `*variable`/`*field` and is written back).
+- Delegate parameters (`Action<T>`, `Func<T,R>`, `Predicate<T>`, `Comparison<T>`, `Converter<A,B>`) accept Kern functions; the reverse direction (a CLR delegate returned to Kern) and NativeAOT are not supported.
+- An open generic type can be closed only with primitives, Kern collections or other types imported by the same `use dotnet`.
 - Members whose return/parameter types are neither primitives nor the imported owner type are skipped.
 - NativeAOT invokes imported members through `MethodInfo.Invoke` (no compiled delegates yet).
 

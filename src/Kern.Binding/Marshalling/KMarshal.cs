@@ -155,6 +155,22 @@ public static class KMarshal
 	/// <summary>CLR-значение → Kern-значение.</summary>
 	public static KValue From<T>(T value) => FromObject(value);
 
+	/// <summary>
+	/// Результат нативного члена импортированного <c>use dotnet</c>-типа остаётся
+	/// нативным handle-боксом, даже если CLR-объект реализует <see cref="IEnumerable"/>:
+	/// иначе <c>List&lt;i32&gt;</c> стал бы Kern-списком и потерял свои члены.
+	/// </summary>
+	public static KValue FromHandle(object? value)
+	{
+		if (value is null)
+			return KValue.Nil;
+		if (value is KValue kern)
+			return kern;
+		if (value.GetType().IsValueType)
+			return FromObject(value);
+		return KValue.Obj(new KNativeBox(value));
+	}
+
 	public static KValue FromObject(object? value)
 	{
 		if (value is null)

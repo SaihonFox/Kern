@@ -299,8 +299,13 @@ public static class NativeSymbolBuilder
 					Parse(parameter.Type),
 					DefaultValue: null,
 					IsAutoInit: false,
-					IsVararg: false,
-					Span: default));
+					IsVararg: parameter.IsVararg,
+					Span: default)
+				{
+					// `ref`/`out` CLR-параметра (через `use dotnet`) в Kern — это `*T`
+					// (spec §6); маркер `*` обязателен на месте вызова.
+					Passing = parameter.IsByRef ? ParameterPassing.Ref : ParameterPassing.Value,
+				});
 			}
 
 			FunctionKind kind = descriptor.Operator is not null

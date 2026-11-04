@@ -1,4 +1,5 @@
 using Kern.Compiler.Semantics.Declarations;
+using Kern.Compiler.Semantics.Modules;
 using Kern.Compiler.Semantics.Types;
 
 namespace Kern.Compiler.Semantics.Binding;
@@ -30,4 +31,14 @@ public sealed partial class Binder
 
 	private FieldSymbol? VisibleGlobal(string name) =>
 		_module.FindGlobal(name) ?? _moduleScope.FindGlobal(name);
+
+	/// <summary>
+	/// Модуль, импортированный этим файлом через <c>use</c>, по короткому имени
+	/// (<c>use kern.ini[...]</c> → <c>ini</c>). Локальная переменная или тип с тем же
+	/// именем важнее: <c>text.upper(...)</c> не перекрывает переменную <c>text</c>.
+	/// </summary>
+	private ModuleScope? QualifiedModule(string name) =>
+		_scope.Lookup(name) is null && VisibleType(name) is null
+			? _moduleScope.FindModule(name)
+			: null;
 }

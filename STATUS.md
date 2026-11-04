@@ -2,6 +2,27 @@
 
 ## Now
 
+### Батч 2026-11-04 (owner request): `use` source-модулей и продвинутый `use dotnet`
+
+Сделано и проверено (build 0 errors, suite **699/699**, style clean):
+- **Квалифицированный доступ:** `ModuleScope` хранит импортированные модули по
+  короткому имени; `use kern.ini[parse]` → `ini.parse(...)`, `use util.*` →
+  `util.twice(...)`. Локальная переменная или тип с тем же именем важнее; неизвестный
+  член модуля — `KRN2103` (spec §5).
+- **Открытые generic-типы BCL:** `DotnetCatalog` импортирует `List<T>`,
+  `Dictionary<K,V>`; члены параметризованы типом-владельцем, CLR-тип закрывается
+  аргументами вызова (`NativeTypeArgs` → `MakeGenericType`), значения остаются
+  нативными handle-объектами.
+- **`params`:** расширенная форма CLR (`String.Join("-", "a", "b")`); binder пакует
+  аргументы в `array<T>`, явный массив продолжает работать.
+- **`ref`/`out`:** `NativeParameterDescriptor.IsByRef` → Kern `*T`; рефлексионный
+  вызов пишет значение обратно в `IValueCell` (`Int32.TryParse("42", *value)`).
+- **Делегаты:** `Action`/`Func`/`Predicate`/`Comparison`/`Converter` принимают
+  Kern-функции через `DelegateAdapter` (Kern → CLR; NativeAOT не поддержан).
+- Тесты `ModuleQualifiedAccessTests` (5), `DotnetInteropAdvancedTests` (7);
+  spec §5/§12.10, `CHANGELOG_LANG.md`, `docs/REMAINING.md`, `docs/KNOWN_ISSUES.md`,
+  `DECISIONS_NEEDED.md` обновлены.
+
 ### Батч 2026-11-04 (owner request): валидация аргументов и целей атрибутов
 
 Сделано и проверено (build 0 errors, suite **686/686**, style clean):

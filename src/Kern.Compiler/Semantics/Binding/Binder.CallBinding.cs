@@ -51,6 +51,24 @@ public sealed partial class Binder
 				return BindTargetlessCall(moduleFunctions, member.Member, arguments, typeArguments, span);
 			}
 
+			// `util.parse(...)`: функция source-модуля, импортированного через `use`
+			// (spec §5). Локальная переменная и тип с тем же именем важнее модуля.
+			if (member.Target is IdentifierExpression sourceTarget &&
+				QualifiedModule(sourceTarget.Name) is { } sourceModule)
+			{
+				var moduleFunctions = sourceModule.GetFunctions(member.Member);
+				if (moduleFunctions.Count == 0)
+				{
+					Report(
+						"KRN2103",
+						$"Модуль '{sourceTarget.Name}' не экспортирует функцию '{member.Member}'",
+						member.Span);
+					return new BoundErrorExpression(span);
+				}
+
+				return BindTargetlessCall([.. moduleFunctions], member.Member, arguments, typeArguments, span);
+			}
+
 			// `T.method(...)`: приёмник — имя типа, а не выражение (M3-D3b). Локальная
 			// переменная с тем же именем важнее типа — это решает TypeReceiverOf.
 			return TypeReceiverOf(member.Target) is { } staticType
@@ -99,11 +117,10 @@ public sealed partial class Binder
 
 		if (VisibleType(identifier.Name) is { } type)
 		{
-			// Нативный тип без конструкторов, у которого есть одноимённая модульная функция, —
-			// это фабрика (`regex("…")`, `streamwriter("…")`): имя типа не должно её перекрывать
-			// (spec §12.9). Настоящий тип без конструктора по-прежнему сообщает KRN2103.
+			// Нативные типы (`use dotnet`, `regex`, `streamwriter`): конструктор и фабрика —
+			// это нативные функции, а не NewObject. Иначе codegen искал бы байткод
+			// конструктора, которого нет (spec §12.10).
 			if (type.Kind == Types.SymbolKind.Native &&
-				type.Members.Constructors.Count == 0 &&
 				VisibleFunctions(identifier.Name).Any(function => function.NativeSelfType is null))
 			{
 				return BindNamedCall(identifier.Name, arguments, typeArguments, span);
@@ -303,8 +320,19 @@ public sealed partial class Binder
 		KernType? nativeElement = fromNative && receiver.Type is BuiltinGenericType nativeReceiver
 			? BuiltinMemberSignatures.ElementParameterType(nativeReceiver, member.Member)
 			: null;
-		foreach (var argument in resolution.Arguments)
+		for (var index = 0; index < resolution.Arguments.Count; index++)
 		{
+			BoundArgument argument = resolution.Arguments[index];
+			if (argument.IsExpanded)
+			{
+				// CLR `params T[]`: несколько аргументов собираются в массив.
+				BoundExpression? packed = BindExpandedArgument(resolution, ref index, byCallArgument, span);
+				if (packed is null)
+					return new BoundErrorExpression(span);
+				ordered.Add(packed);
+				continue;
+			}
+
 			if (argument.Argument is null)
 			{
 				if (argument.Parameter.Passing == ParameterPassing.Ref)
@@ -492,8 +520,18 @@ public sealed partial class Binder
 		TextSpan span)
 	{
 		var ordered = new List<BoundExpression>(resolution.Arguments.Count);
-		foreach (BoundArgument argument in resolution.Arguments)
+		for (var index = 0; index < resolution.Arguments.Count; index++)
 		{
+			BoundArgument argument = resolution.Arguments[index];
+			if (argument.IsExpanded)
+			{
+				BoundExpression? packed = BindExpandedArgument(resolution, ref index, byCallArgument, span);
+				if (packed is null)
+					return null;
+				ordered.Add(packed);
+				continue;
+			}
+
 			if (argument.Argument is null)
 			{
 				if (argument.Parameter.Passing == ParameterPassing.Ref)
@@ -521,6 +559,51 @@ public sealed partial class Binder
 
 		return ordered;
 	}
+
+	/// <summary>
+	/// Собрать расширенную форму CLR <c>params T[]</c>: аргументы одного параметра пакуются
+	/// в array-литерал <c>array&lt;T&gt;</c>. <paramref name="index"/> остаётся на последнем
+	/// аргументе группы (цикл вызывающего сделает <c>index++</c>).
+	/// </summary>
+	private BoundExpression? BindExpandedArgument(
+		OverloadResolution resolution,
+		ref int index,
+		Dictionary<CallArgument, BoundExpression> byCallArgument,
+		TextSpan span)
+	{
+		int parameterIndex = resolution.Arguments[index].ParameterIndex;
+		KernType element = ExpandedElementType(resolution.Arguments[index].Parameter.Type);
+		var items = new List<BoundCollectionItem>();
+		for (; index < resolution.Arguments.Count; index++)
+		{
+			BoundArgument argument = resolution.Arguments[index];
+			if (!argument.IsExpanded || argument.ParameterIndex != parameterIndex)
+				break;
+			if (argument.Argument is null)
+				break;
+
+			var expression = byCallArgument[argument.Argument];
+			items.Add(new BoundCollectionItem(
+				ConvertWithConversion(expression, element, argument.Conversion, expression.Span),
+				IsSpread: false));
+		}
+
+		index--;
+		return new BoundCollectionLiteral(
+			items,
+			new BuiltinGenericType(BuiltinGenericKind.Array, [element]),
+			span);
+	}
+
+	/// <summary>Тип элемента расширяемого параметра (<c>array&lt;T&gt;</c>/<c>list&lt;T&gt;</c>).</summary>
+	private static KernType ExpandedElementType(KernType type) =>
+		type is BuiltinGenericType
+		{
+			BuiltinKind: BuiltinGenericKind.Array or BuiltinGenericKind.List,
+			Arguments.Count: 1
+		} generic
+			? generic.Arguments[0]
+			: type;
 
 	/// <summary>
 	/// Проверка маркера аргумента против способа передачи параметра и приведение типа.

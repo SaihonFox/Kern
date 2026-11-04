@@ -7,7 +7,15 @@ using Kern.Vm.Native;
 namespace Kern.Binding.Catalog;
 
 /// <summary>Один параметр нативной функции в Kern-сигнатуре.</summary>
-public sealed record NativeParameterDescriptor(string Name, string Type);
+/// <param name="Name">Kern-имя параметра (snake_case или имя из <c>use dotnet</c>).</param>
+/// <param name="Type">Kern-тип параметра; у <c>ref</c>/<c>out</c> — тип элемента, не <c>*T</c>.</param>
+/// <param name="IsByRef">CLR-параметр <c>ref</c>/<c>out</c>: в Kern это <c>*T</c>.</param>
+/// <param name="IsVararg">CLR <c>params T[]</c>: допускает расширенную форму вызова.</param>
+public sealed record NativeParameterDescriptor(
+	string Name,
+	string Type,
+	bool IsByRef = false,
+	bool IsVararg = false);
 
 /// <summary>
 /// Описание нативной функции/свойства/конструктора для компилятора и VM.

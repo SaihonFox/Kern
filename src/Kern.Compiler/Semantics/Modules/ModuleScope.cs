@@ -15,38 +15,52 @@ public sealed record ModuleDiagnostic(string ModuleName, Diagnostic Diagnostic);
 /// </summary>
 public sealed class ModuleScope
 {
+	private static readonly IReadOnlyDictionary<string, ModuleScope> NoQualifiedModules =
+		new Dictionary<string, ModuleScope>(StringComparer.Ordinal);
+
 	private readonly IReadOnlyDictionary<string, TypeSymbol> _types;
 	private readonly IReadOnlyDictionary<string, IReadOnlyList<FunctionSymbol>> _functions;
 	private readonly IReadOnlyDictionary<string, FieldSymbol> _globals;
 	private readonly IReadOnlyDictionary<string, ExtensionGroup> _extensions;
+	private readonly IReadOnlyDictionary<string, ModuleScope> _qualified;
 
 	private ModuleScope(
 		ModuleSymbol module,
 		IReadOnlyDictionary<string, TypeSymbol> types,
 		IReadOnlyDictionary<string, IReadOnlyList<FunctionSymbol>> functions,
 		IReadOnlyDictionary<string, FieldSymbol> globals,
-		IReadOnlyDictionary<string, ExtensionGroup> extensions)
+		IReadOnlyDictionary<string, ExtensionGroup> extensions,
+		IReadOnlyDictionary<string, ModuleScope> qualified)
 	{
 		Module = module;
 		_types = types;
 		_functions = functions;
 		_globals = globals;
 		_extensions = extensions;
+		_qualified = qualified;
 	}
 
 	public ModuleSymbol Module { get; }
 
 	/// <summary>Модуль без импортов (старый путь и unit-тесты).</summary>
 	public static ModuleScope ForModule(ModuleSymbol module) =>
-		new(module, module.Types, module.Functions, module.Globals, module.Extensions);
+		new(module, module.Types, module.Functions, module.Globals, module.Extensions, NoQualifiedModules);
 
 	internal static ModuleScope Create(
 		ModuleSymbol module,
 		IReadOnlyDictionary<string, TypeSymbol> types,
 		IReadOnlyDictionary<string, IReadOnlyList<FunctionSymbol>> functions,
 		IReadOnlyDictionary<string, FieldSymbol> globals,
-		IReadOnlyDictionary<string, ExtensionGroup> extensions) =>
-		new(module, types, functions, globals, extensions);
+		IReadOnlyDictionary<string, ExtensionGroup> extensions,
+		IReadOnlyDictionary<string, ModuleScope>? qualified = null) =>
+		new(module, types, functions, globals, extensions, qualified ?? NoQualifiedModules);
+
+	/// <summary>
+	/// Модули, импортированные этим файлом через <c>use</c>, по короткому имени:
+	/// <c>use kern.ini[...]</c> открывает <c>ini.parse(...)</c> (spec §5).
+	/// </summary>
+	public ModuleScope? FindModule(string shortName) =>
+		_qualified.TryGetValue(shortName, out var scope) ? scope : null;
 
 	public TypeSymbol? FindType(string name) =>
 		_types.TryGetValue(name, out var type) ? type : null;
@@ -129,7 +143,42 @@ public static class ModuleResolver
 				export.Extensions);
 		}
 
+		// Квалифицированный доступ `mod.member`: каждому файлу открыты короткие имена
+		// модулей, которые он импортировал через `use` (spec §5). Имена нативных модулей
+		// (`kern.*`) разбирает binder по NativeModuleName, поэтому в карту они не входят.
+		foreach (var module in byName.Values)
+		{
+			var qualified = new Dictionary<string, ModuleScope>(StringComparer.Ordinal);
+			foreach (var use in module.Uses)
+			{
+				if (use.Path.StartsWith("dotnet.", StringComparison.Ordinal))
+					continue;
+				if (!byName.TryGetValue(use.Path, out var target))
+					continue;
+				qualified.TryAdd(ShortName(use.Path), scopes[target.Name]);
+			}
+
+			var export = exports[module.Name];
+			scopes[module.Name] = ModuleScope.Create(
+				module,
+				export.Types,
+				export.Functions.ToDictionary(
+					pair => pair.Key,
+					pair => (IReadOnlyList<FunctionSymbol>)pair.Value,
+					StringComparer.Ordinal),
+				export.Globals,
+				export.Extensions,
+				qualified);
+		}
+
 		return (scopes, diagnostics);
+	}
+
+	/// <summary>Короткое имя модуля для квалифицированного доступа: <c>kern.ini</c> → <c>ini</c>.</summary>
+	private static string ShortName(string path)
+	{
+		int separator = path.LastIndexOf('.');
+		return separator < 0 ? path : path[(separator + 1)..];
 	}
 
 	private sealed class ExportSet
