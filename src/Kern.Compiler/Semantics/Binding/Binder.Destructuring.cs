@@ -239,6 +239,12 @@ public sealed partial class Binder
 	/// </summary>
 	private BoundStatement BindTupleVariableDeclaration(TupleDeclarationStatement statement)
 	{
+		if (statement.Bindings.Any(binding => binding.Nested is not null))
+		{
+			Report("KRN2101", "Вложенная деструктуризация допустима только в шаблоне, а не в объявлении кортежа", statement.Span);
+			return EmptyDestructuring(statement.Span);
+		}
+
 		var elements = new List<TupleElement>(statement.Bindings.Count);
 		foreach (TupleBindingNode binding in statement.Bindings)
 		{
@@ -314,6 +320,22 @@ public sealed partial class Binder
 		for (var position = 0; position < statement.Bindings.Count; position++)
 		{
 			TupleBindingNode binding = statement.Bindings[position];
+			if (binding.Nested is { } nested)
+			{
+				KernType nestedType = tuple.Elements[position].Type;
+				BoundExpression nestedElement = new BoundTupleItemExpression(
+					sourceExpression, position, nestedType, binding.Span);
+				if (nestedType is not TupleType inner)
+				{
+					Report("KRN2102",
+						$"Вложенный шаблон требует кортеж, а элемент {position} имеет тип '{nestedType}'",
+						binding.Span);
+					return EmptyDestructuring(statement.Span);
+				}
+				BindNestedTupleBindings(nestedElement, inner, nested, statements, binding.Span);
+				continue;
+			}
+
 			if (binding.IsIgnored || binding.Name is null or "_")
 				continue;
 
@@ -331,6 +353,54 @@ public sealed partial class Binder
 		}
 
 		return new BoundBlock(statements, null, FallsThrough: true, statement.Span);
+	}
+
+	/// <summary>Рекурсивное связывание вложенного шаблона кортежа.</summary>
+	private void BindNestedTupleBindings(
+		BoundExpression source,
+		TupleType tuple,
+		IReadOnlyList<TupleBindingNode> bindings,
+		List<BoundStatement> statements,
+		TextSpan span)
+	{
+		if (bindings.Count != tuple.Elements.Count)
+		{
+			Report("KRN2102",
+				$"Число целей вложенного шаблона ({bindings.Count}) не совпадает с числом элементов кортежа ({tuple.Elements.Count})",
+				span);
+			return;
+		}
+
+		for (var position = 0; position < bindings.Count; position++)
+		{
+			TupleBindingNode binding = bindings[position];
+			KernType elementType = tuple.Elements[position].Type;
+			BoundExpression element = new BoundTupleItemExpression(source, position, elementType, binding.Span);
+			if (binding.Nested is { } nested)
+			{
+				if (elementType is not TupleType inner)
+				{
+					Report("KRN2102",
+						$"Вложенный шаблон требует кортеж, а элемент {position} имеет тип '{elementType}'",
+						binding.Span);
+					continue;
+				}
+				BindNestedTupleBindings(element, inner, nested, statements, binding.Span);
+				continue;
+			}
+
+			if (binding.IsIgnored || binding.Name is null or "_")
+				continue;
+
+			KernType? declared = binding.Type is null ? null : _resolver.Resolve(binding.Type, _typeScope);
+			if (declared is not null && IsError(declared))
+				continue;
+			KernType type = declared ?? elementType;
+			BoundExpression converted = Convert(element, type, binding.Span);
+			if (IsError(converted.Type))
+				continue;
+			DeclareDestructured(binding.Name, type, converted, statements, binding.Span);
+		}
 	}
 
 	private static BoundBlock EmptyDestructuring(TextSpan span) =>

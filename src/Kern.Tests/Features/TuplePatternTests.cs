@@ -122,4 +122,17 @@ public sealed class TuplePatternTests
 		Assert.NotNull(StdPipeline.CompileOrNull(source, out var diagnostics));
 		Assert.Contains(diagnostics, diagnostic => diagnostic.Code == "KRN2110");
 	}
+
+	[Fact]
+	public void Nested_tuple_destructuring_binds_inner_items()
+	{
+		const string source = """
+			fun sum() -> i32 {
+				(i32 a, (i32 b, i32 c)) = (1, (2, 3))
+				a + b + c
+			}
+			""";
+
+		Assert.Equal(KValue.I32(6), StdPipeline.Run(source, "sum"));
+	}
 }

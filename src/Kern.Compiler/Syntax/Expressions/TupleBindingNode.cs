@@ -8,4 +8,8 @@ public sealed record TupleBindingNode(
 	string? Name,
 	bool IsIgnored,
 	TextSpan Span,
-	string? RestName = null) : SyntaxNode(Span);
+	string? RestName = null) : SyntaxNode(Span)
+{
+	/// <summary>Вложенный шаблон кортежа: <c>(i32 a, (i32 b, i32 c)) = pair</c>.</summary>
+	public IReadOnlyList<TupleBindingNode>? Nested { get; init; }
+}

@@ -212,6 +212,63 @@ public sealed partial class Parser
 		return index < _tokens.Count && _tokens[index].Kind == TokenKind.Equals;
 	}
 
+	private IReadOnlyList<TupleBindingNode> ParseNestedTupleBindings()
+	{
+		Consume(TokenKind.LeftParen, "Ожидалась вложенная деструктуризация");
+		var bindings = new List<TupleBindingNode>();
+		while (!AtEnd && Current.Kind != TokenKind.RightParen)
+		{
+			var start = Current.Span.Start;
+			if (Current.Kind == TokenKind.LeftParen)
+			{
+				var nested = ParseNestedTupleBindings();
+				bindings.Add(new TupleBindingNode(null, null, false,
+					new TextSpan(start, Previous.Span.End - start))
+				{
+					Nested = nested,
+				});
+			}
+			else if (Current.Kind == TokenKind.Identifier && Current.Text == "_")
+			{
+				var ignored = Advance();
+				bindings.Add(new TupleBindingNode(null, null, true, ignored.Span));
+			}
+			else if (Current.Kind == TokenKind.Operator && Current.Text == "..")
+			{
+				var restStart = Advance().Span.Start;
+				var restName = Consume(TokenKind.Identifier, "Ожидалось имя rest-связывания");
+				bindings.Add(new TupleBindingNode(null, restName.Text, false,
+					new TextSpan(restStart, restName.Span.End - restStart), restName.Text));
+			}
+			else
+			{
+				var first = Consume(TokenKind.Identifier, "Ожидалось имя или тип элемента кортежа");
+				if (Current.Kind == TokenKind.Operator && Current.Text == "<")
+				{
+					var type = ParseTypeSyntaxFrom(first);
+					var name = Consume(TokenKind.Identifier, "Ожидалось имя элемента кортежа");
+					bindings.Add(new TupleBindingNode(type, name.Text, false,
+						new TextSpan(start, name.Span.End - start)));
+				}
+				else if (Current.Kind == TokenKind.Identifier)
+				{
+					var name = Advance();
+					bindings.Add(new TupleBindingNode(NamedTypeSyntax.Plain(first.Text, first.Span), name.Text,
+						false, new TextSpan(start, name.Span.End - start)));
+				}
+				else
+				{
+					bindings.Add(new TupleBindingNode(null, first.Text, false, first.Span));
+				}
+			}
+
+			if (!Match(TokenKind.Comma))
+				break;
+		}
+		Consume(TokenKind.RightParen, "Ожидалась закрывающая скобка вложенной деструктуризации");
+		return bindings;
+	}
+
 	private TupleDeclarationStatement ParseTupleDeclaration()
 	{
 		var open = Consume(TokenKind.LeftParen, "Ожидалась открывающая скобка кортежа");
@@ -231,7 +288,22 @@ public sealed partial class Parser
 		while (!AtEnd && Current.Kind != TokenKind.RightParen)
 		{
 			var start = Current.Span.Start;
-			if (Current.Kind == TokenKind.Operator && Current.Text == "..")
+			if (Current.Kind == TokenKind.LeftParen)
+			{
+				bindings.Add(new TupleBindingNode(null, null, false, new TextSpan(start, 0))
+				{
+					Nested = ParseNestedTupleBindings(),
+				});
+				if (bindings[^1].Span.Length == 0)
+				{
+					var nested = bindings[^1];
+					bindings[^1] = nested with
+					{
+						Span = new TextSpan(start, Previous.Span.End - start),
+					};
+				}
+			}
+			else if (Current.Kind == TokenKind.Operator && Current.Text == "..")
 			{
 				var restStart = Advance().Span.Start;
 				TypeSyntax? type = null;
