@@ -100,6 +100,11 @@ public static partial class TextModule
 	public static string FromChars(Kern.Binding.Values.KList<char> chars) =>
 		new string([.. CharsOf(chars)]);
 
+	/// <summary><c>text.from_code(code)</c>: символ UTF-16 по коду (лишние старшие биты отбрасываются).</summary>
+	[KernName("from_code")]
+	[KernMember]
+	public static char FromCode(int code) => (char)code;
+
 	/// <summary><c>text.parse_i32(s)</c>: целое или <c>nil</c> (инвариантная культура).</summary>
 	[KernName("parse_i32")]
 	[KernMember]

@@ -14,10 +14,11 @@
    `typeof<T>()`, вложенная передача `T` и generic instance-методы работают
    (`GenericTypeArgsTests`, `NativeGenericTests`). Остались вызовы generic-функции через
    значение (`CallValue`) — там пока нет runtime-аргументов.
-3. **Библиотеки на Kern (`Kern.Std`) — ansi и csv (2026-11-04).** `ansi.kern` и `csv.kern`
-   автоподключаются при `use kern.ansi…`/`use kern.csv…`; C# `CsvApi` удалён, CSV-функции
-   называются `csv_parse`/`csv_parse_dicts`/`csv_to_str`. `KernStdTests` (4). Осталось:
-   перенести `kern.parse`/`kern.text`/`kern.num`.
+3. **Библиотеки на Kern (`Kern.Std`) — ansi, csv, parse (2026-11-04).** `ansi.kern`,
+   `csv.kern` и `parse.kern` автоподключаются при `use kern.ansi…`/`use kern.csv…`/
+   `use kern.parse…`; C# `CsvApi` и `ParseApi` удалены, CSV-функции называются
+   `csv_parse`/`csv_parse_dicts`/`csv_to_str`, для `\uNNNN` добавлен `text.from_code`.
+   Тесты `KernStdTests` (4), `ParseModuleTests` (4). Осталось: перенести `kern.text`/`kern.num`.
 4. **Вложенная деструктуризация кортежей — реализовано (2026-11-03):**
    `(i32 a, (i32 b, i32 c)) = pair`; `..rest` у кортежей по-прежнему запрещён спецификацией.
 

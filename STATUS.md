@@ -24,10 +24,11 @@
   Тесты `StringGraphemeTests` (3).
 - Вложенная деструктуризация кортежей в объявлениях: `(i32 a, (i32 b, i32 c)) = pair`
   (паттерны `match` уже поддерживали вложенность). Тест `TuplePatternTests` (+1).
-- `Kern.Std`: `kern.ansi` и `kern.csv` на Kern; `StdSources` автоматически добавляет модуль
-  при `use kern.ansi…`/`use kern.csv…`. C# `CsvApi` удалён; CSV использует псевдонимы
-  `csv_parse`/`csv_parse_dicts`/`csv_to_str`, чтобы не конфликтовать с глобальными
-  `parse`/`to_str`. Тесты `KernStdTests` (4).
+- `Kern.Std`: `kern.ansi`, `kern.csv` и `kern.parse` на Kern; `StdSources` автоматически
+  добавляет модуль при `use kern.ansi…`/`use kern.csv…`/`use kern.parse…`. C# `CsvApi` и
+  `ParseApi` удалены; CSV использует псевдонимы `csv_parse`/`csv_parse_dicts`/`csv_to_str`,
+  чтобы не конфликтовать с глобальными `parse`/`to_str`. Для `\uNNNN` в `kern.parse` добавлен
+  `text.from_code(code) -> char`. Тесты `KernStdTests` (4), `ParseModuleTests` (4) через CLI.
 - Native generics: runtime-аргументы generic-функций — `CallGeneric`, `CallVirtualGeneric`,
   `TypeOfParam`, `TypeFactory.FromSig(TypeSig, KType[])`; `typeof<T>()`, передача `T` и
   generic instance-методы работают. Тесты `GenericTypeArgsTests` и `NativeGenericTests`;

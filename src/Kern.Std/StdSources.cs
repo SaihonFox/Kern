@@ -34,7 +34,7 @@ public static class StdSources
 		return files;
 	}
 
-	private static readonly HashSet<string> Auto = new(StringComparer.Ordinal) { "ansi", "csv" };
+	private static readonly HashSet<string> Auto = new(StringComparer.Ordinal) { "ansi", "csv", "parse" };
 
 	/// <summary>
 	/// Добавить std-модуль, если проект использует <c>use kern.&lt;name&gt;</c>. Уже

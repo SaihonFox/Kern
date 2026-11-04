@@ -1,0 +1,197 @@
+// kern.parse — версия на Kern (Kern.Std): базовые строительные блоки разбора текста
+// и DSL. Полные комбинаторы (`digit ~> many`, PEG из текста) — отдельный срез.
+project kern.parse:
+use kern.test[assert, assert_eq]
+use kern.text[from_code]
+
+/// Проверить, что весь текст — идентификатор Kern.
+pub fun parse_ident(str text) -> result<str, str> {
+	if text.len == 0 {
+		ret Err("ожидался идентификатор")
+	}
+	if !(is_ident_start(text[0])) {
+		ret Err(f"недопустимый первый символ '${text[0]}'")
+	}
+	i32 index = 1
+	loop index < text.len {
+		if !(is_ident_part(text[index])) {
+			ret Err(f"недопустимый символ '${text[index]}' в позиции ${index}")
+		}
+		index += 1
+	}
+	Ok(text)
+}
+
+/// Разобрать целое i64 (необязательный знак); ошибка — `Err`.
+pub fun parse_integer(str text) -> result<i64, str> {
+	i64 value = text.to_i64() ?: ret Err("ожидалось целое i64")
+	Ok(value)
+}
+
+/// Разобрать конечное дробное f64 (инвариантная культура); ошибка — `Err`.
+pub fun parse_number(str text) -> result<f64, str> {
+	f64 value = text.to_f64() ?: ret Err("ожидалось конечное число f64")
+	Ok(value)
+}
+
+/// Разобрать строку в двойных кавычках с escape-последовательностями.
+pub fun parse_quoted(str text) -> result<str, str> {
+	if text.len < 2 || text[0] != '"' || text[text.len - 1] != '"' {
+		ret Err("ожидалась строка в двойных кавычках")
+	}
+	var builder = string_builder()
+	i32 index = 1
+	loop index < text.len - 1 {
+		char symbol = text[index]
+		if symbol != '\\' {
+			builder.append(symbol)
+			index += 1
+			next
+		}
+
+		index += 1
+		if index >= text.len - 1 {
+			ret Err("незавершённая escape-последовательность")
+		}
+		char escape = text[index]
+		if escape == 'n' {
+			builder.append('\n')
+			index += 1
+			next
+		}
+		if escape == 't' {
+			builder.append('\t')
+			index += 1
+			next
+		}
+		if escape == 'r' {
+			builder.append('\r')
+			index += 1
+			next
+		}
+		if escape == '\\' {
+			builder.append('\\')
+			index += 1
+			next
+		}
+		if escape == '"' {
+			builder.append('"')
+			index += 1
+			next
+		}
+		if escape == 'u' {
+			if index + 4 >= text.len - 1 {
+				ret Err("ожидалось \\uNNNN")
+			}
+			i32 code = 0
+			i32 digitIndex = 1
+			loop digitIndex <= 4 {
+				i32 digit = hex_digit(text[index + digitIndex])
+				if digit < 0 {
+					ret Err("ожидалось \\uNNNN")
+				}
+				code = code * 16 + digit
+				digitIndex += 1
+			}
+			builder.append(from_code(code))
+			index += 5
+			next
+		}
+		ret Err("неизвестная escape-последовательность")
+	}
+	Ok(builder.to_str())
+}
+
+/// Многострочная диагностика разбора с номером строки/колонки и подчёркиванием.
+pub fun parse_error(str text, i32 offset) -> str {
+	i32 position = offset
+	if position < 0 {
+		position = 0
+	}
+	if position > text.len {
+		position = text.len
+	}
+
+	i32 lineStart = 0
+	i32 index = 0
+	loop index < position {
+		if text[index] == '\n' {
+			lineStart = index + 1
+		}
+		index += 1
+	}
+
+	i32 lineEnd = position
+	loop lineEnd < text.len && text[lineEnd] != '\n' {
+		lineEnd += 1
+	}
+
+	i32 line = 1
+	index = 0
+	loop index < lineStart {
+		if text[index] == '\n' {
+			line += 1
+		}
+		index += 1
+	}
+
+	i32 column = position - lineStart + 1
+	str source = text[lineStart..lineEnd]
+	loop source.len > 0 && source[source.len - 1] == '\r' {
+		source = source[0..source.len - 1]
+	}
+	str padding = " ".repeat(column - 1)
+	f"${line}:${column}: ошибка разбора\n  ${source}\n  ${padding}^"
+}
+
+/// Быстрый предикат: весь текст — идентификатор Kern.
+pub fun is_ident(str text) -> bool {
+	match parse_ident(text) {
+		Ok(_) => true
+		Err(_) => false
+	}
+}
+
+fun is_ident_start(char symbol) -> bool symbol.is_letter() || symbol == '_'
+
+fun is_ident_part(char symbol) -> bool symbol.is_letter_or_digit() || symbol == '_'
+
+fun hex_digit(char symbol) -> i32 {
+	if symbol >= '0' && symbol <= '9' {
+		ret symbol.code - 48
+	}
+	if symbol >= 'a' && symbol <= 'f' {
+		ret symbol.code - 97 + 10
+	}
+	if symbol >= 'A' && symbol <= 'F' {
+		ret symbol.code - 65 + 10
+	}
+	-1
+}
+
+#[test]
+pub fun parses_identifiers() {
+	assert_eq(true, is_ident("hello_1"))
+	assert_eq(true, is_ident("язык"))
+	assert_eq(false, is_ident("1bad"))
+}
+
+#[test]
+pub fun parses_numbers_and_strings() {
+	match parse_integer("-42") {
+		Ok(value) => assert_eq(-42, value)
+		Err(_) => assert(false)
+	}
+	match parse_number("1.5") {
+		Ok(value) => assert_eq(1.5, value)
+		Err(_) => assert(false)
+	}
+	match parse_quoted("\"a\\nb\"") {
+		Ok(value) => assert_eq("a\nb", value)
+		Err(_) => assert(false)
+	}
+	match parse_quoted("\"\\u0041\"") {
+		Ok(value) => assert_eq("A", value)
+		Err(_) => assert(false)
+	}
+}
