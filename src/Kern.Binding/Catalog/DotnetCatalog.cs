@@ -7,7 +7,8 @@ namespace Kern.Binding.Catalog;
 /// <summary>
 /// Импорт .NET-типов через <c>use dotnet.Namespace[T1, T2]</c> (spec §12.10, «способ C»).
 /// Статический класс даёт статические методы/свойства; обычный класс — конструкторы и
-/// экземплярные методы/свойства (приёмник передаётся первым аргументом). Имена — snake_case.
+/// экземплярные методы/свойства (приёмник передаётся первым аргументом). Имена членов,
+/// параметров и типов сохраняются как в C# (<c>builder.Length</c>, <c>File.ReadAllText</c>).
 /// </summary>
 public static class DotnetCatalog
 {
@@ -114,13 +115,13 @@ public static class DotnetCatalog
 			if (!TryMap(parameter.ParameterType, ownerName, out string typeName))
 				return false;
 			mapped.Add(new NativeParameterDescriptor(
-				NameMapping.ToSnakeCase(parameter.Name ?? $"arg{mapped.Count}"), typeName));
+				parameter.Name ?? $"arg{mapped.Count}", typeName));
 			keyTypes.Add(typeName);
 		}
 
-		string name = NameMapping.ToSnakeCase(kind == NativeMemberKind.PropertyGet
+		string name = kind == NativeMemberKind.PropertyGet
 			? method.Name.StartsWith("get_", StringComparison.Ordinal) ? method.Name[4..] : method.Name
-			: method.Name);
+			: method.Name;
 		string key = NativeKey.Create("dotnet:" + owner.FullName, name, kind, isStatic: true, keyTypes);
 		descriptor = new NativeFunctionDescriptor
 		{
@@ -159,13 +160,13 @@ public static class DotnetCatalog
 			if (!TryMap(parameter.ParameterType, ownerName, out string typeName))
 				return false;
 			mapped.Add(new NativeParameterDescriptor(
-				NameMapping.ToSnakeCase(parameter.Name ?? $"arg{mapped.Count}"), typeName));
+				parameter.Name ?? $"arg{mapped.Count}", typeName));
 			keyTypes.Add(typeName);
 		}
 
-		string name = NameMapping.ToSnakeCase(kind == NativeMemberKind.PropertyGet
+		string name = kind == NativeMemberKind.PropertyGet
 			? method.Name.StartsWith("get_", StringComparison.Ordinal) ? method.Name[4..] : method.Name
-			: method.Name);
+			: method.Name;
 		string key = NativeKey.Create("dotnet:" + owner.FullName, name, kind, isStatic: true, keyTypes);
 		descriptor = new NativeFunctionDescriptor
 		{
@@ -201,7 +202,7 @@ public static class DotnetCatalog
 			if (!TryMap(parameter.ParameterType, ownerName, out string typeName))
 				return false;
 			mapped.Add(new NativeParameterDescriptor(
-				NameMapping.ToSnakeCase(parameter.Name ?? $"arg{mapped.Count}"), typeName));
+				parameter.Name ?? $"arg{mapped.Count}", typeName));
 			keyTypes.Add(typeName);
 		}
 

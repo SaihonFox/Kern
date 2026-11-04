@@ -32,6 +32,9 @@
 - Исправлена лексика `!`: `!is`/`!in` — только на границе слова, унарный операнд включает
   постфикс (`!is_letter(x)` = `!(is_letter(x))`), маркер `T!` — только вплотную к типу.
   Тесты `OperatorBoundaryTests` (2).
+- `use dotnet`: имена членов/параметров/типов сохраняются как в C# (`b.Length`,
+  `File.ReadAllText`, `Math.Abs`), `DotnetCatalog` больше не делает snake_case.
+  Обновлены spec §12.10, `docs/LIBRARIES.md`, `DotnetInteropTests`.
 - `StdSources.Include` не дублирует std-модуль, определённый самим проектом, и не реагирует
   на `use kern.*` в комментариях: `kernc check`/`kernc test src/Kern.Std/std/kern` работают,
   self-тесты std — 5/5. Тесты `KernStdTests` (+2); suite **650/650**.

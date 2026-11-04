@@ -18,7 +18,7 @@ public sealed class DotnetInteropTests
 		NativeCatalog catalog = DotnetCatalog.Import(StdPipeline.Catalog(), [console!]);
 		Assert.Contains(catalog.Types, type => type.Name == "Console");
 		Assert.Contains(catalog.Functions, function =>
-			function.Owner == "Console" && function.Name == "write_line");
+			function.Owner == "Console" && function.Name == "WriteLine");
 	}
 
 	[Fact]
@@ -33,10 +33,10 @@ public sealed class DotnetInteropTests
 
 			fun main {
 				str path = "kern-dotnet-interop.tmp"
-				File.write_all_text(path, "ok")
-				println(File.read_all_text(path))
-				println(Path.get_file_name_without_extension("a/b.txt"))
-				println(Math.abs(-3.0))
+				File.WriteAllText(path, "ok")
+				println(File.ReadAllText(path))
+				println(Path.GetFileNameWithoutExtension("a/b.txt"))
+				println(Math.Abs(-3.0))
 			}
 			""", new System.Text.UTF8Encoding(false));
 		try
@@ -73,7 +73,7 @@ public sealed class DotnetInteropTests
 		NativeCatalog catalog = DotnetCatalog.Import(StdPipeline.Catalog(), [builder!]);
 		Assert.Contains(catalog.Types, type => type.Name == "StringBuilder");
 		Assert.Contains(catalog.Functions, function =>
-			function.Name == "append" && function.SelfType == "StringBuilder");
+			function.Name == "Append" && function.SelfType == "StringBuilder");
 		Assert.Contains(catalog.Functions, function =>
 			function.Kind == NativeMemberKind.Constructor && function.Owner == "StringBuilder");
 	}
@@ -89,10 +89,10 @@ public sealed class DotnetInteropTests
 
 			fun main {
 				StringBuilder b = StringBuilder()
-				b.append("a")
-				b.append("b")
-				println(b.to_string())
-				println(b.length)
+				b.Append("a")
+				b.Append("b")
+				println(b.ToString())
+				println(b.Length)
 			}
 			""", new System.Text.UTF8Encoding(false));
 		try
