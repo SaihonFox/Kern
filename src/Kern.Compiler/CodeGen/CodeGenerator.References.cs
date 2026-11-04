@@ -20,6 +20,7 @@ public sealed partial class CodeGenerator
 		switch (reference.Operand)
 		{
 			case BoundVariableExpression variable:
+				RecordLocalName(variable.Slot, variable.Name);
 				// Сам ref-параметр уже держит ячейку — передаём её дальше без обёртки.
 				if (_refSlots.Contains(variable.Slot))
 					Emit(OpCode.LoadLocal, variable.Slot);

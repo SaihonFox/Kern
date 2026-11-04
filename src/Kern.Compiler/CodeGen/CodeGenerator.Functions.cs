@@ -16,6 +16,9 @@ public sealed partial class CodeGenerator
 		_currentSymbol = function.Symbol;
 		_code = [];
 		_current.LineTable = [];
+		_current.LocalNames = [.. Enumerable.Repeat(string.Empty, _current.LocalCount)];
+		foreach (var parameter in function.Parameters)
+			RecordLocalName(parameter.Slot, parameter.Symbol.Name);
 		if (_bundle is not null)
 			_current.SourceFile = SourceFileFor(function, _bundle);
 		else if (!string.IsNullOrEmpty(_source?.Path))
@@ -60,6 +63,19 @@ public sealed partial class CodeGenerator
 		}
 
 		_current.Code = [.. _code];
+		if (_current.LocalNames.Count < _current.LocalCount)
+			_current.LocalNames.AddRange(
+				Enumerable.Repeat(string.Empty, _current.LocalCount - _current.LocalNames.Count));
+	}
+
+	/// <summary>Запомнить имя локального слота для отладчика (пустые/временные слоты — "").</summary>
+	private void RecordLocalName(int slot, string name)
+	{
+		if (slot < 0 || name.Length == 0)
+			return;
+		while (_current.LocalNames.Count <= slot)
+			_current.LocalNames.Add(string.Empty);
+		_current.LocalNames[slot] = name;
 	}
 
 	private void EmitBlock(

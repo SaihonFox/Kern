@@ -99,10 +99,12 @@ public sealed partial class CodeGenerator
 				break;
 
 			case BoundLocalDeclaration declaration:
+				RecordLocalName(declaration.Slot, declaration.Name);
 				if (declaration.Initializer is not null)
 					EmitLocalInitializer(declaration.Slot, declaration.Type, declaration.Initializer);
 				foreach (var binding in declaration.DeclaredBindings)
 				{
+					RecordLocalName(binding.Slot, binding.Name);
 					if (binding.Initializer is null)
 						continue;
 					EmitLocalInitializer(binding.Slot, binding.Initializer.Type, binding.Initializer);
@@ -111,6 +113,7 @@ public sealed partial class CodeGenerator
 
 			// use T x = expr (spec §12): объявить и зарегистрировать dispose на выходе из блока.
 			case BoundUseStatement use:
+				RecordLocalName(use.Slot, use.Name);
 				EmitUse(use);
 				break;
 
@@ -230,6 +233,7 @@ public sealed partial class CodeGenerator
 				break;
 
 			case BoundVariableExpression variable:
+				RecordLocalName(variable.Slot, variable.Name);
 				Emit(OpCode.LoadLocal, variable.Slot);
 				if (_refSlots.Contains(variable.Slot))
 					Emit(OpCode.LoadRef);

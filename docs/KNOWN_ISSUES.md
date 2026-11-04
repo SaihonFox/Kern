@@ -66,6 +66,7 @@ This section lists only **current** gaps. Items that were fixed earlier are reco
 - NativeAOT invokes imported members through `MethodInfo.Invoke` (no compiled delegates yet).
 
 ### Std / libraries
+- **`kern.text` / `kern.num` stay in C#.** The owner allowed a C# fallback; a full Kern port needs BCL primitives that Kern does not expose (`StringInfo` grapheme segmentation, Unicode normalization, UTF-8 codec, complex/linear-algebra kernels). The public Kern API is unchanged (`use kern.text[...]`/`use kern.num[...]`), so a later port is source-compatible.
 - **`kern.security`:** no BLAKE3, Ed25519 or argon2/bcrypt (not in BCL; own implementation is XL and needs crypto review).
 - **`kern.num`:** `eigen_symmetric` handles real symmetric matrices only (Jacobi), `qr` requires rows >= columns; no sparse matrices or dedicated rational/vector types.
 - **`kern.toml`:** no multiline basic/literal strings and no full date/time type model.
@@ -82,12 +83,12 @@ This section lists only **current** gaps. Items that were fixed earlier are reco
 ### Tools / runtime
 - **Capabilities:** `fs.read("scope")`/`fs.write("scope")` scopes are parsed but only capability names are enforced; package `permissions` are metadata only.
 - **Profiler:** now reports inclusive and self time, but no call tree; async frames that interleave across `await` may attribute child time imperfectly.
-- **Debugger:** synchronous only (no attach/remote/expression evaluation); `.kbc` stores no local names, so `locals` shows `paramN`/`slotN`; step pauses on the next bytecode instruction.
+- **Debugger:** synchronous only; no attach to a running process and no remote protocol (see `DECISIONS_NEEDED.md`). `.kbc` v4 stores local slot names, so `locals`/`print <name>` work; `print` evaluates only literals, local names, parentheses and `+ - * / %` (no calls/fields/indexes). Step pauses on the next bytecode instruction.
 - **Optimizer:** `-O2` inlines `#[inline]` functions with branches/loops/multiple `ret`; async/generator/ctor/memo/native/ref stay calls; dead-function elimination keeps type methods and `Pub`/`#[test]` functions.
 - **`build --native`:** some programs fall back to a self-contained single-file host (generic natives, external DLLs, `use dotnet`, reflection, foreign RID); needs the source tree and C++ toolchain.
 - **`kernc test`:** async tests are pumped now, but tests with an implicit receiver (methods) are not supported.
-- **Modules:** only one module-level static initializer is supported (`KRN1014`); native module functions are global (a std module must not reuse a common name); qualified `mod.member` access works for both native and source modules.
-- **Project mode / `.kbc`:** library and consumer types with the same simple name conflict in `kernc dll`.
+- **Modules:** module-level static initializers of all files are merged and run before the entry point; native module functions are global (a std module must not reuse a common name); qualified `mod.member` access works for both native and source modules.
+- **Project mode / `.kbc`:** types are matched by full name (`module.Type`), so a library and a consumer may use the same simple type name; only unqualified legacy types fall back to the simple name.
 
 ## F. Files in `reference/` that are *not* part of stage 1
 `reference/libs/*` (old attempt) — design material only. The current `libs/` (Db, Di, Backend, Ffi, Transpile) is implemented; only `Kern.Lib.Ui` is still missing.

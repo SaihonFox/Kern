@@ -142,19 +142,11 @@ public static class ProjectCompiler
 			boundFunctions.AddRange(bound.Functions);
 		}
 
-		var staticInitializers = boundFunctions.Count(function => function.Symbol.Name == "<static-init>" && function.Symbol.Owner is null);
-		if (staticInitializers > 1)
-		{
-			diagnostics.Add(new ProjectDiagnostic(
-				ordered[0].Path,
-				new Diagnostic(
-					"KRN1014",
-					"Статические инициализаторы в нескольких модулях пока не поддержаны",
-					default)));
-		}
-
-		if (HasErrors(diagnostics))
-			return new ProjectCompileResult { Bundle = bundle, Diagnostics = diagnostics };
+		var staticInitializers = boundFunctions
+			.Where(function => function.Symbol.Name == "<static-init>" && function.Symbol.Owner is null)
+			.ToList();
+		if (staticInitializers.Count > 1)
+			boundFunctions = MergeModuleInitializers(boundFunctions, staticInitializers);
 
 		var symbol = MergeSymbol(projectName, parsedFiles);
 		var module = new BoundModule(symbol, boundFunctions, []);
@@ -165,6 +157,36 @@ public static class ProjectCompiler
 			Diagnostics = FilterSuppressions(diagnostics, parsedSources),
 			HasEntryPoint = entry is not null,
 		};
+	}
+
+	/// <summary>
+	/// Склеить модульные <c>&lt;static-init&gt;</c> разных файлов в один: VM выполняет
+	/// только <see cref="KbcModule.StaticInit"/>, поэтому второй инициализатор иначе терялся.
+	/// Порядок — порядок привязки модулей (зависимости раньше импортёров).
+	/// </summary>
+	private static List<BoundFunction> MergeModuleInitializers(
+		List<BoundFunction> functions,
+		IReadOnlyList<BoundFunction> initializers)
+	{
+		var statements = new List<BoundStatement>();
+		foreach (BoundFunction initializer in initializers)
+			statements.AddRange(initializer.Body.Statements);
+
+		var symbol = new FunctionSymbol("<static-init>", FunctionKind.Function)
+		{
+			IsStatic = true,
+			ReturnType = PrimitiveType.Void,
+		};
+		var merged = new BoundFunction(
+			symbol,
+			[],
+			new BoundBlock(statements, null, FallsThrough: true, initializers[0].Body.Span),
+			PrimitiveType.Void,
+			0);
+
+		var result = functions.Where(function => !initializers.Contains(function)).ToList();
+		result.Add(merged);
+		return result;
 	}
 
 	/// <summary>Применить <c>#[allow(...)]</c> каждого файла к его предупреждениям.</summary>

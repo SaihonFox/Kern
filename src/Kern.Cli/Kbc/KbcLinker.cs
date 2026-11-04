@@ -84,6 +84,13 @@ internal static class KbcLinker
 			for (var index = 0; index < target.TypePool.Count; index++)
 				if (string.Equals(target.TypePool[index].FullName, type.FullName, StringComparison.Ordinal))
 					return index;
+
+			// Простое имя — только у по-настоящему неквалифицированных типов (старые .kbc).
+			// Иначе типы с одинаковым именем из разных модулей сливались бы и линковка падала
+			// на несовпадении раскладки полей.
+			if (!string.Equals(type.FullName, type.Name, StringComparison.Ordinal))
+				return -1;
+
 			for (var index = 0; index < target.TypePool.Count; index++)
 				if (string.Equals(target.TypePool[index].Name, type.Name, StringComparison.Ordinal))
 					return index;
@@ -137,6 +144,7 @@ internal static class KbcLinker
 					LocalCount = function.LocalCount,
 					MaxStack = function.MaxStack,
 					SourceFile = function.SourceFile,
+					LocalNames = [.. function.LocalNames],
 					LineTable = [.. function.LineTable],
 					Attributes = [.. function.Attributes],
 					NativeKey = function.NativeKey,
@@ -298,6 +306,7 @@ internal static class KbcLinker
 				destination.MaxStack = source.MaxStack;
 				destination.LineTable = [.. source.LineTable];
 				destination.SourceFile = source.SourceFile;
+				destination.LocalNames = [.. source.LocalNames];
 				destination.Attributes = [.. source.Attributes];
 				destination.NativeKey = source.NativeKey;
 				destination.NativeTypeArgs = source.NativeTypeArgs >= 0

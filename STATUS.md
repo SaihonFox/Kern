@@ -2,6 +2,25 @@
 
 ## Now
 
+### Батч 2026-11-04 (owner request): модули/сборка, отладчик, `kern.text`/`kern.num`
+
+Сделано и проверено (build 0 errors, suite **705/705**, style clean):
+- **Static-init нескольких модулей:** инициализаторы статических полей всех файлов
+  проекта склеиваются в один `<static-init>` в порядке зависимостей; `KRN1014` убран.
+- **`kernc dll`:** типы `.kbc` сопоставляются по полному имени `module.Type`; библиотека
+  и потребитель могут иметь одноимённые типы (тест с двумя `User`).
+- **Отладчик:** `.kbc` v4 хранит имена локальных слотов (параметры, `$`, локальные);
+  `locals` показывает имена, `print` принимает имя/слот/простое выражение
+  (`+ - * / %`, литералы, скобки, конкатенация строк).
+- **`kern.text`/`kern.num`:** оставлены на C# (owner разрешил fallback); публичный API
+  не менялся. Причина — нужны BCL-примитивы (графемы, Unicode-нормализация, UTF-8,
+  комплексные числа/FFT/QR/собственные значения), которых у Kern нет.
+- Attach/remote отладчика не реализованы: в `DECISIONS_NEEDED.md` добавлен вопрос о
+  протоколе (DAP / свой TCP / не делать).
+- Тесты `MultiModuleInitializerTests` (2), `DebuggerTests` (+3), `KbcLinkTests` (+1);
+  spec §5, `docs/DEBUGGER.md`, `docs/ARCHITECTURE.md`, `docs/REMAINING.md`,
+  `docs/KNOWN_ISSUES.md` обновлены.
+
 ### Батч 2026-11-04 (owner request): `use` source-модулей и продвинутый `use dotnet`
 
 Сделано и проверено (build 0 errors, suite **699/699**, style clean):

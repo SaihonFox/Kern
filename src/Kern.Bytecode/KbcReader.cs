@@ -64,7 +64,7 @@ public static class KbcReader
 				$"неподдерживаемая версия .kbc: {version}; поддерживаются 2..{KbcModule.Version}");
 
 		if (version == 2)
-			return ReadPayload(new PayloadReader(reader, compact: false));
+			return ReadPayload(new PayloadReader(reader, compact: false, version));
 
 		byte flags = reader.ReadByte();
 		if ((flags & ~FlagCompressed) != 0)
@@ -102,7 +102,7 @@ public static class KbcReader
 
 		using MemoryStream body = new(payload, writable: false);
 		using BinaryReader payloadReader = new(body, StrictUtf8, leaveOpen: true);
-		return ReadPayload(new PayloadReader(payloadReader, compact: true));
+		return ReadPayload(new PayloadReader(payloadReader, compact: true, version));
 	}
 
 	private static byte[] ReadExactly(BinaryReader reader, int length)
@@ -134,7 +134,7 @@ public static class KbcReader
 	}
 
 	/// <summary>Читатель секций: компактное (v3) или классическое (v2) кодирование.</summary>
-	private sealed class PayloadReader(BinaryReader reader, bool compact)
+	private sealed class PayloadReader(BinaryReader reader, bool compact, ushort version)
 	{
 		public int Int32() => compact ? reader.ReadInt32Var() : reader.ReadInt32();
 
@@ -317,6 +317,7 @@ public static class KbcReader
 				Code = code,
 				LineTable = lines,
 				SourceFile = NullableString(),
+				LocalNames = version >= 4 ? Strings() : [],
 				NativeKey = NullableString(),
 				NativeTypeArgs = Int32(),
 				Attributes = List(Attribute, "атрибутов"),

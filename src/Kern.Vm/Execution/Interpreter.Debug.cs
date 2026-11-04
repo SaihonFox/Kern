@@ -32,6 +32,7 @@ public sealed partial class Interpreter
 			FrameCount = frameCount,
 			Stack = stack,
 			Locals = locals,
+			LocalNames = function.LocalNames,
 			ParamCount = function.ParamCount,
 		};
 	}
@@ -44,6 +45,7 @@ public sealed partial class Interpreter
 			Line = function.LineAt(offset) ?? 0,
 			Offset = offset,
 			Locals = locals,
+			LocalNames = function.LocalNames,
 			ParamCount = function.ParamCount,
 		};
 }

@@ -145,6 +145,45 @@ public sealed class KbcLinkTests : IDisposable
 		Assert.Equal("User(name=аня)\n", RunApp(Path.Combine(root, "app")));
 	}
 
+	[Fact]
+	public void Same_named_types_in_library_and_consumer_do_not_conflict()
+	{
+		string root = Create(
+			("lib/src/lib/state.kern", """
+				type User(str name) {
+					fun label() -> str $name
+				}
+
+				fun make_user(str name) -> User User(name)
+				"""),
+			("app/build.kern", """
+				use kern.build[workspace, target]
+				fun build(workspace w) {
+					w.target("app", fun (target t) {
+						t.kbc("../lib/out/lib.kbc")
+					})
+				}
+				"""),
+			("app/src/other.kern", """
+				type User(i32 id) {
+					fun value() -> i32 $id
+				}
+
+				fun other_value() -> i32 User(7).value()
+				"""),
+			("app/src/main.kern", """
+				use lib.state[User, make_user]
+				use other[other_value]
+
+				fun main {
+					println(make_user("ann").label())
+					println(f"${other_value()}")
+				}
+				"""));
+		Assert.Equal(0, Run("dll", Path.Combine(root, "lib")).Code);
+		Assert.Equal("ann\n7\n", RunApp(Path.Combine(root, "app")));
+	}
+
 	private string CreateLibAndApp()
 	{
 		string root = Create(

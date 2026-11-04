@@ -110,6 +110,13 @@ public sealed class FunctionDef
 	public int[] Code { get; set; } = [];
 	public List<LineEntry> LineTable { get; set; } = [];
 	public string? SourceFile { get; set; }
+
+	/// <summary>
+	/// Имена локальных слотов (индекс = слот): нужны отладчику, чтобы печатать
+	/// <c>x</c>, а не <c>slot3</c>. Пустая строка — имя неизвестно (временный слот).
+	/// </summary>
+	public List<string> LocalNames { get; set; } = [];
+
 	public List<AttributeUse> Attributes { get; set; } = [];
 
 	/// <summary>

@@ -6,8 +6,9 @@ namespace Kern.Cli.Debug;
 
 /// <summary>
 /// Интерактивный отладчик CLI (docs/DEBUGGER.md): точки останова по файлу/строке/функции,
-/// <c>step</c>/<c>next</c>/<c>finish</c>, просмотр локальных слотов и стека кадров.
-/// Выражения не вычисляются: у байткода нет имён локальных слотов, только индексы.
+/// <c>step</c>/<c>next</c>/<c>finish</c>, просмотр локальных слотов по именам и стека кадров.
+/// Имена локальных слотов хранятся в <c>.kbc</c> (версия 4); произвольные выражения
+/// не вычисляются.
 /// </summary>
 internal sealed class ConsoleDebugger : IDebugHook
 {
@@ -128,7 +129,7 @@ internal sealed class ConsoleDebugger : IDebugHook
 					PrintStack(pause);
 					break;
 				case "p" or "print":
-					PrintSlot(argument, pause);
+					PrintValue(argument, pause);
 					break;
 				case "h" or "help" or "?":
 					PrintHelp();
@@ -206,10 +207,7 @@ internal sealed class ConsoleDebugger : IDebugHook
 			return;
 		}
 		for (var slot = 0; slot < pause.Locals.Count; slot++)
-		{
-			string name = slot < pause.ParamCount ? $"param{slot}" : $"slot{slot}";
-			_output.WriteLine($"{name} = {Format(pause.Locals[slot])}");
-		}
+			_output.WriteLine($"{SlotName(pause.LocalNames, slot, pause.ParamCount)} = {Format(pause.Locals[slot])}");
 	}
 
 	private void PrintStack(DebugPauseInfo pause)
@@ -221,14 +219,46 @@ internal sealed class ConsoleDebugger : IDebugHook
 		}
 	}
 
-	private void PrintSlot(string argument, DebugPauseInfo pause)
+	private void PrintValue(string argument, DebugPauseInfo pause)
 	{
-		if (!int.TryParse(argument, out int slot) || slot < 0 || slot >= pause.Locals.Count)
+		if (argument.Length == 0)
 		{
-			_output.WriteLine($"укажите слот 0..{pause.Locals.Count - 1}");
+			_output.WriteLine("использование: print <имя|слот|выражение>");
 			return;
 		}
-		_output.WriteLine($"[{slot}] = {Format(pause.Locals[slot])}");
+
+		if (int.TryParse(argument, out int slot))
+		{
+			if (slot < 0 || slot >= pause.Locals.Count)
+			{
+				_output.WriteLine($"укажите слот 0..{pause.Locals.Count - 1}");
+				return;
+			}
+			_output.WriteLine($"[{slot}] {SlotName(pause.LocalNames, slot, pause.ParamCount)} = {Format(pause.Locals[slot])}");
+			return;
+		}
+
+		for (var index = 0; index < pause.LocalNames.Count; index++)
+		{
+			if (!string.Equals(pause.LocalNames[index], argument, StringComparison.Ordinal) ||
+				index >= pause.Locals.Count)
+				continue;
+			_output.WriteLine($"{argument} = {Format(pause.Locals[index])}");
+			return;
+		}
+
+		if (DebugExpression.TryEvaluate(argument, pause, out KValue value, out string? error))
+			_output.WriteLine($"{argument} = {Format(value)}");
+		else
+			_output.WriteLine($"не удалось вычислить '{argument}': {error}");
+	}
+
+	/// <summary>Имя слота: из <c>.kbc</c>, иначе запасное <c>paramN</c>/<c>slotN</c>.</summary>
+	private static string SlotName(IReadOnlyList<string> names, int slot, int paramCount)
+	{
+		if (slot < names.Count && names[slot].Length > 0)
+			return names[slot];
+		return slot < paramCount ? $"param{slot}" : $"slot{slot}";
 	}
 
 	private void PrintHelp()
@@ -243,7 +273,7 @@ internal sealed class ConsoleDebugger : IDebugHook
 		_output.WriteLine("  info|i            список точек останова");
 		_output.WriteLine("  locals|l          локальные слоты текущего кадра");
 		_output.WriteLine("  stack|bt          стек кадров");
-		_output.WriteLine("  print|p <слот>    значение слота");
+		_output.WriteLine("  print|p <имя>     значение локальной переменной, слота или простого выражения");
 		_output.WriteLine("  quit|q            прервать программу");
 	}
 

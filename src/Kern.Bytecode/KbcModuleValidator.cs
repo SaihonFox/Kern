@@ -109,6 +109,9 @@ public static class KbcModuleValidator
 			throw new KbcFormatException($"{where}: NativeKey задан без флага Native");
 		if (function.LocalCount < function.ParamCount)
 			throw new KbcFormatException($"{where}: LocalCount {function.LocalCount} меньше числа параметров {function.ParamCount}");
+		if (function.LocalNames.Count > function.LocalCount)
+			throw new KbcFormatException(
+				$"{where}: имён локальных слотов {function.LocalNames.Count} больше, чем LocalCount {function.LocalCount}");
 		if (function.Code.Length == 0)
 			throw new KbcFormatException($"{where}: пустой код");
 

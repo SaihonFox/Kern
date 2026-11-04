@@ -257,6 +257,7 @@ public static class KbcWriter
 			WriteInt32(w, line.Line);
 		});
 		WriteNullableString(writer, function.SourceFile);
+		WriteStrings(writer, function.LocalNames);
 		WriteNullableString(writer, function.NativeKey);
 		WriteInt32(writer, function.NativeTypeArgs);
 		WriteList(writer, function.Attributes, WriteAttribute);

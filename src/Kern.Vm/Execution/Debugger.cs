@@ -16,6 +16,9 @@ public sealed class DebugFrameInfo
 
 	public required IReadOnlyList<KValue> Locals { get; init; }
 
+	/// <summary>Имена слотов (индекс = слот; пустая строка — имя неизвестно).</summary>
+	public IReadOnlyList<string> LocalNames { get; init; } = [];
+
 	public int ParamCount { get; init; }
 }
 
@@ -35,6 +38,9 @@ public sealed class DebugPauseInfo
 	public required IReadOnlyList<DebugFrameInfo> Stack { get; init; }
 
 	public required IReadOnlyList<KValue> Locals { get; init; }
+
+	/// <summary>Имена слотов текущего кадра (индекс = слот).</summary>
+	public IReadOnlyList<string> LocalNames { get; init; } = [];
 
 	public int ParamCount { get; init; }
 }

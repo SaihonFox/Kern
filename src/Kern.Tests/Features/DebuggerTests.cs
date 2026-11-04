@@ -62,6 +62,80 @@ public sealed class DebuggerTests
 	}
 
 	[Fact]
+	public void Local_names_survive_kbc_roundtrip_and_reach_the_debugger()
+	{
+		KbcModule module = StdPipeline.Compile(Source).Module;
+		KbcModule stored = KbcReader.Read(KbcWriter.Write(module));
+
+		FunctionDef add = stored.FunctionPool.First(function => function.Name == "add");
+		Assert.Equal(["a", "b"], add.LocalNames);
+		FunctionDef main = stored.FunctionPool.First(function => function.Name == "main");
+		Assert.Contains("x", main.LocalNames);
+		Assert.Contains("y", main.LocalNames);
+
+		var hook = new TestHook("add");
+		var interpreter = new Interpreter(stored, new NativeResolver(StdPipeline.Catalog()))
+		{
+			Debugger = hook,
+		};
+		Assert.Equal(KValue.I32(10), interpreter.Run("main"));
+		Assert.Equal(["a", "b"], hook.Last!.LocalNames);
+	}
+
+	[Fact]
+	public void Console_debugger_prints_locals_by_name()
+	{
+		var output = new StringWriter();
+		var debugger = new ConsoleDebugger(
+			new StringReader("locals\nprint value\ncontinue\n"),
+			output);
+		var pause = new DebugPauseInfo
+		{
+			Function = "main",
+			SourceFile = "main.kern",
+			Line = 3,
+			Offset = 0,
+			FrameCount = 0,
+			Stack = [],
+			Locals = [KValue.I32(7)],
+			LocalNames = ["value"],
+			ParamCount = 0,
+		};
+
+		Assert.True(debugger.Pause(pause));
+		string text = output.ToString();
+		Assert.Contains("value = 7", text);
+		Assert.DoesNotContain("slot0", text);
+	}
+
+	[Fact]
+	public void Console_debugger_evaluates_simple_expressions()
+	{
+		var output = new StringWriter();
+		var debugger = new ConsoleDebugger(
+			new StringReader("print value + 1\nprint value * 2 - 1\nprint \"x\" + \"y\"\ncontinue\n"),
+			output);
+		var pause = new DebugPauseInfo
+		{
+			Function = "main",
+			SourceFile = "main.kern",
+			Line = 3,
+			Offset = 0,
+			FrameCount = 0,
+			Stack = [],
+			Locals = [KValue.I32(7)],
+			LocalNames = ["value"],
+			ParamCount = 0,
+		};
+
+		Assert.True(debugger.Pause(pause));
+		string text = output.ToString();
+		Assert.Contains("value + 1 = 8", text);
+		Assert.Contains("value * 2 - 1 = 13", text);
+		Assert.Contains("\"x\" + \"y\" = xy", text);
+	}
+
+	[Fact]
 	public void Console_debugger_handles_breakpoints_locals_stack_and_continue()
 	{
 		var output = new StringWriter();
