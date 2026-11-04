@@ -98,9 +98,9 @@ the binder. Macros are a textual pipeline before parsing: macro files compile as
 mini-project, attribute macros run on top-level `type`/`unit` (including `#[derive(name)]`),
 expression macros `name!(...)` expand in up to 16 passes, and `macro_ctx` reports KRN1502/KRN1503.
 Examples 24 and 28 check, run and have `expected.out`; suite **328/328**. `kernc dll` now builds
-stubs from macro-expanded sources, so generated members are visible to consumers. Limits: macro
-expansion is not run by single-file `CompileCore`; `define_type` has no generics/parents/methods;
-attribute `instantiate()` is absent.
+stubs from macro-expanded sources, so generated members are visible to consumers. Limits:
+`kernc fmt`/`kernc repl` do not expand macros; `define_type` has no methods/property metadata;
+`attribute_info.instantiate()` is implemented.
 
 ## M10 — `.kbc` via `use`
 Interface stubs embedded by `kernc dll` (`kern.stub` module attributes), `KbcStubTransform`, `KbcLinker` (matching key `owner|name|flags|op|generics|paramSigs|ext|file`, operand relocation table per opcode, field-layout verification), builder `t.kbc(path)`.
@@ -139,7 +139,7 @@ single-file fallback), `kern.security`/`kern.text`/`kern.parse`/`kern.num`
 (partial). Capabilities `#[needs]`/`--deny` implemented 2026-11-03; self-hosted
 lexer, AST and parser (B0/B1) work in `bootstrap/`. Docs: `BOOTSTRAP.md`, `IN_REF_OUT.md`,
 `DEBUGGER.md`, `CAPABILITIES.md`. Open
-decision: full C# generics - see `DECISIONS_NEEDED.md`. Suite **650/650**, style clean.
+decision: full C# generics - see `DECISIONS_NEEDED.md`. Suite **658/658**, style clean.
 
 ## Owner batch 2026-10-27 — language polish (stage 1)
 Recorded in `DECISIONS_NEEDED.md` ("Decided — owner additions"). Ordered by dependency; every slice updates `docs/spec/kern.en.md` + `CHANGELOG_LANG.md` and lands with tests. Two slices may run in parallel only if they do not touch the same lexer/parser/binder files.

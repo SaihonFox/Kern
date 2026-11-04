@@ -70,12 +70,29 @@ str name = Path.GetFileNameWithoutExtension("data/report.md")
 f64 absolute = Math.Abs(-3.5)
 ```
 
-Статические методы и свойства BCL становятся членами типа с **именами как в C#**
-(`PascalCase`): `File.ReadAllText`, `Math.Abs`, `b.Append`, `b.Length`. Работает и
-в `exe`/`dist`: в `.kbc` хранится `dotnet:<полное имя>` и `NativeResolver` находит метод
-рефлексией. *Ограничения:* только статические члены; экземплярные члены, конструкторы,
-сеттеры свойств и открытые generic-типы не импортируются; тип должен быть в загруженной
-сборке (явно пробуются `System.Runtime`, `System.Console`, `System.IO.FileSystem`).
+Статические и экземплярные методы/свойства BCL становятся членами типа с **именами как
+в C#** (`PascalCase`): `File.ReadAllText`, `Math.Abs`, `b.Append`, `b.Length`,
+`b.Capacity = 64`. Статические члены импортируются и у обычных классов (`String.Join`,
+`Int32.Parse`), не только у static-классов. Конструкторы доступны как targetless-фабрики
+(`StringBuilder()`). Работает и в `exe`/`dist`: в `.kbc` хранится `dotnet:<полное имя>` и
+`NativeResolver` находит метод рефлексией.
+
+```kern
+use dotnet.System.Text[StringBuilder]
+use dotnet.System[String]
+
+StringBuilder b = StringBuilder()
+b.Append("a")
+b.Capacity = 64
+array<str> parts = <str>["a", "b"]
+println(String.Join("-", parts))
+println(b.Length)
+```
+
+*Ограничения:* открытые generic-типы BCL и члены с не импортированными типами
+пропускаются; `params` импортируется как `array<T>` (массив передаётся явно), by-ref/`out`
+и делегаты не поддержаны. Тип должен быть в загруженной сборке (явно пробуются
+`System.Runtime`, `System.Console`, `System.IO.FileSystem`).
 
 
 

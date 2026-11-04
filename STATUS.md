@@ -2,6 +2,43 @@
 
 ## Now
 
+### Батч 2026-11-04 (owner request): закрытие известных ограничений
+
+Сделано и проверено (build 0 errors, suite **658/658**, style clean):
+- `with`: заменяет auto-property (через backing-поле) и вычисляемые свойства с `set`
+  (вызов setter'а, включая виртуальный); свойство только для чтения — `KRN2105`.
+  Тесты `WithExpressionTests` (+2).
+- `use dotnet`: статические члены импортируются и у обычных классов (`String.Join`,
+  `Int32.Parse`); accessor'ы получают имя свойства (`Capacity`, а не `set_Capacity`);
+  сеттеры свойств работают через `obj.Property = value`; `params` импортируется как
+  `array<T>` (массив передаётся явно). Тесты `DotnetInteropTests` (+2).
+- `kernc test` прокачивает асинхронные `#[test]`-функции до завершения. Тест
+  `ToolingCommandTests.Test_command_pumps_async_tests`.
+- Одиночный `.kern`-файл компилируется через общий `CompileFiles`: макросы и
+  автоподключение `Kern.Std` работают так же, как в проекте. Тест `KernStdTests`.
+- Профилировщик считает **собственное** время функции (без времени вложенных вызовов)
+  в дополнение к включительному; в отчёте две колонки. Тест `ToolingCommandTests`.
+- Чтение через пользовательский `op []` использует общий резолвер перегрузок:
+  неоднозначность — `KRN1402` вместо «первого подходящего»; форма расширения
+  `op TypeName.[]`/`op TypeName.[]=` теперь парсится и работает. Тесты
+  `IndexAssignmentTests` (+1).
+- Протокольные операторы `hash`/`compare`/`clone`/`to_str`/`to_debug` проверяют арность
+  и тип результата при объявлении (`KRN2101`), а не только в месте вызова. Тест
+  `EqualityOperatorTests` (+1).
+- `kern.regex`: `escape(text)` и `regex.escape(...)`; `regex.try_new(...)` уже работал.
+  Тест `RegexModuleTests` (+1).
+- `docs/KNOWN_ISSUES.md` §E переписан: убраны уже исправленные пункты (`result`/`panic`,
+  `str`↔`list<char>`, открытые срезы, `fail: never`, константные преобразования,
+  однострочные generic-объявления, `seq.len`, module attributes и т.д.) и зафиксированы
+  только реально оставшиеся ограничения.
+- Обновлены `docs/spec/kern.en.md` (§12.10, `with`, тесты), `CHANGELOG_LANG.md`,
+  `DECISIONS_NEEDED.md`.
+
+Осталось (подробно — `docs/KNOWN_ISSUES.md` §E): валидация атрибутов, открытые
+generic-типы/by-ref/delegates в `use dotnet`, scope-capabilities, call tree в профайлере,
+attach/eval в отладчике, квалифицированный доступ к source-модулям, `kern.text`/`kern.num`
+на Kern, `kern.ui`, `kernc wasm`. Краткая сводка — `docs/REMAINING.md`.
+
 ### Батч 2026-11-03 (owner request): модульные атрибуты, `op []=`, манифест пакета
 
 Сделано и проверено (build 0 errors, target tests green):
@@ -43,8 +80,8 @@
   generic instance-методы работают. Тесты `GenericTypeArgsTests` и `NativeGenericTests`;
   suite **646/646**. Generic-функция не является значением — её инстанцируют в вызове.
 - Обновлены spec §5/§7/§12.10/§18, `CHANGELOG_LANG.md`, `DECISIONS_NEEDED.md`.
-- Не входит в этот батч (крупный срез, см. `DECISIONS_NEEDED.md`): `typeof<T>()` внутри
-  generic-функций (статическое стирание) и автоподключение `Kern.Std` с заменой C#-модулей.
+- Позже закрыто (2026-11-04): `typeof<T>()` внутри generic-функций (runtime type args) и
+  автоподключение `Kern.Std` с заменой C#-модулей (`kern.csv`, `kern.parse`).
 
 ### Батч 2026-11-03 (owner request): capabilities — только `--deny`
 

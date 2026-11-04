@@ -13,27 +13,19 @@
    `upper(...)`; компилятор не меняется, но `text.*`/`num.*` call-sites придётся переписать.
 3. **Пока не переносить.** Оставить `kern.text`/`kern.num` на C# и закрыть std как есть.
 
-## Open — крупные срезы из списка owner (2026-11-03)
+## Open — крупные срезы из списка owner
 
-Закрыты: модульные атрибуты, `op []=`, манифест+подпись пакета, графемные члены `str`.
-Следующие пункты требуют отдельного архитектурного среза, а не точечной правки:
+Закрыты: модульные атрибуты, `op []=`, манифест+подпись пакета, графемные члены `str`,
+`use dotnet.X`, runtime type args, вложенная деструктуризация кортежей, `kern.ansi`/
+`kern.csv`/`kern.parse` на Kern. Ниже — только реально открытые архитектурные решения:
 
-1. **`use dotnet.X[...]` — сделано (2026-11-03).** Статические члены, конструкторы и
-   экземплярные методы/свойства обычных классов: `SelfClrType`, приёмник как `arguments[0]`,
-   `ConstructorInfo`/`Expression.New`, AOT-путь через `MethodInfo.Invoke`. Ограничения:
-   открытые generic-типы BCL и члены с не импортированными типами пропускаются.
-2. **Native/type generics — runtime type args (2026-11-04).** `KNativeBox.NativeType`,
-   `[KernTypeArgs]`, `CallGeneric`, `CallVirtualGeneric` и `TypeOfParam` передают reified-типы;
-   `typeof<T>()`, вложенная передача `T` и generic instance-методы работают
-   (`GenericTypeArgsTests`, `NativeGenericTests`). Generic-функция не является значением
-   (её инстанцируют в вызове), поэтому `CallValue` generic-целей не имеет — срез закрыт.
-3. **Библиотеки на Kern (`Kern.Std`) — ansi, csv, parse (2026-11-04).** `ansi.kern`,
-   `csv.kern` и `parse.kern` автоподключаются при `use kern.ansi…`/`use kern.csv…`/
-   `use kern.parse…`; C# `CsvApi` и `ParseApi` удалены, CSV-функции называются
-   `csv_parse`/`csv_parse_dicts`/`csv_to_str`, для `\uNNNN` добавлен `text.from_code`.
-   Тесты `KernStdTests` (7), `ParseModuleTests` (4). Осталось: перенести `kern.text`/`kern.num`.
-4. **Вложенная деструктуризация кортежей — реализовано (2026-11-03):**
-   `(i32 a, (i32 b, i32 c)) = pair`; `..rest` у кортежей по-прежнему запрещён спецификацией.
+1. **`kern.text` / `kern.num` → Kern.** См. отдельный раздел выше; нужен выбор между
+   квалифицированным доступом к source-модулям и breaking-переносом.
+2. **Полнота std (BLAKE3/Ed25519/argon2/parser-комбинаторы).** См. раздел ниже.
+3. **«Настоящие» C#-генерики (variant 2).** Текущая реализация — стирание + вывод типов;
+   reified `KType[]` в `KNativeBox` требует отдельного одобрения.
+4. **Stage-2: `kern.ui` и `kernc wasm`.** UI (Avalonia) отсутствует; wasm через NetWasm
+   имеет готовый план, но не начат (см. ниже).
 
 ## Open — чем считать «полностью доделанные» std-библиотеки (2026-11-03)
 
