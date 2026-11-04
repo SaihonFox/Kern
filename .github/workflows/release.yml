@@ -139,13 +139,59 @@ jobs:
           cd artifacts
           sha256sum *.zip > SHA256SUMS.txt
           cat SHA256SUMS.txt
-      - uses: softprops/action-gh-release@v2
+      - name: Create or update release
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.prepare.outputs.tag }}
           name: ${{ needs.prepare.outputs.name }}
           prerelease: ${{ needs.prepare.outputs.prerelease }}
           make_latest: ${{ needs.prepare.outputs.prerelease == 'false' }}
           generate_release_notes: true
-          files: |
-            artifacts/*.zip
-            artifacts/SHA256SUMS.txt
+      # Загрузка по одному файлу с проверкой состояния: GitHub иногда оставляет
+      # ассет в состоянии starter (скачивание 404), хотя softprops отчитывается
+      # об успехе. Такой ассет удаляется и загружается заново.
+      - name: Upload assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          files=(artifacts/*.zip artifacts/SHA256SUMS.txt)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "::error::нет файлов для загрузки"
+            exit 1
+          fi
+          asset_state() {
+            gh api "repos/$GH_REPO/releases/tags/$TAG" \
+              --jq ".assets[] | select(.name == \"$1\") | .state" 2>/dev/null || true
+          }
+          for file in "${files[@]}"; do
+            name="$(basename "$file")"
+            uploaded=0
+            for attempt in 1 2 3; do
+              if ! gh release upload "$TAG" "$file" --clobber; then
+                echo "загрузка $name не удалась (попытка $attempt)" >&2
+                sleep 10
+                continue
+              fi
+              for _ in $(seq 1 24); do
+                state="$(asset_state "$name")"
+                if [ "$state" = "uploaded" ]; then
+                  uploaded=1
+                  break
+                fi
+                sleep 5
+              done
+              [ "$uploaded" -eq 1 ] && break
+              echo "ассет $name завис в состоянии '${state:-нет}', повтор" >&2
+            done
+            if [ "$uploaded" -ne 1 ]; then
+              echo "::error::ассет $name не загрузился"
+              exit 1
+            fi
+            echo "загружено: $name"
+          done
+          gh release view "$TAG" --json assets --jq '.assets[] | "\(.name) \(.state)"'
