@@ -18,20 +18,34 @@ public sealed class KernFieldInfo(KClassType owner, FieldDef field)
 
 /// <summary>Описание метода для <c>type.get_method</c>.</summary>
 [KernType("method_info")]
-public sealed class KernMethodInfo(KClassType? owner, FunctionDef method)
+public sealed class KernMethodInfo(
+	KClassType? owner,
+	FunctionDef? method,
+	RuntimeMethod? runtime = null)
 {
 	public KClassType? Owner { get; } = owner;
 
-	public FunctionDef Method { get; } = method;
+	/// <summary>Метод из <c>.kbc</c>; null у динамического метода.</summary>
+	public FunctionDef? Method { get; } = method;
+
+	/// <summary>Динамический метод, добавленный <c>reflect.define_type</c>.</summary>
+	public RuntimeMethod? Runtime { get; } = runtime;
 }
 
 /// <summary>Описание свойства (<c>property_info</c>).</summary>
 [KernType("property_info")]
-public sealed class KernPropertyInfo(KClassType owner, PropertyDef property)
+public sealed class KernPropertyInfo(
+	KClassType owner,
+	PropertyDef? property,
+	RuntimeProperty? runtime = null)
 {
 	public KClassType Owner { get; } = owner;
 
-	public PropertyDef Property { get; } = property;
+	/// <summary>Свойство из <c>.kbc</c>; null у динамического свойства.</summary>
+	public PropertyDef? Property { get; } = property;
+
+	/// <summary>Динамическое свойство, добавленное <c>reflect.define_type</c>.</summary>
+	public RuntimeProperty? Runtime { get; } = runtime;
 }
 
 /// <summary>Описание параметра функции (<c>param_info</c>).</summary>
@@ -106,7 +120,7 @@ public static class FieldInfoApi
 public static partial class MethodInfoApi
 {
 	[KernProperty]
-	public static string Name(KNativeBox self) => Require(self).Method.Name;
+	public static string Name(KNativeBox self) => Require(self).Runtime?.Name ?? Require(self).Method!.Name;
 
 	/// <summary><c>call(obj, [args])</c>: вызвать метод в VM.</summary>
 	[KernMember]
@@ -114,16 +128,21 @@ public static partial class MethodInfoApi
 	{
 		KernMethodInfo info = Require(self);
 		KValue[] values = ListValues(arguments);
-		KValue fn = KValue.Obj(_function(interpreter, info));
+		if (info.Runtime is { } runtime)
+		{
+			if (runtime.IsStatic)
+				return interpreter.RunValue(runtime.Function, values);
+			KValue[] instanceCall = new KValue[values.Length + 1];
+			instanceCall[0] = target;
+			Array.Copy(values, 0, instanceCall, 1, values.Length);
+			return interpreter.RunValue(runtime.Function, instanceCall);
+		}
+
+		KValue fn = KValue.Obj(info.Method!);
 		KValue[] call = new KValue[values.Length + 1];
 		call[0] = target;
 		Array.Copy(values, 0, call, 1, values.Length);
 		return interpreter.RunValue(fn, call);
-	}
-
-	private static FunctionDef _function(Interpreter interpreter, KernMethodInfo info)
-	{
-		return info.Method;
 	}
 
 	private static KernMethodInfo Require(KNativeBox self) => self.Value switch
@@ -187,20 +206,19 @@ public static partial class TypeMembers
 		_ => Require(self).Canonical,
 	};
 
-	/// <summary><c>fields</c>: экземплярные поля в порядке объявления.</summary>
+	/// <summary><c>fields</c>: экземплярные поля в порядке раскладки.</summary>
 	[KernProperty]
 	[KernReturn("list<field_info>")]
 	public static KValue Fields(Interpreter interpreter, KValue self)
 	{
 		KClassType @class = RequireClass(self);
 		var fields = new List<KValue>();
-		foreach (TypeDef definition in Layout(@class))
-			foreach (FieldDef field in definition.Fields)
-			{
-				if ((field.Flags & MemberFlags.Static) != 0 || field.Name.StartsWith("$slot", StringComparison.Ordinal))
-					continue;
-				fields.Add(KValue.Obj(new KNativeBox(new KernFieldInfo(@class, field))));
-			}
+		foreach (FieldDef field in @class.Definition.Fields)
+		{
+			if ((field.Flags & MemberFlags.Static) != 0 || field.Name.StartsWith("$slot", StringComparison.Ordinal))
+				continue;
+			fields.Add(KValue.Obj(new KNativeBox(new KernFieldInfo(@class, field))));
+		}
 		return KValue.Obj(new KList(interpreter.Types.Prim(PrimKind.Object), fields));
 	}
 
@@ -222,13 +240,18 @@ public static partial class TypeMembers
 	public static KValue GetMethod(Interpreter interpreter, KValue self, string name)
 	{
 		KClassType @class = RequireClass(self);
-		foreach (TypeDef definition in Layout(@class))
+		foreach (TypeDef definition in Layout(interpreter, @class))
 			foreach (int index in definition.Methods)
 			{
 				FunctionDef method = interpreter.Module.FunctionPool[index];
 				if (method.Name == name)
 					return KValue.Obj(new KNativeBox(new KernMethodInfo(@class, method)));
 			}
+
+		if (RuntimeTypeRegistry.Find(@class.Definition) is { } runtime)
+			foreach (RuntimeMethod method in runtime.Methods)
+				if (method.Name == name)
+					return KValue.Obj(new KNativeBox(new KernMethodInfo(@class, null, method)));
 		return KValue.Nil;
 	}
 
@@ -269,11 +292,15 @@ public static partial class TypeMembers
 		KClassType @class = RequireClass(self);
 		if (target.Ref is not KObject instance)
 			throw new KernPanic("type.get: ожидался объект");
-		foreach (TypeDef definition in Layout(@class))
+		foreach (FieldDef field in @class.Definition.Fields)
+			if (field.Name == name && (field.Flags & MemberFlags.Static) == 0)
+				return instance.GetField(field.Slot);
+		if (RuntimeTypeRegistry.Find(@class.Definition) is { } runtime)
+			foreach (RuntimeProperty property in runtime.Properties)
+				if (property.Name == name && property.Getter is { } getter)
+					return interpreter.RunValue(getter, [KValue.Obj(instance)]);
+		foreach (TypeDef definition in Layout(interpreter, @class))
 		{
-			foreach (FieldDef field in definition.Fields)
-				if (field.Name == name && (field.Flags & MemberFlags.Static) == 0)
-					return instance.GetField(field.Slot);
 			foreach (PropertyDef property in definition.Properties)
 				if (property.Name == name && property.Getter >= 0)
 					return interpreter.RunValue(
@@ -293,9 +320,36 @@ public static partial class TypeMembers
 	private static IReadOnlyList<AttributeUse> Attributes(KClassType @class) =>
 		@class.Definition.Attributes;
 
-	/// <summary>Тип и его предки (поля выводятся в порядке слоёв, как в раскладке).</summary>
-	private static IEnumerable<TypeDef> Layout(KClassType @class)
+	/// <summary>Тип, его предки (родители раньше потомков) и динамические члены.</summary>
+	private static IEnumerable<TypeDef> Layout(Interpreter interpreter, KClassType @class)
 	{
-		yield return @class.Definition;
+		var visited = new HashSet<string>(StringComparer.Ordinal);
+		var result = new List<TypeDef>();
+		Walk(interpreter, @class, visited, result);
+		return result;
+	}
+
+	private static void Walk(
+		Interpreter interpreter,
+		KClassType @class,
+		HashSet<string> visited,
+		List<TypeDef> result)
+	{
+		if (!visited.Add(@class.Definition.FullName))
+			return;
+		foreach (TypeSig parent in @class.Definition.Parents)
+		{
+			try
+			{
+				if (interpreter.Types.FromSig(parent, @class) is KClassType parentType)
+					Walk(interpreter, parentType, visited, result);
+			}
+			catch (InvalidOperationException)
+			{
+				// Повреждённый/неизвестный родитель пропускаем, как в type.parents.
+			}
+		}
+
+		result.Add(@class.Definition);
 	}
 }

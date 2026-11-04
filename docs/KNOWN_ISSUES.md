@@ -48,7 +48,7 @@ This section lists only **current** gaps. Items that were fixed earlier are reco
 
 ### Compiler / language
 - **Dict key hashability is checked only at literal binding.** `dict<K, V>` declarations, native constructors and non-literal paths do not re-check `K`.
-- **Derived `hash`/`compare`/`clone` are not materialized as members.** They are applied by the protocol binder (`ValueHashFields`/`ValueCompareFields`/`CloneObject`) and do not appear in `MemberTable`, `.kbc` or reflection.
+- **Derived `hash`/`compare`/`clone` are materialized as methods.** They appear in `MemberTable`, `.kbc` (`TypeDef.Methods`) and reflection (`type.get_method`), and still use the intrinsic VM opcodes.
 - **Recursive local functions require an explicit signature.** A local function with inferred return type cannot call itself while its body is bound.
 - **Expected-type-driven literal kinds reach only some positions.** Local initializers, assignments and the final expression forward the hint; `if`/`match` branches and block expressions do not.
 - **`is` constructor/structural patterns require `unit` types** (same restriction as `match`); bindings under `!is`/left of `||` are rejected.
@@ -72,7 +72,7 @@ This section lists only **current** gaps. Items that were fixed earlier are reco
 - **`kern.toml`:** no multiline basic/literal strings and no full date/time type model.
 - **`kern.parse`:** only the basic builders/diagnostics listed in spec; no parser-combinator/PEG API.
 - **`kern.regex`:** no `replace` with a function argument.
-- **`kern.reflection` / `define_type`:** supports generics and parents, but dynamic types have no methods or property metadata; `type.fields` lists own fields only.
+- **`kern.reflection` / `define_type`:** dynamic types support fields, parents, methods and properties (`method`, `static_method`, `property`); `type.methods`/`properties`/`get_method`/`get_property` include inherited and dynamic members. Dynamic members live only in the current process and are not serialized to `.kbc`.
 - **M7 runtime limits:** ordinary `list`/`dict` are not thread-safe (use `conc_*`/`mutex`); `conc_*.snapshot()/keys()/values()` return `list<object>`; a blocking `worker.join()` inside async stops the event loop; proxies (`mock`, `http_client.proxy`) cover abstract `@fun`s only; `mock` matches arguments by value equality (no matchers).
 - **FFI:** cdecl only; no callbacks/structs/arrays/by-ref; returned pointers are not freed automatically.
 - **DB/DI:** ORM stores non-primitive fields as JSON (no migrations/relations); PostgreSQL placeholders differ; `Kern.Lib.Di` factories need explicit lambda result types.
@@ -83,7 +83,8 @@ This section lists only **current** gaps. Items that were fixed earlier are reco
 ### Tools / runtime
 - **Capabilities:** `fs.read("scope")`/`fs.write("scope")` scopes are parsed but only capability names are enforced; package `permissions` are metadata only.
 - **Profiler:** now reports inclusive and self time, but no call tree; async frames that interleave across `await` may attribute child time imperfectly.
-- **Debugger:** synchronous only; no attach to a running process and no remote protocol (see `DECISIONS_NEEDED.md`). `.kbc` v4 stores local slot names, so `locals`/`print <name>` work; `print` evaluates only literals, local names, parentheses and `+ - * / %` (no calls/fields/indexes). Step pauses on the next bytecode instruction.
+- **Debugger:** synchronous only. `--dap <port>` provides a DAP server for remote/IDE debugging; attaching to an already-running process by PID is not possible. `.kbc` v4 stores local slot names, so `locals`/`print <name>` work; `print` evaluates literals, locals, arithmetic/comparison/logic, fields, indexes and calls (no `match`/lambdas/object creation). Step pauses on the next bytecode instruction.
+- **Profiler:** flat function table plus a call tree (parent/child by call token, so `await` resumes keep attribution); line counters remain approximate on async interleaving.
 - **Optimizer:** `-O2` inlines `#[inline]` functions with branches/loops/multiple `ret`; async/generator/ctor/memo/native/ref stay calls; dead-function elimination keeps type methods and `Pub`/`#[test]` functions.
 - **`build --native`:** some programs fall back to a self-contained single-file host (generic natives, external DLLs, `use dotnet`, reflection, foreign RID); needs the source tree and C++ toolchain.
 - **`kernc test`:** async tests are pumped now, but tests with an implicit receiver (methods) are not supported.

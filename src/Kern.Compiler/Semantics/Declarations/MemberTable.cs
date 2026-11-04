@@ -69,7 +69,20 @@ public sealed class MemberTable
 			Operators,
 			ParentSelections,
 			ParentFieldSelections,
-			StaticInitializer);	/// <summary>Поля с учётом унаследованных; статические члены родителя не наследуются.</summary>
+			StaticInitializer);
+
+	/// <summary>Тот же тип, но с добавленными операторами (материализованные протоколы).</summary>
+	public MemberTable WithOperators(IReadOnlyList<FunctionSymbol> operators) =>
+		new(
+			new Dictionary<string, IReadOnlyList<FunctionSymbol>>(_functions, StringComparer.Ordinal),
+			_fields,
+			_properties,
+			Constructors,
+			operators,
+			ParentSelections,
+			ParentFieldSelections,
+			StaticInitializer);
+	/// <summary>Поля с учётом унаследованных; статические члены родителя не наследуются.</summary>
 	public IReadOnlyList<FieldSymbol> Fields => _mergedFields ??= MergeFields();
 
 	/// <summary>Собственные функции объявления без унаследованных и выбранных членов.</summary>

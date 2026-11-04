@@ -1,15 +1,45 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using Kern.Bytecode;
 
 namespace Kern.Vm.Execution;
 
 /// <summary>
-/// Профилировщик VM (<c>kern run --profile</c>): число вызовов и включительное время по
-/// функциям плюс счётчики выполнения по строкам исходника. Включается только явно, поэтому
-/// обычное исполнение не платит за замеры; строки берутся из таблиц <c>.kbc</c>.
+/// Профилировщик VM (<c>kernc run --profile</c>): число вызовов, включительное/собственное
+/// время, дерево вызовов и счётчики по строкам. Включается только явно. Кадры ищутся по
+/// токену вызова, а не по стеку потока: <c>await</c> может продолжить кадр на другом потоке,
+/// и время всё равно вернётся своему вызывающему.
 /// </summary>
 public sealed class Profiler
 {
+	private sealed class Node(FunctionDef function, Node? parent)
+	{
+		public FunctionDef Function { get; } = function;
+		public Node? Parent { get; } = parent;
+		public Dictionary<FunctionDef, Node> Children { get; } = new(ReferenceEqualityComparer.Instance);
+		public long Calls;
+		public double Milliseconds;
+		public double SelfMilliseconds;
+	}
+
+	private sealed class CallFrame(FunctionDef function, long started, Node node, CallFrame? caller)
+	{
+		public FunctionDef Function { get; } = function;
+		public long Started { get; } = started;
+		public Node Node { get; } = node;
+		public CallFrame? Caller { get; } = caller;
+		public double ChildMilliseconds { get; set; }
+	}
+
+	private readonly Dictionary<FunctionDef, Entry> _functions = new(ReferenceEqualityComparer.Instance);
+	private readonly Dictionary<(string File, int Line), long> _lines = [];
+	private readonly Dictionary<FunctionDef, int[]> _lineMaps = new(ReferenceEqualityComparer.Instance);
+	private readonly ConcurrentDictionary<long, CallFrame> _frames = new();
+	private readonly List<Node> _roots = [];
+	private readonly object _lock = new();
+	private long _tokens;
+
+	/// <summary>Плоская агрегация для отчёта (совместима с прежним форматом).</summary>
 	private sealed class Entry
 	{
 		public long Calls;
@@ -17,56 +47,56 @@ public sealed class Profiler
 		public double SelfMilliseconds;
 	}
 
-	private sealed class CallFrame(FunctionDef function, long started)
-	{
-		public FunctionDef Function { get; } = function;
-		public long Started { get; } = started;
-		public double ChildMilliseconds { get; set; }
-	}
-
-	private readonly Dictionary<FunctionDef, Entry> _functions = new(ReferenceEqualityComparer.Instance);
-	private readonly Dictionary<(string File, int Line), long> _lines = [];
-	private readonly Dictionary<FunctionDef, int[]> _lineMaps = new(ReferenceEqualityComparer.Instance);
-	private readonly ThreadLocal<Stack<CallFrame>> _stacks = new(() => new Stack<CallFrame>());
-	private readonly object _lock = new();
-
-	/// <summary>Начать вызов: увеличить счётчик и вернуть метку времени для <see cref="EndCall"/>.</summary>
-	public long StartCall(FunctionDef function)
+	/// <summary>
+	/// Начать вызов: увеличить счётчик и вернуть токен для <see cref="EndCall"/>.
+	/// <paramref name="parentToken"/> — токен вызывающего кадра (0 — верхний уровень).
+	/// </summary>
+	public long StartCall(FunctionDef function, long parentToken = 0)
 	{
 		long started = Stopwatch.GetTimestamp();
-		_stacks.Value.Push(new CallFrame(function, started));
+		long token = Interlocked.Increment(ref _tokens);
+		CallFrame? caller = parentToken != 0 && _frames.TryGetValue(parentToken, out CallFrame? found)
+			? found
+			: null;
+		var node = new Node(function, caller?.Node);
 		lock (_lock)
 		{
+			if (caller is null)
+				_roots.Add(node);
+			else if (!caller.Node.Children.TryGetValue(function, out Node? existing))
+				caller.Node.Children[function] = node;
+			else
+				node = existing;
+
+			node.Calls++;
 			if (!_functions.TryGetValue(function, out Entry? entry))
 				_functions[function] = entry = new Entry();
 			entry.Calls++;
 		}
-		return started;
+
+		_frames[token] = new CallFrame(function, started, node, caller);
+		return token;
 	}
 
 	/// <summary>
 	/// Завершить вызов: добавить включительное и собственное время. Собственное время —
-	/// это общее минус время вложенных вызовов, поэтому рекурсия и вложенные функции не
-	/// задваивают счёт.
+	/// общее минус время вложенных вызовов, поэтому рекурсия и вложенные функции не
+	/// задваивают счёт. Токен ищется глобально: async-кадр может завершиться на другом потоке.
 	/// </summary>
-	public void EndCall(FunctionDef function, long started)
+	public void EndCall(FunctionDef function, long token)
 	{
-		if (started == 0)
+		if (token == 0 || !_frames.TryRemove(token, out CallFrame? frame))
 			return;
-		double milliseconds = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
-		Stack<CallFrame> stacks = _stacks.Value;
-		CallFrame? frame = stacks.Count > 0 ? stacks.Peek() : null;
-		double self = milliseconds;
-		if (frame is not null && ReferenceEquals(frame.Function, function) && frame.Started == started)
-		{
-			stacks.Pop();
-			self = Math.Max(0, milliseconds - frame.ChildMilliseconds);
-			if (stacks.Count > 0)
-				stacks.Peek().ChildMilliseconds += milliseconds;
-		}
+
+		double milliseconds = Stopwatch.GetElapsedTime(frame.Started).TotalMilliseconds;
+		double self = Math.Max(0, milliseconds - frame.ChildMilliseconds);
+		if (frame.Caller is not null)
+			frame.Caller.ChildMilliseconds += milliseconds;
 
 		lock (_lock)
 		{
+			frame.Node.Milliseconds += milliseconds;
+			frame.Node.SelfMilliseconds += self;
 			if (_functions.TryGetValue(function, out Entry? entry))
 			{
 				entry.Milliseconds += milliseconds;
@@ -93,15 +123,17 @@ public sealed class Profiler
 			_lines[key] = _lines.TryGetValue(key, out long count) ? count + 1 : 1;
 	}
 
-	/// <summary>Печать отчёта: функции по убыванию времени, затем горячие строки.</summary>
+	/// <summary>Печать отчёта: функции, дерево вызовов и горячие строки.</summary>
 	public void WriteReport(TextWriter output)
 	{
 		ArgumentNullException.ThrowIfNull(output);
 		List<KeyValuePair<FunctionDef, Entry>> functions;
+		List<Node> roots;
 		List<KeyValuePair<(string File, int Line), long>> lines;
 		lock (_lock)
 		{
 			functions = [.. _functions.OrderByDescending(pair => pair.Value.Milliseconds)];
+			roots = [.. _roots.OrderByDescending(node => node.Milliseconds)];
 			lines = [.. _lines.OrderByDescending(pair => pair.Value)];
 		}
 
@@ -112,11 +144,28 @@ public sealed class Profiler
 		foreach (var (function, entry) in functions)
 			output.WriteLine($"{function.Name,-40} {entry.Calls,10} {entry.Milliseconds,12:F3} {entry.SelfMilliseconds,12:F3}");
 
+		output.WriteLine("; дерево вызовов");
+		if (roots.Count == 0)
+			output.WriteLine("; нет данных о вызовах");
+		var seen = 0;
+		foreach (Node root in roots)
+			WriteNode(output, root, 0, ref seen, 200);
+
 		output.WriteLine("; горячие строки");
 		if (lines.Count == 0)
 			output.WriteLine("; нет данных о строках (нужна отладочная информация)");
 		foreach (var ((file, line), count) in lines.Take(20))
 			output.WriteLine($"{file}:{line} {count}");
+	}
+
+	private static void WriteNode(TextWriter output, Node node, int depth, ref int seen, int limit)
+	{
+		if (seen++ >= limit)
+			return;
+		output.WriteLine(
+			$"{new string(' ', depth * 2)}{node.Function.Name,-38} {node.Calls,8} {node.Milliseconds,12:F3} {node.SelfMilliseconds,12:F3}");
+		foreach (Node child in node.Children.Values.OrderByDescending(item => item.Milliseconds))
+			WriteNode(output, child, depth + 1, ref seen, limit);
 	}
 
 	private static int[] BuildLineMap(FunctionDef function)

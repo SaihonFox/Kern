@@ -2,6 +2,23 @@
 
 ## Now
 
+### Батч 2026-11-04 (owner request): отладчик, профайлер, рефлексия, протоколы
+
+Сделано и проверено (build 0 errors, suite **714/714**, style clean):
+- **Отладчик:** `print` вычисляет выражения (арифметика/сравнения/логика, поля,
+  индексы, вызовы функций и методов); `kernc debug --dap <порт>` поднимает DAP-сервер
+  для IDE/удалённой отладки (точки останова, стек, локальные, `evaluate`, шаг).
+- **Профайлер:** дерево вызовов по токенам кадров (async-возобновления сохраняют
+  родителя), плюс прежняя плоская таблица и горячие строки.
+- **Рефлексия:** `type.methods/properties/get_method` видят унаследованные члены;
+  `reflect.define_type` умеет `method`/`static_method`/`property`, поля родителей
+  копируются в раскладку.
+- **Протоколы:** derived `hash`/`compare`/`clone` стали обычными методами и видны в
+  `MemberTable`, `.kbc` и рефлексии.
+- Тесты `DapDebuggerTests`, `ProfilerTests`, `ProtocolMaterializationTests`,
+  `ReflectionModuleTests`, `DebuggerTests`; docs/DEBUGGER.md, spec §7/§16/§18,
+  `docs/REMAINING.md`, `docs/KNOWN_ISSUES.md` обновлены.
+
 ### Батч 2026-11-04 (owner request): модули/сборка, отладчик, `kern.text`/`kern.num`
 
 Сделано и проверено (build 0 errors, suite **705/705**, style clean):

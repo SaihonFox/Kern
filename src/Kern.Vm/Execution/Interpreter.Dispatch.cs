@@ -97,7 +97,9 @@ public sealed partial class Interpreter
 		int callBase = stack.Count - argc;
 		if (callBase < callerStackBase)
 			throw new KernPanic($"вызов '{callee.Name}': аргументы заходят ниже базы кадра");
-		long profileStart = Profiler?.StartCall(callee) ?? 0;
+		long profileStart = Profiler?.StartCall(
+			callee,
+			frameCount > 0 ? frames[frameCount - 1].ProfileStart : 0) ?? 0;
 		KValue[]? memoArguments = null;
 		if (CanMemoize(callee))
 		{

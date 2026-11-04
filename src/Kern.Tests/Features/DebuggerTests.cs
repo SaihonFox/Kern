@@ -136,6 +136,42 @@ public sealed class DebuggerTests
 	}
 
 	[Fact]
+	public void Console_debugger_evaluates_fields_and_method_calls()
+	{
+		const string source = """
+			type Point(i32 x) {
+				fun double() -> i32 x * 2
+			}
+
+			fun main() -> i32 {
+				var point = Point(21)
+				point.double()
+			}
+			""";
+
+		string file = Path.Combine(Path.GetTempPath(), "kern-debug-" + Guid.NewGuid().ToString("N") + ".kern");
+		TextReader previous = Console.In;
+		try
+		{
+			File.WriteAllText(file, source);
+			Console.SetIn(new StringReader("break 7\ncontinue\nprint point.x\nprint point.double()\ncontinue\n"));
+			var stdout = new StringWriter();
+			var stderr = new StringWriter();
+
+			_ = KernCli.Run(["debug", file], stdout, stderr);
+
+			string text = stdout.ToString();
+			Assert.Contains("point.x = 21", text);
+			Assert.Contains("point.double() = 42", text);
+		}
+		finally
+		{
+			Console.SetIn(previous);
+			File.Delete(file);
+		}
+	}
+
+	[Fact]
 	public void Console_debugger_handles_breakpoints_locals_stack_and_continue()
 	{
 		var output = new StringWriter();

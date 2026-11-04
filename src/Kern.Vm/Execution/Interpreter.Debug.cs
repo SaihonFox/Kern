@@ -6,7 +6,7 @@ namespace Kern.Vm.Execution;
 /// <summary>Снимок состояния VM для отладчика (<see cref="IDebugHook"/>).</summary>
 public sealed partial class Interpreter
 {
-	private static DebugPauseInfo CreateDebugPause(
+	private DebugPauseInfo CreateDebugPause(
 		FunctionDef function,
 		int offset,
 		KValue[] locals,
@@ -33,6 +33,7 @@ public sealed partial class Interpreter
 			Stack = stack,
 			Locals = locals,
 			LocalNames = function.LocalNames,
+			Interpreter = this,
 			ParamCount = function.ParamCount,
 		};
 	}

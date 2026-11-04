@@ -58,9 +58,12 @@ public static partial class TypeMembers
 	{
 		KClassType @class = RequireClass(self);
 		var values = new List<KValue>();
-		foreach (TypeDef definition in Layout(@class))
+		foreach (TypeDef definition in Layout(interpreter, @class))
 			foreach (PropertyDef property in definition.Properties)
 				values.Add(KValue.Obj(new KNativeBox(new KernPropertyInfo(@class, property))));
+		if (RuntimeTypeRegistry.Find(@class.Definition) is { } runtime)
+			foreach (RuntimeProperty property in runtime.Properties)
+				values.Add(KValue.Obj(new KNativeBox(new KernPropertyInfo(@class, null, property))));
 		return KValue.Obj(new KList(interpreter.Types.Prim(PrimKind.Object), values));
 	}
 
@@ -70,9 +73,12 @@ public static partial class TypeMembers
 	{
 		KClassType @class = RequireClass(self);
 		var values = new List<KValue>();
-		foreach (TypeDef definition in Layout(@class))
+		foreach (TypeDef definition in Layout(interpreter, @class))
 			foreach (int index in definition.Methods)
 				values.Add(KValue.Obj(new KNativeBox(new KernMethodInfo(@class, interpreter.Module.FunctionPool[index]))));
+		if (RuntimeTypeRegistry.Find(@class.Definition) is { } runtime)
+			foreach (RuntimeMethod method in runtime.Methods)
+				values.Add(KValue.Obj(new KNativeBox(new KernMethodInfo(@class, null, method))));
 		return KValue.Obj(new KList(interpreter.Types.Prim(PrimKind.Object), values));
 	}
 
@@ -82,7 +88,7 @@ public static partial class TypeMembers
 	{
 		KClassType @class = RequireClass(self);
 		var values = new List<KValue>();
-		foreach (TypeDef definition in Layout(@class))
+		foreach (TypeDef definition in Layout(interpreter, @class))
 			foreach (int index in definition.Ctors)
 				values.Add(KValue.Obj(new KNativeBox(new KernMethodInfo(@class, interpreter.Module.FunctionPool[index]))));
 		return KValue.Obj(new KList(interpreter.Types.Prim(PrimKind.Object), values));
@@ -153,7 +159,7 @@ public static partial class TypeMembers
 	public static KValue GetField(Interpreter interpreter, KValue self, string name)
 	{
 		KClassType @class = RequireClass(self);
-		foreach (TypeDef definition in Layout(@class))
+		foreach (TypeDef definition in Layout(interpreter, @class))
 			foreach (FieldDef field in definition.Fields)
 				if (field.Name == name && (field.Flags & MemberFlags.Static) == 0)
 					return KValue.Obj(new KNativeBox(new KernFieldInfo(@class, field)));
@@ -166,7 +172,11 @@ public static partial class TypeMembers
 	public static KValue GetProperty(Interpreter interpreter, KValue self, string name)
 	{
 		KClassType @class = RequireClass(self);
-		foreach (TypeDef definition in Layout(@class))
+		if (RuntimeTypeRegistry.Find(@class.Definition) is { } runtime)
+			foreach (RuntimeProperty property in runtime.Properties)
+				if (property.Name == name)
+					return KValue.Obj(new KNativeBox(new KernPropertyInfo(@class, null, property)));
+		foreach (TypeDef definition in Layout(interpreter, @class))
 			foreach (PropertyDef property in definition.Properties)
 				if (property.Name == name)
 					return KValue.Obj(new KNativeBox(new KernPropertyInfo(@class, property)));
@@ -180,13 +190,18 @@ public static partial class TypeMembers
 	{
 		KClassType @class = RequireClass(self);
 		var values = new List<KValue>();
-		foreach (TypeDef definition in Layout(@class))
+		foreach (TypeDef definition in Layout(interpreter, @class))
 			foreach (int index in definition.Methods)
 			{
 				FunctionDef method = interpreter.Module.FunctionPool[index];
 				if (method.Name == name)
 					values.Add(KValue.Obj(new KNativeBox(new KernMethodInfo(@class, method))));
 			}
+
+		if (RuntimeTypeRegistry.Find(@class.Definition) is { } runtime)
+			foreach (RuntimeMethod method in runtime.Methods)
+				if (method.Name == name)
+					values.Add(KValue.Obj(new KNativeBox(new KernMethodInfo(@class, null, method))));
 
 		return KValue.Obj(new KList(interpreter.Types.Prim(PrimKind.Object), values));
 	}
@@ -198,7 +213,18 @@ public static partial class TypeMembers
 		KClassType @class = RequireClass(self);
 		if (target.Ref is not KObject instance)
 			throw new KernPanic("type.set: ожидался объект");
-		foreach (TypeDef definition in Layout(@class))
+		if (RuntimeTypeRegistry.Find(@class.Definition) is { } runtime)
+			foreach (RuntimeProperty property in runtime.Properties)
+				if (property.Name == name)
+				{
+					PropertyInfoApi.Set(
+						interpreter,
+						new KNativeBox(new KernPropertyInfo(@class, null, property)),
+						target,
+						value);
+					return;
+				}
+		foreach (TypeDef definition in Layout(interpreter, @class))
 		{
 			foreach (FieldDef field in definition.Fields)
 				if (field.Name == name && (field.Flags & MemberFlags.Static) == 0)

@@ -23,7 +23,9 @@ public sealed class KernTypeBuilder(string name)
 	private readonly List<BuilderField> _fields = [];
 	private readonly List<AttributeUse> _attributes = [];
 	private readonly List<string> _generics = [];
-	private readonly List<TypeSig> _parents = [];
+	private readonly List<KType> _parents = [];
+	private readonly List<RuntimeMethod> _methods = [];
+	private readonly List<RuntimeProperty> _properties = [];
 	private bool _unit;
 	private TypeDef? _definition;
 	private KClassType? _type;
@@ -52,7 +54,7 @@ public sealed class KernTypeBuilder(string name)
 	{
 		if (_definition is not null)
 			throw new KernPanic("type_builder: родителя нельзя добавить после build()");
-		_parents.Add(ToSignature(type));
+		_parents.Add(type);
 		return this;
 	}
 
@@ -61,6 +63,33 @@ public sealed class KernTypeBuilder(string name)
 		if (_definition is not null)
 			throw new KernPanic("type_builder: поле нельзя добавить после build()");
 		_fields.Add(new BuilderField(fieldName, type));
+		return this;
+	}
+
+	/// <summary>Добавить метод динамического типа; тело — Kern-функция.</summary>
+	public KernTypeBuilder AddMethod(
+		string methodName,
+		IReadOnlyList<KType> parameters,
+		KType returnType,
+		KValue function,
+		bool isStatic)
+	{
+		if (_definition is not null)
+			throw new KernPanic("type_builder: метод нельзя добавить после build()");
+		_methods.Add(new RuntimeMethod(methodName, parameters, returnType, function, isStatic));
+		return this;
+	}
+
+	/// <summary>Добавить свойство динамического типа (геттер и, возможно, сеттер).</summary>
+	public KernTypeBuilder AddProperty(
+		string propertyName,
+		KType type,
+		KValue? getter,
+		KValue? setter)
+	{
+		if (_definition is not null)
+			throw new KernPanic("type_builder: свойство нельзя добавить после build()");
+		_properties.Add(new RuntimeProperty(propertyName, type, getter, setter));
 		return this;
 	}
 
@@ -92,32 +121,52 @@ public sealed class KernTypeBuilder(string name)
 			Kind = _unit ? TypeDefKind.Unit : TypeDefKind.Class,
 			Attributes = [.. _attributes],
 			GenericParams = [.. _generics],
-			Parents = [.. _parents],
+			Parents = [.. _parents.Select(KTypeSignature.From)],
 		};
-		for (var index = 0; index < _fields.Count; index++)
+
+		// Поля родителей копируются в раскладку динамического типа (как у скомпилированного
+		// наследника в codegen): свои поля идут после унаследованных.
+		var seen = new HashSet<string>(StringComparer.Ordinal);
+		foreach (KType parent in _parents)
 		{
-			BuilderField field = _fields[index];
+			if (parent is not KClassType parentClass)
+				continue;
+			foreach (FieldDef field in parentClass.Definition.Fields)
+			{
+				if ((field.Flags & MemberFlags.Static) != 0 ||
+					field.Name.StartsWith("$slot", StringComparison.Ordinal) ||
+					!seen.Add(field.Name))
+					continue;
+				definition.Fields.Add(new FieldDef
+				{
+					Name = field.Name,
+					Slot = definition.Fields.Count,
+					Type = field.Type,
+					Attributes = [.. field.Attributes],
+				});
+			}
+		}
+
+		foreach (BuilderField field in _fields)
+		{
+			if (!seen.Add(field.Name))
+				throw new KernPanic($"type_builder: поле '{field.Name}' уже есть у родителя");
 			definition.Fields.Add(new FieldDef
 			{
 				Name = field.Name,
-				Slot = index,
-				Type = ToSignature(field.Type),
+				Slot = definition.Fields.Count,
+				Type = KTypeSignature.From(field.Type),
 				Attributes = [.. field.Attributes],
 			});
 		}
 
 		_definition = definition;
+		RuntimeMembers members = RuntimeTypeRegistry.For(definition);
+		members.Methods.AddRange(_methods);
+		members.Properties.AddRange(_properties);
 		_type = types.Named(definition);
 		return _type;
 	}
-
-	private static TypeSig ToSignature(KType type) => type switch
-	{
-		KPrimType primitive => TypeSig.Prim(primitive.Prim),
-		KNullableType nullable => new TypeSig.NullableSig(ToSignature(nullable.Inner)),
-		KClassType @class => new TypeSig.NamedSig(@class.Definition.FullName, [.. @class.TypeArgs.Select(ToSignature)]),
-		_ => TypeSig.Object,
-	};
 }
 
 /// <summary>Члены <c>type_builder</c>.</summary>
@@ -153,6 +202,55 @@ public static class TypeBuilderApi
 	[KernReturn("type_builder")]
 	public static KValue FieldAttribute(KNativeBox self, string name) =>
 		KValue.Obj(new KNativeBox(Require(self).FieldAttribute(name)));
+
+	/// <summary><c>method(name, params, return_type, function)</c>: экземплярный метод.</summary>
+	[KernMember]
+	[KernReturn("type_builder")]
+	public static KValue Method(
+		KNativeBox self,
+		string name,
+		KValue parameters,
+		KValue returnType,
+		KValue function)
+	{
+		KType[] types = Types(parameters);
+		return KValue.Obj(new KNativeBox(
+			Require(self).AddMethod(name, types, RequireType(returnType), function, isStatic: false)));
+	}
+
+	/// <summary><c>static_method(name, params, return_type, function)</c>.</summary>
+	[KernName("static_method")]
+	[KernMember]
+	[KernReturn("type_builder")]
+	public static KValue StaticMethod(
+		KNativeBox self,
+		string name,
+		KValue parameters,
+		KValue returnType,
+		KValue function)
+	{
+		KType[] types = Types(parameters);
+		return KValue.Obj(new KNativeBox(
+			Require(self).AddMethod(name, types, RequireType(returnType), function, isStatic: true)));
+	}
+
+	/// <summary><c>property(name, type, getter)</c>: свойство только для чтения.</summary>
+	[KernMember]
+	[KernReturn("type_builder")]
+	public static KValue Property(KNativeBox self, string name, KValue type, KValue getter) =>
+		KValue.Obj(new KNativeBox(Require(self).AddProperty(name, RequireType(type), getter, null)));
+
+	/// <summary><c>property(name, type, getter, setter)</c>.</summary>
+	[KernName("property")]
+	[KernMember]
+	[KernReturn("type_builder")]
+	public static KValue PropertyWithSetter(
+		KNativeBox self,
+		string name,
+		KValue type,
+		KValue getter,
+		KValue setter) =>
+		KValue.Obj(new KNativeBox(Require(self).AddProperty(name, RequireType(type), getter, setter)));
 
 	/// <summary><c>attribute(name[, args])</c>: атрибут типа.</summary>
 	[KernMember]
@@ -191,6 +289,11 @@ public static class TypeBuilderApi
 
 	private static KType RequireType(KValue value) =>
 		value.Ref as KType ?? throw new KernPanic($"type_builder.field: ожидался тип, получено {value.TypeName}");
+
+	private static KType[] Types(KValue value) =>
+		value.Ref is KList list
+			? [.. list.Items.Select(RequireType)]
+			: throw new KernPanic($"type_builder.method: ожидался список типов параметров, получено {value.TypeName}");
 
 	private static KConst ToConst(KValue value) => value.Kind switch
 	{

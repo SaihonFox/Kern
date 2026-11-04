@@ -31,6 +31,9 @@ internal sealed record CliOptions
 	/// <summary><c>--deny</c> capabilities: запрещённые имена.</summary>
 	public IReadOnlyList<string>? DenyCapabilities { get; init; }
 
+	/// <summary><c>debug --dap &lt;порт&gt;</c>: отладочный сервер DAP вместо консоли.</summary>
+	public int? DapPort { get; init; }
+
 	public CompileOptions Apply(CompileOptions defaults) =>
 		defaults with
 		{
@@ -110,6 +113,19 @@ internal static class SourceArguments
 			if (argument == "--profile")
 			{
 				options = options with { RunProfile = true };
+				continue;
+			}
+
+			if (argument == "--dap")
+			{
+				if (index + 1 >= args.Length || !int.TryParse(args[index + 1], out int port) || port <= 0 || port > 65535)
+				{
+					stderr.WriteLine("ошибка: параметр --dap требует TCP-порт 1..65535");
+					return false;
+				}
+
+				options = options with { DapPort = port };
+				index++;
 				continue;
 			}
 

@@ -42,6 +42,9 @@ public sealed class DebugPauseInfo
 	/// <summary>Имена слотов текущего кадра (индекс = слот).</summary>
 	public IReadOnlyList<string> LocalNames { get; init; } = [];
 
+	/// <summary>VM в точке остановки — для вычисления отладочных выражений (вызовы/поля).</summary>
+	public Interpreter? Interpreter { get; init; }
+
 	public int ParamCount { get; init; }
 }
 

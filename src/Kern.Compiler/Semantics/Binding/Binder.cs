@@ -149,9 +149,12 @@ public sealed partial class Binder
 			}
 		}
 
-		// Статическая инициализация модуля (Q15b): один вызов на тип, порядок — объявление.
+		// Инициализаторы статических полей модуля (Q15b): один вызов на тип, порядок — объявление.
 		if (staticInitializers.Count > 0)
 			functions.Add(BindModuleStaticInitializer(staticInitializers));
+
+		// B8a/B8c: derived-протоколы становятся обычными членами (видны рефлексии/.kbc).
+		MaterializeDerivedProtocols(functions);
 
 		_diagnostics.AddRange(_resolver.Diagnostics);
 		return new BoundModule(_module, functions, _diagnostics);

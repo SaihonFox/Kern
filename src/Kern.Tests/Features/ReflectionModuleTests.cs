@@ -190,6 +190,56 @@ public sealed class ReflectionModuleTests
 	}
 
 	[Fact]
+	public void Type_reflection_sees_inherited_fields_and_methods()
+	{
+		const string source = """
+			type Base {
+				i32 x = 1
+
+				fun describe() -> i32 x
+			}
+
+			type Child()[Base] {
+				i32 y = 2
+			}
+
+			fun run() -> str {
+				var info = typeof<Child>()
+				var child = Child()
+				f"${info.fields.len}/${info.get_method("describe") != nil}/" +
+					f"${info.get_methods("describe").len}/${info.get(child, "x")}"
+			}
+			""";
+
+		Assert.Equal(KValue.Str("2/true/1/1"), StdPipeline.Run(source, "run"));
+	}
+
+	[Fact]
+	public void Define_type_supports_methods_and_properties()
+	{
+		const string source = """
+			fun run() -> str {
+				list<object> no_params = []
+				list<object> no_args = []
+				var builder = reflect.define_type("Point").as_unit().field("x", f64)
+				builder = builder.method("double", no_params, f64, fun (object self) -> f64 42.0)
+				builder = builder.property("value", f64, fun (object self) -> f64 7.0)
+				builder = builder.property("value2", f64, fun (object self) -> f64 1.0,
+					fun (object self, f64 v) { })
+				var pointType = builder.build()
+				var point = pointType.create(<object>[1.0])
+				var method = pointType.get_method("double")
+				var property = pointType.get_property("value")
+				f"${pointType.methods.len}/${pointType.properties.len}/" +
+					f"${method!.call(point, no_args).to_str()}/${property!.get(point).to_str()}/" +
+					f"${method!.params.len}/${method!.return_type.name}"
+			}
+			""";
+
+		Assert.Equal(KValue.Str("1/2/42/7/0/f64"), StdPipeline.Run(source, "run"));
+	}
+
+	[Fact]
 	public void Define_type_at_runtime_creates_objects()
 	{
 		const string source = """

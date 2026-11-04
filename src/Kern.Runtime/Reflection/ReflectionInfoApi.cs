@@ -15,11 +15,19 @@ public static partial class MethodInfoApi
 	public static KValue Parameters(Interpreter interpreter, KNativeBox self)
 	{
 		KernMethodInfo info = Require(self);
-		FunctionDef method = info.Method;
+		var values = new List<KValue>();
+		if (info.Runtime is { } runtime)
+		{
+			for (var index = 0; index < runtime.Parameters.Count; index++)
+				values.Add(KValue.Obj(new KNativeBox(
+					new KernParamInfo(index, $"arg{index}", KTypeSignature.From(runtime.Parameters[index])))));
+			return KValue.Obj(new KList(interpreter.Types.Prim(PrimKind.Object), values));
+		}
+
+		FunctionDef method = info.Method!;
 		bool instance = info.Owner is not null && !IsStatic(method);
 		int skip = instance ? 1 : 0;
 		var names = ParameterNames(method);
-		var values = new List<KValue>();
 		for (var index = skip; index < method.ParamTypes.Length; index++)
 		{
 			string name = index - skip < names.Length ? names[index - skip] : $"arg{index - skip}";
@@ -34,9 +42,12 @@ public static partial class MethodInfoApi
 	[KernReturn("type")]
 	public static KValue ReturnType(Interpreter interpreter, KNativeBox self)
 	{
+		KernMethodInfo info = Require(self);
+		if (info.Runtime is { } runtime)
+			return KValue.Obj(runtime.ReturnType);
 		try
 		{
-			return KValue.Obj(interpreter.Types.FromSig(Require(self).Method.ReturnType));
+			return KValue.Obj(interpreter.Types.FromSig(info.Method!.ReturnType));
 		}
 		catch (InvalidOperationException)
 		{
@@ -46,13 +57,14 @@ public static partial class MethodInfoApi
 
 	[KernProperty]
 	[KernName("is_static")]
-	public static bool IsStaticProperty(KNativeBox self) => IsStatic(Require(self).Method);
+	public static bool IsStaticProperty(KNativeBox self) =>
+		Require(self).Runtime?.IsStatic ?? IsStatic(Require(self).Method!);
 
 	[KernProperty]
 	[KernReturn("list<attribute_info>")]
 	public static KValue Attributes(Interpreter interpreter, KNativeBox self)
 	{
-		var values = Require(self).Method.Attributes
+		var values = (Require(self).Method?.Attributes ?? [])
 			.Select(attribute => KValue.Obj(new KNativeBox(new KernAttributeInfo(attribute))))
 			.ToArray();
 		return KValue.Obj(new KList(interpreter.Types.Prim(PrimKind.Object), values));
@@ -61,8 +73,14 @@ public static partial class MethodInfoApi
 	/// <summary><c>call_static([args])</c>: вызвать статическую функцию без получателя.</summary>
 	[KernName("call_static")]
 	[KernMember]
-	public static KValue CallStatic(Interpreter interpreter, KNativeBox self, KValue arguments) =>
-		interpreter.RunValue(KValue.Obj(Require(self).Method), ListValues(arguments));
+	public static KValue CallStatic(Interpreter interpreter, KNativeBox self, KValue arguments)
+	{
+		KernMethodInfo info = Require(self);
+		KValue[] values = ListValues(arguments);
+		return info.Runtime is { } runtime
+			? interpreter.RunValue(runtime.Function, values)
+			: interpreter.RunValue(KValue.Obj(info.Method!), values);
+	}
 
 	private static bool IsStatic(FunctionDef method) => (method.Flags & MemberFlags.Static) != 0;
 
@@ -84,15 +102,18 @@ public static partial class MethodInfoApi
 public static class PropertyInfoApi
 {
 	[KernProperty]
-	public static string Name(KNativeBox self) => Require(self).Property.Name;
+	public static string Name(KNativeBox self) => Require(self).Runtime?.Name ?? Require(self).Property!.Name;
 
 	[KernProperty]
 	[KernReturn("type")]
 	public static KValue Type(Interpreter interpreter, KNativeBox self)
 	{
+		KernPropertyInfo info = Require(self);
+		if (info.Runtime is { } runtime)
+			return KValue.Obj(runtime.Type);
 		try
 		{
-			return KValue.Obj(interpreter.Types.FromSig(Require(self).Property.Type));
+			return KValue.Obj(interpreter.Types.FromSig(info.Property!.Type));
 		}
 		catch (InvalidOperationException)
 		{
@@ -104,7 +125,7 @@ public static class PropertyInfoApi
 	[KernReturn("list<attribute_info>")]
 	public static KValue Attributes(Interpreter interpreter, KNativeBox self)
 	{
-		var values = Require(self).Property.Attributes
+		var values = (Require(self).Property?.Attributes ?? [])
 			.Select(attribute => KValue.Obj(new KNativeBox(new KernAttributeInfo(attribute))))
 			.ToArray();
 		return KValue.Obj(new KList(interpreter.Types.Prim(PrimKind.Object), values));
@@ -114,7 +135,11 @@ public static class PropertyInfoApi
 	public static KValue Get(Interpreter interpreter, KNativeBox self, KValue target)
 	{
 		KernPropertyInfo info = Require(self);
-		return info.Property.Getter >= 0
+		if (info.Runtime is { } runtime)
+			return runtime.Getter is { } getter
+				? interpreter.RunValue(getter, [target])
+				: throw new KernPanic($"property_info.get: у свойства '{runtime.Name}' нет геттера");
+		return info.Property!.Getter >= 0
 			? interpreter.RunValue(
 				KValue.Obj(interpreter.Module.FunctionPool[info.Property.Getter]),
 				[target])
@@ -125,7 +150,18 @@ public static class PropertyInfoApi
 	public static void Set(Interpreter interpreter, KNativeBox self, KValue target, KValue value)
 	{
 		KernPropertyInfo info = Require(self);
-		if (info.Property.Setter >= 0)
+		if (info.Runtime is { } runtime)
+		{
+			if (runtime.Setter is { } setter)
+			{
+				_ = interpreter.RunValue(setter, [target, value]);
+				return;
+			}
+
+			throw new KernPanic($"property_info.set: свойство '{runtime.Name}' только для чтения");
+		}
+
+		if (info.Property!.Setter >= 0)
 		{
 			_ = interpreter.RunValue(
 				KValue.Obj(interpreter.Module.FunctionPool[info.Property.Setter]),
@@ -143,9 +179,9 @@ public static class PropertyInfoApi
 	}
 
 	private static KValue ReadBackingField(KernPropertyInfo info, KValue target) =>
-		target.Ref is KObject instance && info.Property.BackingField >= 0
+		target.Ref is KObject instance && info.Property!.BackingField >= 0
 			? instance.GetField(info.Property.BackingField)
-			: throw new KernPanic($"property_info.get: у свойства '{info.Property.Name}' нет геттера");
+			: throw new KernPanic($"property_info.get: у свойства '{info.Property!.Name}' нет геттера");
 
 	private static KernPropertyInfo Require(KNativeBox self) => self.Value switch
 	{
