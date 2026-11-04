@@ -9,11 +9,11 @@
    экземплярные методы/свойства обычных классов: `SelfClrType`, приёмник как `arguments[0]`,
    `ConstructorInfo`/`Expression.New`, AOT-путь через `MethodInfo.Invoke`. Ограничения:
    открытые generic-типы BCL и члены с не импортированными типами пропускаются.
-2. **Native generics.** Reified-типы нативных handle-типов уже хранятся в
-   `KNativeBox.NativeType` (`set<i32> is set<i32>` работает), а аргументы generic-нативов
-   приходят через `[KernTypeArgs]`. Остаётся `typeof<T>()` внутри **пользовательских**
-   generic-функций: статический `TypeSigMap` стирает `T` в `object`. Для variant 3 нужна
-   мономорфизация или runtime-передача type args в `Call`; это XL-срез.
+2. **Native generics — variant 2 реализован (2026-11-03).** `KNativeBox.NativeType` хранит
+   reified `KClassType`/`KBuiltinGenericType`, `[KernTypeArgs]` передаёт аргументы в нативные
+   методы; `set<i32> is set<i32>`/`queue<i32>` работают (`NativeGenericTests`). Остаётся
+   `typeof<T>()` внутри **пользовательских** generic-функций: `TypeSigMap` стирает `T` в
+   `object`. Это отдельный XL-срез (runtime type args в `Call`/мономорфизация).
 3. **Библиотеки на Kern (`Kern.Std`) — пилот готов (2026-11-03).** `Kern.Std` теперь
    содержит `std/kern/ansi.kern` и `csv.kern`, `StdSources` читает embedded-ресурсы, модули
    компилируются обычным проектом и подключаются через `use`; тесты `KernStdTests` (3).
