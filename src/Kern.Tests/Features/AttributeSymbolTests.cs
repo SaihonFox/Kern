@@ -63,7 +63,7 @@ public sealed class AttributeSymbolTests
 	public void Attribute_arguments_become_typed_constants_and_identifiers_stay_strings()
 	{
 		var (module, _) = Collect("""
-			#[cfg(1, 2.5, true, "текст", 'c', derive)]
+			#[custom(1, 2.5, true, "текст", 'c', derive)]
 			fun marked() -> i32 { 1 }
 			""");
 

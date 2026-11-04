@@ -2,6 +2,23 @@
 
 ## Now
 
+### Батч 2026-11-04 (owner request): валидация аргументов и целей атрибутов
+
+Сделано и проверено (build 0 errors, suite **686/686**, style clean):
+- Новый `Semantics/Attributes/AttributeValidation.cs`: цели и аргументы встроенных
+  атрибутов; нарушение — `KRN2101`, неизвестное имя — по-прежнему `KRN2307`.
+- Универсальные `deprecated`/`must_use`/`cfg`/`if`/`allow`; только функция —
+  `inline`/`no_inline`/`memo`/`needs`/`test`/`macro`/маршруты; `type` или функция —
+  `auth`/`roles`; только `type` — `controller`/`singleton`/`transient`/`scoped`;
+  поле/свойство — `inject`; `type`/`unit` — `derive`; `module` — только в начале
+  файла или перед `project`.
+- Проверяются аргументы: 0/1 строка, списки строк, коды `allow`, capability-имена
+  `needs` (с `fs.read("scope")`/`fs.write("scope")`), пары `key = "value"` у
+  `module`, `optional: true/false` у `inject`.
+- Тесты `AttributeValidationTests` (28), `AttributeSymbolTests` переведён на
+  неизвестный атрибут для проверки сырых аргументов; spec §7, `CHANGELOG_LANG.md`,
+  `docs/REMAINING.md`, `docs/KNOWN_ISSUES.md`, `docs/LIBRARIES.md` обновлены.
+
 ### Батч 2026-11-04 (owner request): авто-релиз на каждый push
 
 - `.github/workflows/release.yml` переработан: каждый push в `master` публикует

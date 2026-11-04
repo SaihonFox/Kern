@@ -7,13 +7,13 @@ namespace Kern.Compiler.Semantics.Declarations;
 public sealed partial class DeclarationCollector
 {
 	/// <summary>
-	/// KRN2307/KRN2101/KRN2106: неизвестный атрибут и проверка <c>#[derive(...)]</c> (B7/B8a,
-	/// spec §7). Обходятся объявления верхнего уровня, их атрибуты и вложенные типы в
-	/// <see cref="TypeDeclaration.DeclaredMembers"/>/<see cref="UnitDeclaration.DeclaredMembers"/>;
-	/// тела функций не обходятся.
+	/// KRN2307/KRN2101/KRN2106: неизвестные имена, цели и аргументы атрибутов (spec §7).
+	/// Обходятся атрибуты модуля, объявления верхнего уровня и вложенные члены типов/unit;
+	/// тела функций не обходятся. <c>#[derive]</c> дополнительно проверяет протоколы.
 	/// </summary>
 	private void ValidateAttributes(CompilationUnit unit)
 	{
+		ValidateAttributeList(unit.Attributes, AttributeTarget.Module, "модулю");
 		foreach (var declaration in unit.Declarations)
 			ValidateDeclarationAttributes(declaration);
 	}
@@ -21,71 +21,64 @@ public sealed partial class DeclarationCollector
 	private void ValidateDeclarationAttributes(SyntaxNode declaration)
 	{
 		var attributes = ConditionalCompilation.AttributesOf(declaration);
-		if (AttributeCatalog.Find(attributes, "if") is { } conditional &&
-			!ConditionalCompilation.TryEvaluate(conditional, out string? error) && error is not null)
-			Report("KRN2101", error, conditional.Span);
-		if (!ConditionalCompilation.IsIncluded(attributes))
+		if (!ValidateConditionalAttributes(attributes) || !ConditionalCompilation.IsIncluded(attributes))
 			return;
+
+		if (AttributeValidation.TargetOf(declaration) is { } target)
+			ValidateAttributeList(attributes, target, AttributeValidation.DescribeTarget(declaration));
 
 		switch (declaration)
 		{
 			case TypeDeclaration type:
-				ReportUnknownAttributes(type.DeclaredAttributes);
 				ValidateTypeDerives(type);
 				foreach (var member in type.DeclaredMembers)
 					ValidateDeclarationAttributes(member);
 				break;
 			case UnitDeclaration unitType:
-				ReportUnknownAttributes(unitType.DeclaredAttributes);
 				ValidateDeriveArguments(DeriveCatalog.Attributes(unitType.DeclaredAttributes));
 				foreach (var member in unitType.DeclaredMembers)
 					ValidateDeclarationAttributes(member);
 				break;
-			case FunctionDeclaration function:
-				ReportUnknownAttributes(function.DeclaredAttributes);
-				ValidateFunctionDerives(function);
-				break;
-			case FieldMemberNode field:
-				ReportUnknownAttributes(field.DeclaredAttributes);
-				break;
-			case PropertyMemberNode property:
-				ReportUnknownAttributes(property.DeclaredAttributes);
-				break;
-			case OperatorMemberNode @operator:
-				ReportUnknownAttributes(@operator.DeclaredAttributes);
-				break;
-			case ConstructorMemberNode constructor:
-				ReportUnknownAttributes(constructor.DeclaredAttributes);
-				break;
-			case ParentMethodSelectionNode selection:
-				ReportUnknownAttributes(selection.DeclaredAttributes);
-				break;
-			case ParentFieldSelectionNode fieldSelection:
-				ReportUnknownAttributes(fieldSelection.DeclaredAttributes);
-				break;
-			case GlobalFieldDeclaration global:
-				ReportUnknownAttributes(global.DeclaredAttributes);
-				break;
-			case ExtensionOperatorDeclaration extensionOperator:
-				ReportUnknownAttributes(extensionOperator.DeclaredAttributes);
-				break;
-			case ExtensionPropertyDeclaration extensionProperty:
-				ReportUnknownAttributes(extensionProperty.DeclaredAttributes);
-				break;
 		}
 	}
 
-	private void ReportUnknownAttributes(IReadOnlyList<AttributeNode> attributes)
+	/// <summary>KRN2101 для каждого некорректного <c>#[if]</c>; ложь — объявление исключено.</summary>
+	private bool ValidateConditionalAttributes(IReadOnlyList<AttributeNode> attributes)
+	{
+		var valid = true;
+		foreach (var attribute in attributes)
+		{
+			if (!string.Equals(attribute.Name, "if", StringComparison.Ordinal))
+				continue;
+			if (ConditionalCompilation.TryEvaluate(attribute, out string? error) || error is null)
+				continue;
+			Report("KRN2101", error, attribute.Span);
+			valid = false;
+		}
+		return valid;
+	}
+
+	/// <summary>KRN2307 для неизвестных имён, KRN2101 для недопустимой цели или аргументов.</summary>
+	private void ValidateAttributeList(
+		IReadOnlyList<AttributeNode> attributes,
+		AttributeTarget target,
+		string targetDescription)
 	{
 		foreach (var attribute in attributes)
 		{
-			if (AttributeCatalog.IsKnown(attribute.Name))
+			if (!AttributeCatalog.IsKnown(attribute.Name))
+			{
+				Report(
+					"KRN2307",
+					$"Неизвестный атрибут '#[{attribute.Name}]'; известны: {string.Join(", ", AttributeCatalog.KnownNames)}",
+					attribute.Span,
+					DiagnosticSeverity.Warning);
 				continue;
-			Report(
-				"KRN2307",
-				$"Неизвестный атрибут '#[{attribute.Name}]'; известны: {string.Join(", ", AttributeCatalog.KnownNames)}",
-				attribute.Span,
-				DiagnosticSeverity.Warning);
+			}
+
+			if (!AttributeValidation.TryValidate(attribute, target, targetDescription, out string? error) &&
+				error is not null)
+				Report("KRN2101", error, attribute.Span);
 		}
 	}
 
@@ -101,26 +94,17 @@ public sealed partial class DeclarationCollector
 
 		if (type.IsStatic)
 		{
-			ReportDeriveTarget(attributes, $"статического типа '{type.Name}'");
+			ReportDeriveTarget(attributes, $"статическому типу '{type.Name}'");
 			return;
 		}
 
 		if (type.DeclaredUnionVariants.Count > 0)
 		{
-			ReportDeriveTarget(attributes, $"union-алиаса '{type.Name}'");
+			ReportDeriveTarget(attributes, $"union-алиасу '{type.Name}'");
 			return;
 		}
 
 		ValidateDeriveArguments(attributes);
-	}
-
-	private void ValidateFunctionDerives(FunctionDeclaration function)
-	{
-		var attributes = DeriveCatalog.Attributes(function.DeclaredAttributes);
-		if (attributes.Count == 0)
-			return;
-
-		ReportDeriveTarget(attributes, $"функции '{function.Name}'");
 	}
 
 	private void ReportDeriveTarget(IReadOnlyList<AttributeNode> attributes, string target)

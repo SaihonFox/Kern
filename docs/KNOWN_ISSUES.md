@@ -47,7 +47,6 @@ This section lists only **current** gaps. Items that were fixed earlier are reco
 `CHANGELOG_LANG.md` / `STATUS.md` and are not repeated here.
 
 ### Compiler / language
-- **Attribute arguments and targets are only partially validated.** Only `#[derive]` is fully checked; arity/allowed-target checks for `deprecated`/`must_use`/`inline`/`cfg`/`test` are absent.
 - **Dict key hashability is checked only at literal binding.** `dict<K, V>` declarations, native constructors and non-literal paths do not re-check `K`.
 - **Derived `hash`/`compare`/`clone` are not materialized as members.** They are applied by the protocol binder (`ValueHashFields`/`ValueCompareFields`/`CloneObject`) and do not appear in `MemberTable`, `.kbc` or reflection.
 - **Recursive local functions require an explicit signature.** A local function with inferred return type cannot call itself while its body is bound.

@@ -1,4 +1,5 @@
 using Kern.Bytecode;
+using Kern.Compiler.Syntax;
 
 namespace Kern.Compiler.Semantics.Attributes;
 
@@ -10,6 +11,57 @@ namespace Kern.Compiler.Semantics.Attributes;
 public static class CapabilityParser
 {
 	public const string NeedsAttribute = "needs";
+
+	/// <summary>
+	/// Проверить аргументы <c>#[needs(...)]</c> до сборки байткода. Пустой список допустим:
+	/// он объявляет, что функция не использует capabilities. Неизвестное имя или испорченный
+	/// <c>fs.read("scope")</c>/<c>fs.write("scope")</c> — ложь и русский текст ошибки.
+	/// </summary>
+	public static bool TryValidate(AttributeNode attribute, out string? error)
+	{
+		error = null;
+		var arguments = attribute.Arguments;
+		var index = 0;
+		while (index < arguments.Count)
+		{
+			string text = arguments[index];
+			if (text is "net" or "process" or "db" or "env")
+			{
+				index++;
+				continue;
+			}
+
+			if (text == "fs" && index + 2 < arguments.Count &&
+				arguments[index + 1] == "." &&
+				arguments[index + 2] is "read" or "write")
+			{
+				index += 3;
+				if (index < arguments.Count && arguments[index] == "(")
+				{
+					index++;
+					if (index >= arguments.Count || !AttributeValidation.IsStringLiteral(arguments[index]))
+					{
+						error = "fs.read/fs.write принимает необязательный строковый scope: fs.read(\"data/\")";
+						return false;
+					}
+					index++;
+					if (index >= arguments.Count || arguments[index] != ")")
+					{
+						error = "fs.read/fs.write принимает необязательный строковый scope: fs.read(\"data/\")";
+						return false;
+					}
+					index++;
+				}
+				continue;
+			}
+
+			error = $"Неизвестная capability '{text}' в #[needs]; " +
+				"доступны: net, fs.read(\"scope\"), fs.write(\"scope\"), process, db, env";
+			return false;
+		}
+
+		return true;
+	}
 
 	public static IReadOnlySet<string> FromAttributes(IReadOnlyList<AttributeUse> attributes)
 	{

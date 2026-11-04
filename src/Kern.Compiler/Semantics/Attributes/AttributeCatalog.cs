@@ -4,9 +4,9 @@ using Kern.Compiler.Syntax;
 namespace Kern.Compiler.Semantics.Attributes;
 
 /// <summary>
-/// Каталог встроенных атрибутов (B7, spec §7). Проверяются только имена: аргументы, кратность
-/// и допустимые цели пока не валидируются (исключение — <c>#[derive]</c>, его разбирает
-/// <see cref="DeriveCatalog"/>, B8a). <c>#[cfg]</c> и <c>#[test]</c> зарезервированы:
+/// Каталог встроенных атрибутов (B7, spec §7). Имена, допустимые цели и аргументы проверяет
+/// <see cref="AttributeValidation"/>; <c>#[derive]</c> дополнительно разбирает
+/// <see cref="DeriveCatalog"/> (B8a). <c>#[cfg]</c> и <c>#[test]</c> зарезервированы:
 /// их поведение появится вместе с M14/stage 2, сейчас это принятые no-op.
 /// </summary>
 public static class AttributeCatalog
