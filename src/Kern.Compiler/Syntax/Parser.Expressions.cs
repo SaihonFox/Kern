@@ -12,48 +12,8 @@ public sealed partial class Parser
 		{
 			if (HasNewlineBeforeCurrent() && Current.Kind != TokenKind.LeadingDot)
 				break;
-			if (Current.Kind == TokenKind.Operator && Current.Text == "<" && TryParseGenericCall(left, out var genericCall))
-			{
-				left = genericCall;
+			if (TryParsePostfix(ref left))
 				continue;
-			}
-			if (Current.Kind == TokenKind.Operator && Current.Text == "!")
-			{
-				if (_position + 1 < _tokens.Count && _tokens[_position + 1].Kind == TokenKind.LeftParen)
-				{
-					Advance();
-					var macroCall = ParseCall(left);
-					if (macroCall is CallExpression call)
-						left = call with { IsMacroInvocation = true };
-					else
-						left = macroCall;
-					continue;
-				}
-
-				// Постфиксный `!`: утверждение «не nil» (spec §3/§4).
-				var bang = Advance();
-				left = new NonNullExpression(left, new TextSpan(left.Span.Start, bang.Span.End - left.Span.Start));
-				continue;
-			}
-			if (Current.Kind == TokenKind.LeftParen)
-			{
-				left = ParseCall(left);
-				continue;
-			}
-			if (Current.Kind == TokenKind.LeftBracket)
-			{
-				left = ParseIndex(left);
-				continue;
-			}
-			if (Current.Kind is TokenKind.Dot or TokenKind.LeadingDot || (Current.Kind == TokenKind.Operator && Current.Text == "?."))
-			{
-				var conditional = Current.Text == "?.";
-				Advance();
-				var member = ConsumeMemberName("Ожидалось имя члена после точки");
-				left = new MemberAccessExpression(left, member.Text, conditional,
-					new TextSpan(left.Span.Start, member.Span.End - left.Span.Start));
-				continue;
-			}
 			if (Current.Kind == TokenKind.Operator && (Current.Text == ".." || Current.Text == "..="))
 			{
 				var rangeToken = Advance();
@@ -102,6 +62,58 @@ public sealed partial class Parser
 					new TextSpan(left.Span.Start, right.Span.End - left.Span.Start));
 		}
 		return left;
+	}
+
+	/// <summary>
+	/// Постфиксные операции без бинарных операторов: generic-вызов, не-nil `!`, вызов,
+	/// индекс и доступ к члену. Нужны и основному циклу, и операнду унарного оператора:
+	/// <c>!is_letter(c)</c> — это <c>!(is_letter(c))</c>, а не вызов результата `!`.
+	/// </summary>
+	private bool TryParsePostfix(ref ExpressionNode left)
+	{
+		if (HasNewlineBeforeCurrent() && Current.Kind != TokenKind.LeadingDot)
+			return false;
+
+		if (Current.Kind == TokenKind.Operator && Current.Text == "<" && TryParseGenericCall(left, out var genericCall))
+		{
+			left = genericCall;
+			return true;
+		}
+		if (Current.Kind == TokenKind.Operator && Current.Text == "!")
+		{
+			if (_position + 1 < _tokens.Count && _tokens[_position + 1].Kind == TokenKind.LeftParen)
+			{
+				Advance();
+				var macroCall = ParseCall(left);
+				left = macroCall is CallExpression call ? call with { IsMacroInvocation = true } : macroCall;
+				return true;
+			}
+
+			// Постфиксный `!`: утверждение «не nil» (spec §3/§4).
+			var bang = Advance();
+			left = new NonNullExpression(left, new TextSpan(left.Span.Start, bang.Span.End - left.Span.Start));
+			return true;
+		}
+		if (Current.Kind == TokenKind.LeftParen)
+		{
+			left = ParseCall(left);
+			return true;
+		}
+		if (Current.Kind == TokenKind.LeftBracket)
+		{
+			left = ParseIndex(left);
+			return true;
+		}
+		if (Current.Kind is TokenKind.Dot or TokenKind.LeadingDot || (Current.Kind == TokenKind.Operator && Current.Text == "?."))
+		{
+			var conditional = Current.Text == "?.";
+			Advance();
+			var member = ConsumeMemberName("Ожидалось имя члена после точки");
+			left = new MemberAccessExpression(left, member.Text, conditional,
+				new TextSpan(left.Span.Start, member.Span.End - left.Span.Start));
+			return true;
+		}
+		return false;
 	}
 
 	private static bool IsComparisonOperator(string symbol) => symbol is "<" or ">" or "<=" or ">=";
@@ -400,6 +412,8 @@ public sealed partial class Parser
 		{
 			var operatorToken = Advance();
 			var operand = ParsePrimary();
+			while (TryParsePostfix(ref operand))
+				;
 			return new UnaryExpression(operatorToken.Text, operand,
 				new TextSpan(operatorToken.Span.Start, operand.Span.End - operatorToken.Span.Start));
 		}

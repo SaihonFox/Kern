@@ -146,7 +146,9 @@ public sealed class Lexer
 				continue;
 			}
 
-			var operatorText = Operators.FirstOrDefault(value => source.AsSpan(position).StartsWith(value, StringComparison.Ordinal));
+			var operatorText = Operators.FirstOrDefault(value =>
+				source.AsSpan(position).StartsWith(value, StringComparison.Ordinal) &&
+				IsOperatorBoundary(source, position + value.Length, value));
 			if (operatorText is not null)
 			{
 				position += operatorText.Length;
@@ -249,6 +251,18 @@ public sealed class Lexer
 		if (malformed)
 			diagnostics.Add(new("LEX005", "Некорректный числовой литерал", new(start, position - start)));
 		tokens.Add(new(kind, text, new(start, position - start)));
+	}
+
+	/// <summary>
+	/// `!is`/`!in` — операторы только на границе слова: `!is_letter(x)` — это `!` и вызов
+	/// `is_letter`, а не `!is` + `_letter`.
+	/// </summary>
+	private static bool IsOperatorBoundary(string source, int end, string value)
+	{
+		if (value is not ("!is" or "!in") || end >= source.Length)
+			return true;
+		char next = source[end];
+		return !char.IsLetterOrDigit(next) && next != '_';
 	}
 
 	private static int DigitValue(char value) => value switch

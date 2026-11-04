@@ -75,7 +75,7 @@ public sealed partial class Parser
 		}
 		var nullable = false;
 		var singleAssignment = false;
-		while (IsOperator("?") || IsOperator("!"))
+		while (IsOperator("?") || (IsOperator("!") && Previous.Span.End == Current.Span.Start))
 		{
 			var marker = Advance();
 			if (marker.Text == "?")

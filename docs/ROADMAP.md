@@ -139,7 +139,7 @@ single-file fallback), `kern.security`/`kern.text`/`kern.parse`/`kern.num`
 (partial). Capabilities `#[needs]`/`--deny` implemented 2026-11-03; self-hosted
 lexer, AST and parser (B0/B1) work in `bootstrap/`. Docs: `BOOTSTRAP.md`, `IN_REF_OUT.md`,
 `DEBUGGER.md`, `CAPABILITIES.md`. Open
-decision: full C# generics - see `DECISIONS_NEEDED.md`. Suite **646/646**, style clean.
+decision: full C# generics - see `DECISIONS_NEEDED.md`. Suite **648/648**, style clean.
 
 ## Owner batch 2026-10-27 — language polish (stage 1)
 Recorded in `DECISIONS_NEEDED.md` ("Decided — owner additions"). Ordered by dependency; every slice updates `docs/spec/kern.en.md` + `CHANGELOG_LANG.md` and lands with tests. Two slices may run in parallel only if they do not touch the same lexer/parser/binder files.

@@ -12,8 +12,8 @@
 2. **Native/type generics — runtime type args (2026-11-04).** `KNativeBox.NativeType`,
    `[KernTypeArgs]`, `CallGeneric`, `CallVirtualGeneric` и `TypeOfParam` передают reified-типы;
    `typeof<T>()`, вложенная передача `T` и generic instance-методы работают
-   (`GenericTypeArgsTests`, `NativeGenericTests`). Остались вызовы generic-функции через
-   значение (`CallValue`) — там пока нет runtime-аргументов.
+   (`GenericTypeArgsTests`, `NativeGenericTests`). Generic-функция не является значением
+   (её инстанцируют в вызове), поэтому `CallValue` generic-целей не имеет — срез закрыт.
 3. **Библиотеки на Kern (`Kern.Std`) — ansi, csv, parse (2026-11-04).** `ansi.kern`,
    `csv.kern` и `parse.kern` автоподключаются при `use kern.ansi…`/`use kern.csv…`/
    `use kern.parse…`; C# `CsvApi` и `ParseApi` удалены, CSV-функции называются
