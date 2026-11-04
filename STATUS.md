@@ -24,10 +24,10 @@
   Тесты `StringGraphemeTests` (3).
 - Вложенная деструктуризация кортежей в объявлениях: `(i32 a, (i32 b, i32 c)) = pair`
   (паттерны `match` уже поддерживали вложенность). Тест `TuplePatternTests` (+1).
-- `Kern.Std` (пилот): `src/Kern.Std/std/kern/ansi.kern` и `csv.kern` — реальные
-  библиотеки на Kern; `StdSources` читает embedded-ресурсы, `kern.ansi`/`kern.csv`
-  компилируются обычным проектом и доступны через `use`. C#-версии пока остаются для
-  совместимости. Тесты `KernStdTests` (3).
+- `Kern.Std` (пилот): `src/Kern.Std/std/kern/ansi.kern` автоматически подключается при
+  `use kern.ansi…` (embedded-ресурсы через `StdSources`); `csv.kern` реализован и
+  компилируется отдельно, но пока не автоподключается из-за одноимённого C#-модуля.
+  Тесты `KernStdTests` (3).
 - Native generics: runtime-аргументы generic-функций — новый опкод `CallGeneric`,
   `TypeOfParam`, `TypeFactory.FromSig(TypeSig, KType[])`; `typeof<T>()` и передача `T`
   через вложенный generic-вызов работают. Тесты `GenericTypeArgsTests` (1) и

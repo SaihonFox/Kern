@@ -13,6 +13,7 @@ using Kern.Cli.Interop;
 using Kern.Core.Diagnostics;
 using Kern.Core.Text;
 using Kern.Runtime.Core;
+using Kern.Std;
 
 namespace Kern.Cli.Infrastructure;
 
@@ -90,6 +91,8 @@ internal static class SourceCompiler
 
 			files = expansion.Files;
 		}
+
+		files = StdSources.Include(files);
 
 		var projectFiles = files
 			.Select(file => new ProjectSourceFile(file.Path, file.Text))

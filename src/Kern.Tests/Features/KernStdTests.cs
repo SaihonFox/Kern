@@ -45,11 +45,7 @@ public sealed class KernStdTests
 	public void Kern_ansi_compiles_and_runs_in_a_project()
 	{
 		string directory = Path.Combine(Path.GetTempPath(), "kern-std-" + Guid.NewGuid().ToString("N"));
-		string source = Path.Combine(directory, "src", "kern");
-		Directory.CreateDirectory(source);
-		(string Path, string Text) ansi = StdSources.Load()
-			.First(file => file.Path.EndsWith("ansi.kern", StringComparison.Ordinal));
-		File.WriteAllText(Path.Combine(source, "ansi.kern"), ansi.Text);
+		Directory.CreateDirectory(Path.Combine(directory, "src"));
 		File.WriteAllText(Path.Combine(directory, "src", "app.kern"), """
 			use kern.ansi[red, strip]
 			fun main {
