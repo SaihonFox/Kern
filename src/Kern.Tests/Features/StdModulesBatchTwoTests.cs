@@ -1,3 +1,4 @@
+using Kern.Cli;
 using Kern.Binding.Catalog;
 using Kern.Binding.Resolution;
 using Kern.Compiler.CodeGen;
@@ -22,30 +23,49 @@ public sealed class StdModulesBatchTwoTests
 	[Fact]
 	public void Csv_parses_rows_and_dicts()
 	{
-		const string source = """
-			fun rows() -> i32 {
-				match csv.parse("a,b\n1,2\n") {
-					Ok(value) => value.len
-					Err(_) => -1
+		string directory = Path.Combine(Path.GetTempPath(), "kern-csv-" + Guid.NewGuid().ToString("N"));
+		Directory.CreateDirectory(Path.Combine(directory, "src"));
+		File.WriteAllText(Path.Combine(directory, "src", "app.kern"), """
+			use kern.csv[csv_parse, csv_parse_dicts]
+			fun main {
+				match csv_parse("a,b\n1,2\n") {
+					Ok(value) => println(value.len)
+					Err(_) => println(-1)
+				}
+				match csv_parse_dicts("name,age\nаня,25\n") {
+					Ok(records) => println(records[0]["name"])
+					Err(_) => println("error")
+				}
+				match csv_parse_dicts("name\n\"петров, иван\"\n") {
+					Ok(records) => println(records[0]["name"])
+					Err(_) => println("error")
 				}
 			}
-			fun cell() -> str {
-				match csv.parse_dicts("name,age\nаня,25\n") {
-					Ok(records) => records[0]["name"]
-					Err(_) => "error"
-				}
+			""");
+		try
+		{
+			var output = new StringWriter();
+			var error = new StringWriter();
+			TextWriter previous = Console.Out;
+			Console.SetOut(output);
+			int code;
+			try
+			{
+				code = KernCli.Run(["run", directory], output, error);
 			}
-			fun quoted() -> str {
-				match csv.parse_dicts("name\n\"петров, иван\"\n") {
-					Ok(records) => records[0]["name"]
-					Err(_) => "error"
-				}
+			finally
+			{
+				Console.SetOut(previous);
 			}
-			""";
 
-		Assert.Equal(KValue.I32(2), Run(source, "rows"));
-		Assert.Equal(KValue.Str("аня"), Run(source, "cell"));
-		Assert.Equal(KValue.Str("петров, иван"), Run(source, "quoted"));
+			Assert.Equal(0, code);
+			Assert.Equal(string.Empty, error.ToString());
+			Assert.Equal("2\nаня\nпетров, иван\n", output.ToString().Replace("\r\n", "\n"));
+		}
+		finally
+		{
+			Directory.Delete(directory, recursive: true);
+		}
 	}
 
 	[Fact]

@@ -2,9 +2,20 @@
 project kern.csv:
 use kern.test[assert_eq]
 
-/// Разобрать CSV в строки ячеек. Поддержаны quoted-поля, `""` внутри кавычек,
-/// запятые/переводы строк внутри кавычек.
-fun parse(str text) -> list<list<str>> {
+/// Разобрать CSV в строки ячеек. Ошибка разбора (незакрытая кавычка) — `Err`.
+pub fun parse(str text) -> result<list<list<str>>, str> Ok(parse_rows(text))
+
+/// Псевдоним для `use kern.csv[csv_parse]`: глобальный `parse` занят другими модулями.
+pub fun csv_parse(str text) -> result<list<list<str>>, str> parse(text)
+
+/// Псевдоним `parse_dicts` без конфликта с глобальным `parse_dicts`.
+pub fun csv_parse_dicts(str text) -> result<list<dict<str, str>>, str> parse_dicts(text)
+
+/// Псевдоним `to_str` без конфликта с глобальным `to_str`.
+pub fun csv_to_str(list<list<str>> rows) -> str to_str(rows)
+
+/// Внутренний разбор без `result`.
+pub fun parse_rows(str text) -> list<list<str>> {
 	var rows = <list<str>>[]
 	var row = <str>[]
 	var field = string_builder()
@@ -12,8 +23,10 @@ fun parse(str text) -> list<list<str>> {
 	i32 index = 0
 	loop index <= text.len {
 		if index == text.len {
-			row.add(field.to_str())
-			rows.add(row)
+			if text.len == 0 || text[text.len - 1] != '\n' {
+				row.add(field.to_str())
+				rows.add(row)
+			}
 			stop
 		}
 
@@ -65,11 +78,11 @@ fun parse(str text) -> list<list<str>> {
 }
 
 /// Разобрать CSV с заголовком в `list<dict<str, str>>`.
-fun parse_dicts(str text) -> list<dict<str, str>> {
-	list<list<str>> rows = parse(text)
+pub fun parse_dicts(str text) -> result<list<dict<str, str>>, str> {
+	list<list<str>> rows = parse_rows(text)
 	list<dict<str, str>> result = <dict<str, str>>[]
 	if rows.len == 0 {
-		ret result
+		ret Ok(result)
 	}
 	list<str> header = rows[0]
 	loop var row in rows[1..] {
@@ -81,11 +94,11 @@ fun parse_dicts(str text) -> list<dict<str, str>> {
 		}
 		result.add(item)
 	}
-	result
+	Ok(result)
 }
 
 /// Записать строки как CSV; ячейки с `,`, `"` или переводом строки берутся в кавычки.
-fun to_str(list<list<str>> rows) -> str {
+pub fun to_str(list<list<str>> rows) -> str {
 	var result = string_builder()
 	loop var row in rows {
 		i32 index = 0
@@ -109,8 +122,8 @@ fun to_str(list<list<str>> rows) -> str {
 }
 
 #[test]
-fun parses_quotes_and_commas() {
-	list<list<str>> rows = parse("a,b\n\"x,y\",\"z\"\"q\"\n")
+pub fun parses_quotes_and_commas() {
+	list<list<str>> rows = parse_rows("a,b\n\"x,y\",\"z\"\"q\"\n")
 	assert_eq(2, rows.len)
 	assert_eq(2, rows[1].len)
 	assert_eq("x,y", rows[1][0])
@@ -118,6 +131,6 @@ fun parses_quotes_and_commas() {
 }
 
 #[test]
-fun writes_quotes() {
+pub fun writes_quotes() {
 	assert_eq("a,\"b,c\"\n", to_str([["a", "b,c"]]))
 }

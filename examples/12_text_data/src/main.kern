@@ -1,6 +1,6 @@
 // regex, csv, yaml, xml, crypto, uuid
 use kern.regex[regex]
-use kern.csv[csv]
+use kern.csv[csv_parse_dicts]
 use kern.yaml[yaml]
 use kern.xml[xml]
 use kern.crypto[crypto]
@@ -18,7 +18,7 @@ fun main {
 
 	// csv
 	str table = "имя,возраст\nАня,25\n\"Борис, мл.\",31\n"
-	match csv.parse_dicts(table) {
+	match csv_parse_dicts(table) {
 		Ok(rows) => loop var row in rows {
 			str who = row["имя"]
 			str age = row["возраст"]

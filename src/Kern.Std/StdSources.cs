@@ -34,7 +34,7 @@ public static class StdSources
 		return files;
 	}
 
-	private static readonly HashSet<string> Auto = new(StringComparer.Ordinal) { "ansi" };
+	private static readonly HashSet<string> Auto = new(StringComparer.Ordinal) { "ansi", "csv" };
 
 	/// <summary>
 	/// Добавить std-модуль, если проект использует <c>use kern.&lt;name&gt;</c>. Уже
@@ -45,9 +45,16 @@ public static class StdSources
 	{
 		ArgumentNullException.ThrowIfNull(files);
 		var names = new HashSet<string>(StringComparer.Ordinal);
-		foreach (var (_, text) in files)
+		var defined = new HashSet<string>(StringComparer.Ordinal);
+		foreach (var (path, text) in files)
+		{
+			Match project = Project.Match(text);
+			defined.Add(project.Success
+				? project.Groups["name"].Value
+				: Path.GetFileNameWithoutExtension(path));
 			foreach (Match match in Use.Matches(text))
 				names.Add(match.Groups["name"].Value);
+		}
 
 		if (names.Count == 0)
 			return files;
@@ -57,12 +64,17 @@ public static class StdSources
 		foreach (var (path, text) in Load())
 		{
 			string name = Path.GetFileNameWithoutExtension(path);
-			if (!names.Contains(name) || !Auto.Contains(name) || paths.Contains(path))
+			if (!names.Contains(name) || !Auto.Contains(name) || defined.Contains(name) || paths.Contains(path))
 				continue;
 			result.Add((path, text));
 			paths.Add(path);
+			defined.Add(name);
 		}
 
 		return result;
 	}
+
+	private static readonly Regex Project = new(
+		@"^\s*project\s+(?<name>[a-zA-Z_][a-zA-Z0-9_.]*)\s*:",
+		RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.Multiline);
 }

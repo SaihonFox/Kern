@@ -42,6 +42,32 @@ public sealed class KernStdTests
 	}
 
 	[Fact]
+	public void Include_adds_csv_from_use()
+	{
+		IReadOnlyList<(string Path, string Text)> files = StdSources.Include(
+			[("app.kern", "use kern.csv[csv_parse]")]);
+		Assert.Contains(files, file => file.Path.EndsWith("csv.kern", StringComparison.Ordinal));
+	}
+
+	[Fact]
+	public void Csv_std_module_compiles_in_source_compiler()
+	{
+		var project = new Kern.Cli.Infrastructure.ProjectSources("app", ".", [
+			("src/app.kern", """
+				use kern.csv[csv_parse]
+				fun main {
+					match csv_parse("a,b\n1,2\n") {
+						Ok(value) => println(value.len)
+						Err(_) => println(-1)
+					}
+				}
+				"""),
+		]);
+		Kern.Cli.Infrastructure.CompileResult result = Kern.Cli.Infrastructure.SourceCompiler.Compile(project);
+		Assert.True(result.Success, string.Join('\n', result.ProjectMessages));
+	}
+
+	[Fact]
 	public void Kern_ansi_compiles_and_runs_in_a_project()
 	{
 		string directory = Path.Combine(Path.GetTempPath(), "kern-std-" + Guid.NewGuid().ToString("N"));

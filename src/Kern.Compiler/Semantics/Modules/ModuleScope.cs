@@ -179,13 +179,15 @@ public static class ModuleResolver
 				continue;
 			}
 
-			if (use.Path.StartsWith("kern.", StringComparison.Ordinal))
-				continue;
 			if (use.Path.StartsWith("dotnet.", StringComparison.Ordinal))
 				continue;
 
 			if (!byName.TryGetValue(use.Path, out var target))
 			{
+				// kern.* без source-модуля — нативный модуль: его функции уже
+				// импортированы каталогом и не требуют отдельного разрешения.
+				if (use.Path.StartsWith("kern.", StringComparison.Ordinal))
+					continue;
 				diagnostics.Add(new ModuleDiagnostic(
 					module.Name,
 					new Diagnostic("KRN1010", $"Модуль '{use.Path}' не найден", use.Span)));
