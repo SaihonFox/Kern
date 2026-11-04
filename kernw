@@ -114,12 +114,20 @@ if [ ! -x "$exe" ]; then
 		fi
 	fi
 
+	# GNU tar не умеет zip, поэтому после unzip пробуем python3; bsdtar (macOS)
+	# тоже понимает zip и остаётся последним вариантом.
+	extracted=0
 	if command -v unzip >/dev/null 2>&1; then
-		unzip -q "$tmp" -d "$cache"
-	elif command -v tar >/dev/null 2>&1; then
-		tar -xf "$tmp" -C "$cache"
-	else
-		echo "kernw: нужен unzip или tar" >&2
+		if unzip -q "$tmp" -d "$cache"; then extracted=1; fi
+	fi
+	if [ "$extracted" -eq 0 ] && command -v python3 >/dev/null 2>&1; then
+		if python3 -m zipfile -e "$tmp" "$cache"; then extracted=1; fi
+	fi
+	if [ "$extracted" -eq 0 ] && command -v tar >/dev/null 2>&1; then
+		if tar -xf "$tmp" -C "$cache"; then extracted=1; fi
+	fi
+	if [ "$extracted" -eq 0 ]; then
+		echo "kernw: не удалось распаковать архив (нужен unzip, python3 или tar с поддержкой zip)" >&2
 		exit 1
 	fi
 	chmod +x "$exe" 2>/dev/null || true

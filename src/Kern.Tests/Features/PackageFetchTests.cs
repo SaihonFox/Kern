@@ -50,7 +50,8 @@ public sealed class PackageFetchTests
 
 			Assert.True(File.Exists(Path.Combine(root, "build.kern")));
 			Assert.False(File.Exists(Path.Combine(root, "mathx", "build.kern")));
-			Assert.True(File.Exists(Path.Combine(cache, hash, ".complete")));
+			// Кэш хранит sha256 в нижнем регистре, а пути на Linux регистрозависимы.
+			Assert.True(File.Exists(Path.Combine(cache, hash.ToLowerInvariant(), ".complete")));
 
 			// Повторное подключение не ходит в сеть: обработчик запрещает запросы.
 			var cached = new PackageFetcher(
