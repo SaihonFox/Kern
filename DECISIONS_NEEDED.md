@@ -18,7 +18,7 @@
    `csv.kern` и `parse.kern` автоподключаются при `use kern.ansi…`/`use kern.csv…`/
    `use kern.parse…`; C# `CsvApi` и `ParseApi` удалены, CSV-функции называются
    `csv_parse`/`csv_parse_dicts`/`csv_to_str`, для `\uNNNN` добавлен `text.from_code`.
-   Тесты `KernStdTests` (4), `ParseModuleTests` (4). Осталось: перенести `kern.text`/`kern.num`.
+   Тесты `KernStdTests` (7), `ParseModuleTests` (4). Осталось: перенести `kern.text`/`kern.num`.
 4. **Вложенная деструктуризация кортежей — реализовано (2026-11-03):**
    `(i32 a, (i32 b, i32 c)) = pair`; `..rest` у кортежей по-прежнему запрещён спецификацией.
 

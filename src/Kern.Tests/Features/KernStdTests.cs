@@ -50,6 +50,22 @@ public sealed class KernStdTests
 	}
 
 	[Fact]
+	public void Include_ignores_use_inside_comments()
+	{
+		IReadOnlyList<(string Path, string Text)> files = StdSources.Include(
+			[("app.kern", "// use kern.csv[csv_parse]\nfun main {}")]);
+		Assert.Single(files);
+	}
+
+	[Fact]
+	public void Include_does_not_duplicate_a_project_defined_std_module()
+	{
+		IReadOnlyList<(string Path, string Text)> files = StdSources.Include(
+			[("csv.kern", "project kern.csv:\nuse kern.csv[csv_parse]\nfun csv_parse(str s) -> str s")]);
+		Assert.Single(files);
+	}
+
+	[Fact]
 	public void Csv_std_module_compiles_in_source_compiler()
 	{
 		var project = new Kern.Cli.Infrastructure.ProjectSources("app", ".", [

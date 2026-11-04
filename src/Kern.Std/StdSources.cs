@@ -13,8 +13,8 @@ public static class StdSources
 	private const string Prefix = "std/";
 
 	private static readonly Regex Use = new(
-		@"\buse\s+kern\.(?<name>[a-z_][a-z0-9_]*)\s*(?:\[|\.\*)",
-		RegexOptions.Compiled | RegexOptions.CultureInvariant);
+		@"^\s*use\s+kern\.(?<name>[a-z_][a-z0-9_]*)\s*(?:\[|\.\*)",
+		RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.Multiline);
 
 	public static IReadOnlyList<(string Path, string Text)> Load()
 	{
@@ -64,7 +64,7 @@ public static class StdSources
 		foreach (var (path, text) in Load())
 		{
 			string name = Path.GetFileNameWithoutExtension(path);
-			if (!names.Contains(name) || !Auto.Contains(name) || defined.Contains(name) || paths.Contains(path))
+			if (!names.Contains(name) || !Auto.Contains(name) || defined.Contains(name) || defined.Contains("kern." + name) || paths.Contains(path))
 				continue;
 			result.Add((path, text));
 			paths.Add(path);

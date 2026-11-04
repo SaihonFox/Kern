@@ -31,7 +31,10 @@
   `text.from_code(code) -> char`. Тесты `KernStdTests` (4), `ParseModuleTests` (4) через CLI.
 - Исправлена лексика `!`: `!is`/`!in` — только на границе слова, унарный операнд включает
   постфикс (`!is_letter(x)` = `!(is_letter(x))`), маркер `T!` — только вплотную к типу.
-  Тесты `OperatorBoundaryTests` (2); suite **648/648**.
+  Тесты `OperatorBoundaryTests` (2).
+- `StdSources.Include` не дублирует std-модуль, определённый самим проектом, и не реагирует
+  на `use kern.*` в комментариях: `kernc check`/`kernc test src/Kern.Std/std/kern` работают,
+  self-тесты std — 5/5. Тесты `KernStdTests` (+2); suite **650/650**.
 - Native generics: runtime-аргументы generic-функций — `CallGeneric`, `CallVirtualGeneric`,
   `TypeOfParam`, `TypeFactory.FromSig(TypeSig, KType[])`; `typeof<T>()`, передача `T` и
   generic instance-методы работают. Тесты `GenericTypeArgsTests` и `NativeGenericTests`;
