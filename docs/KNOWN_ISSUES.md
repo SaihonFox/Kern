@@ -86,7 +86,7 @@ This section lists only **current** gaps. Items that were fixed earlier are reco
 - **Optimizer:** `-O2` inlines `#[inline]` functions with branches/loops/multiple `ret`; async/generator/ctor/memo/native/ref stay calls; dead-function elimination keeps type methods and `Pub`/`#[test]` functions.
 - **`build --native`:** some programs fall back to a self-contained single-file host (generic natives, external DLLs, `use dotnet`, reflection, foreign RID); needs the source tree and C++ toolchain.
 - **`kernc test`:** async tests are pumped now, but tests with an implicit receiver (methods) are not supported.
-- **Modules:** only one module-level static initializer is supported (`KRN1014`); native module functions are global (a std module must not reuse a common name); source modules have no qualified `mod.member` access (DECISIONS_NEEDED).
+- **Modules:** only one module-level static initializer is supported (`KRN1014`); native module functions are global (a std module must not reuse a common name); qualified `mod.member` access works for both native and source modules.
 - **Project mode / `.kbc`:** library and consumer types with the same simple name conflict in `kernc dll`.
 
 ## F. Files in `reference/` that are *not* part of stage 1
