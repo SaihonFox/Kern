@@ -158,7 +158,7 @@ public static class Disassembler
 				return $"= {BitsToInt64(operands).ToString(CultureInfo.InvariantCulture)}";
 			case OpCode.PushF64:
 				return $"= {BitConverter.Int64BitsToDouble(BitsToInt64(operands)).ToString("R", CultureInfo.InvariantCulture)}";
-			case OpCode.Call or OpCode.CallVirtual when (uint)operands[0] < (uint)module.FunctionPool.Count:
+			case OpCode.Call or OpCode.CallVirtual or OpCode.CallGeneric when (uint)operands[0] < (uint)module.FunctionPool.Count:
 				return $"-> {KbcText.Escape(module.FunctionPool[operands[0]].Name)}";
 			case OpCode.Slice:
 				return operands[0] == 1 ? "конец включён" : "конец не включён";

@@ -1,4 +1,5 @@
 using Kern.Bytecode;
+using Kern.Vm.Types;
 using Kern.Vm.Values;
 
 namespace Kern.Vm.Execution;
@@ -30,6 +31,9 @@ public sealed partial class Interpreter
 		/// <summary>Метка старта профилировщика для вызова, сохранившего этот кадр; 0 — профиль выключен.</summary>
 		public long ProfileStart;
 
+		/// <summary>Аргументы типа generic-вызова, сохранённые до возврата в кадр.</summary>
+		public KType[]? TypeArgs;
+
 		public Frame(
 			FunctionDef function,
 			KValue[] locals,
@@ -38,7 +42,8 @@ public sealed partial class Interpreter
 			int stackBase,
 			KObject? construction,
 			KValue[]? memoArguments = null,
-			long profileStart = 0)
+			long profileStart = 0,
+			KType[]? typeArgs = null)
 		{
 			Function = function;
 			Locals = locals;
@@ -48,6 +53,7 @@ public sealed partial class Interpreter
 			Construction = construction;
 			MemoArguments = memoArguments;
 			ProfileStart = profileStart;
+			TypeArgs = typeArgs;
 		}
 	}
 }

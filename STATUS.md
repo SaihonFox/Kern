@@ -28,11 +28,12 @@
   библиотеки на Kern; `StdSources` читает embedded-ресурсы, `kern.ansi`/`kern.csv`
   компилируются обычным проектом и доступны через `use`. C#-версии пока остаются для
   совместимости. Тесты `KernStdTests` (3).
-- Native generics: reified-аргументы нативных generic-контейнеров подтверждены тестом
-  `NativeGenericTests` (`set<i32> is set<i32>`, `queue<i32>`); `KNativeBox.NativeType` и
-  `[KernTypeArgs]` остаются рабочим механизмом. `typeof<T>` в пользовательских
-  generic-функциях по-прежнему стирается в `object` — отдельный XL-срез.
-- Обновлены spec §5/§7/§12.10, `CHANGELOG_LANG.md`, `DECISIONS_NEEDED.md`.
+- Native generics: runtime-аргументы generic-функций — новый опкод `CallGeneric`,
+  `TypeOfParam`, `TypeFactory.FromSig(TypeSig, KType[])`; `typeof<T>()` и передача `T`
+  через вложенный generic-вызов работают. Тесты `GenericTypeArgsTests` (1) и
+  `NativeGenericTests` (1); suite **644/644**. Виртуальные generic-методы и вызовы через
+  значение пока без runtime-аргументов.
+- Обновлены spec §5/§7/§12.10/§18, `CHANGELOG_LANG.md`, `DECISIONS_NEEDED.md`.
 - Не входит в этот батч (крупный срез, см. `DECISIONS_NEEDED.md`): `typeof<T>()` внутри
   generic-функций (статическое стирание) и автоподключение `Kern.Std` с заменой C#-модулей.
 

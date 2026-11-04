@@ -3,7 +3,6 @@ using Kern.Vm.Async;
 using Kern.Vm.Native;
 using Kern.Vm.Types;
 using Kern.Vm.Values;
-
 namespace Kern.Vm.Execution;
 /// <summary>Основной цикл исполнения инструкций VM (spec §16).</summary>
 public sealed partial class Interpreter
@@ -19,6 +18,7 @@ public sealed partial class Interpreter
 		KValue[]? captures = state.Captures;
 		int pc = state.Pc;
 		int stackBase = state.StackBase;
+		KType[]? typeArgs = state.TypeArgs;
 		int instruction = 0;
 		try
 		{
@@ -268,12 +268,12 @@ public sealed partial class Interpreter
 							if (!RequireBool(stack.Pop())) pc = target;
 							break;
 						}
-
 					// ---------- вызовы ----------
-					case OpCode.Call or OpCode.CallVirtual or OpCode.CallBase:
+					case OpCode.Call or OpCode.CallVirtual or OpCode.CallBase or OpCode.CallGeneric:
 						{
 							int calleeIndex = code[pc++];
 							int argc = code[pc++];
+							KType[]? callTypeArgs = op == OpCode.CallGeneric ? ResolveTypeArguments(code[pc++], typeArgs) : null;
 							FunctionDef callee = _module.FunctionPool[calleeIndex];
 							if (op == OpCode.CallVirtual)
 							{
@@ -327,7 +327,7 @@ public sealed partial class Interpreter
 
 							CallStart start = BeginCall(
 								callee, argc, function, locals, captures, pc, stackBase,
-								ref stack, ref frames, ref frameCount);
+								ref stack, ref frames, ref frameCount, callTypeArgs);
 							if (start.Function is not { } called)
 								break;
 							function = called;
@@ -336,6 +336,7 @@ public sealed partial class Interpreter
 							captures = null;
 							pc = 0;
 							stackBase = start.StackBase;
+							typeArgs = callTypeArgs;
 							break;
 						}
 					// Хвостовая саморекурсия (spec §6, раунд 27): аргументы уже на стеке,
@@ -379,6 +380,7 @@ public sealed partial class Interpreter
 							state.Locals = locals;
 							state.Captures = captures;
 							state.StackBase = stackBase;
+							state.TypeArgs = typeArgs;
 							state.Yielded = yielded;
 							state.HasYielded = true;
 							return;
@@ -412,6 +414,7 @@ public sealed partial class Interpreter
 							captures = caller.Captures;
 							pc = caller.Pc;
 							stackBase = caller.StackBase;
+							typeArgs = caller.TypeArgs;
 							stack.Push(result);
 							break;
 						}
@@ -722,10 +725,12 @@ public sealed partial class Interpreter
 							stackBase = callBase;
 							break;
 						}
-
 					// ---------- типы и рефлексия ----------
 					case OpCode.TypeOfSig:
 						stack.Push(KValue.Obj(_types.FromSig(_module.TypeSigPool[code[pc++]])));
+						break;
+					case OpCode.TypeOfParam:
+						stack.Push(TypeOfParamValue(code[pc++], typeArgs));
 						break;
 					case OpCode.TypeOfValue:
 						stack.Push(KValue.Obj(InferType(stack.Pop())));
@@ -755,6 +760,7 @@ public sealed partial class Interpreter
 								state.Locals = locals;
 								state.Captures = captures;
 								state.StackBase = stackBase;
+								state.TypeArgs = typeArgs;
 								task.OnCompleted(completed => Resume(state, completed), _scheduler);
 								return;
 							}

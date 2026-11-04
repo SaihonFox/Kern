@@ -126,7 +126,7 @@ public static class StackAnalyzer
 			OpCode.ListSlice or OpCode.Slice or OpCode.DictSet => (3, 1),
 
 			// Вход/выход по операндам.
-			OpCode.Call or OpCode.CallVirtual or OpCode.CallBase => (instruction.Operands[1], 1),
+			OpCode.Call or OpCode.CallVirtual or OpCode.CallBase or OpCode.CallGeneric => (instruction.Operands[1], 1),
 			OpCode.TailCall => (instruction.Operands[1], 0),
 			OpCode.CallValue => (instruction.Operands[0] + 1, 1),
 			OpCode.MakeClosure => (instruction.Operands[1], 1),
@@ -145,7 +145,7 @@ public static class StackAnalyzer
 			OpCode.Dup or OpCode.PushConst or OpCode.PushI32 or OpCode.PushI64 or OpCode.PushF64
 				or OpCode.PushTrue or OpCode.PushFalse or OpCode.PushNil or OpCode.PushNone
 				or OpCode.PushVoid or OpCode.LoadLocal or OpCode.LoadStatic or OpCode.LoadCapture
-				or OpCode.TypeOfSig or OpCode.MakeFunc or OpCode.NewObject or OpCode.NewObjectGeneric
+				or OpCode.TypeOfSig or OpCode.TypeOfParam or OpCode.MakeFunc or OpCode.NewObject or OpCode.NewObjectGeneric
 				or OpCode.NewDict or OpCode.RefLocal or OpCode.RefStatic => (0, 1),
 
 			// Остальные срезы.

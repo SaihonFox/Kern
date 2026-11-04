@@ -170,6 +170,7 @@ public static class KbcModuleValidator
 				or OpCode.NewList or OpCode.NewArray or OpCode.NewDict
 				or OpCode.MakeClosure or OpCode.Call or OpCode.CallVirtual or OpCode.TupleGet
 				or OpCode.NewObjectGeneric or OpCode.CallBase or OpCode.TailCall
+				or OpCode.CallGeneric
 				or OpCode.RefLocal or OpCode.RefField or OpCode.RefStatic => code[at + 1],
 			_ => -1,
 		};
@@ -192,6 +193,20 @@ public static class KbcModuleValidator
 			case OpCode.Jmp or OpCode.JmpIf or OpCode.JmpIfNot:
 				// цели проверяются после обхода кода (нужны все границы инструкций)
 				break;
+			case OpCode.CallGeneric:
+				{
+					int argc = code[at + 2];
+					if ((uint)arg >= (uint)module.FunctionPool.Count)
+						throw new KbcFormatException($"{where}: индекс функции вне пула: {arg}");
+					FunctionDef callee = module.FunctionPool[arg];
+					if (argc != callee.ParamCount)
+						throw new KbcFormatException(
+							$"{where}: у вызова '{callee.Name}' argc={argc}, а параметров {callee.ParamCount}");
+					int signatureList = code[at + 3];
+					if ((uint)signatureList >= (uint)module.TypeSigListPool.Count)
+						throw new KbcFormatException($"{where}: список типов вне пула: {signatureList}");
+					break;
+				}
 			case OpCode.Call or OpCode.CallVirtual or OpCode.CallBase or OpCode.TailCall:
 				{
 					int argc = code[at + 2];

@@ -88,6 +88,29 @@ public sealed class TypeFactory
 	/// подставляются аргументами <paramref name="owner"/>. Нужно для проверки
 	/// «объект наследника является экземпляром родителя».
 	/// </summary>
+	public KType FromSig(TypeSig sig, IReadOnlyList<KType> arguments)
+	{
+		ArgumentNullException.ThrowIfNull(sig);
+		ArgumentNullException.ThrowIfNull(arguments);
+
+		KType Walk(TypeSig current) => current switch
+		{
+			TypeSig.ParamSig { Scope: 0 } param when (uint)param.Index < (uint)arguments.Count =>
+				arguments[param.Index],
+			TypeSig.PrimSig prim => Prim(prim.Kind),
+			TypeSig.NamedSig named => ResolveNamedParts(named.FullName, [.. named.Args.Select(Walk)]),
+			TypeSig.FuncSig func => Func(Walk(func.Return), [.. func.Params.Select(Walk)]),
+			TypeSig.TupleSig tuple => Tuple([.. tuple.Items.Select(Walk)], tuple.Names),
+			TypeSig.NullableSig nullable => Nullable(Walk(nullable.Inner)),
+			TypeSig.UnionSig union => Union([.. union.Members.Select(Walk)]),
+			TypeSig.ParamSig param => throw new InvalidOperationException(
+				$"параметр типа '{param.Canonical}' вне контекста generic-вызова"),
+			_ => throw new InvalidOperationException($"неизвестная подпись типа: {current.Canonical}"),
+		};
+
+		return Walk(sig);
+	}
+
 	public KType FromSig(TypeSig sig, KClassType owner)
 	{
 		ArgumentNullException.ThrowIfNull(sig);

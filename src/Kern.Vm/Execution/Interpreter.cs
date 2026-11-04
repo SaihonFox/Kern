@@ -479,6 +479,20 @@ public sealed partial class Interpreter
 		return TagNativeResult(binding.Invoke(this, arguments, typeArguments), function.ReturnType);
 	}
 
+	private KType[] ResolveTypeArguments(int signatureList, KType[]? current)
+	{
+		if ((uint)signatureList >= (uint)_module.TypeSigListPool.Count)
+			throw new KernPanic($"CallGeneric: список типов вне пула: {signatureList}");
+		IReadOnlyList<KType> context = current ?? [];
+		return [.. _module.TypeSigListPool[signatureList]
+			.Select(index => _types.FromSig(_module.TypeSigPool[index], context))];
+	}
+
+	private static KValue TypeOfParamValue(int index, KType[]? typeArgs) =>
+		typeArgs is not null && (uint)index < (uint)typeArgs.Length
+			? KValue.Obj(typeArgs[index])
+			: throw new KernPanic("TypeOfParam: у кадра нет аргументов типа");
+
 	/// <summary>
 	/// Нативный handle-тип (<c>streamwriter</c>, <c>xml_node</c>) получает reified-тип из
 	/// объявленной подписи функции: без этого <c>is</c> видел бы только <c>object</c>.
@@ -694,6 +708,8 @@ public sealed partial class Interpreter
 		public KValue[]? Captures;
 		public int Pc;
 		public int StackBase;
+		/// <summary>Аргументы типа текущего generic-вызова (для `typeof<T>`/вложенных CallGeneric).</summary>
+		public KType[]? TypeArgs;
 		public KValue Result = KValue.None;
 		public KernPanic? Error;
 		public bool Completed;

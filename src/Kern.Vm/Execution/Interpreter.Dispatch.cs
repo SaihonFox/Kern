@@ -88,7 +88,8 @@ public sealed partial class Interpreter
 		int callerStackBase,
 		ref OperandStack stack,
 		ref Frame[] frames,
-		ref int frameCount)
+		ref int frameCount,
+		KType[]? typeArgs = null)
 	{
 		if (argc != callee.ParamCount)
 			throw new KernPanic(
@@ -138,7 +139,7 @@ public sealed partial class Interpreter
 			constructed.BeginConstruction();
 			construction = constructed;
 		}
-		frames[frameCount++] = new Frame(caller, callerLocals, callerCaptures, callerPc, callerStackBase, construction, memoArguments, profileStart);
+		frames[frameCount++] = new Frame(caller, callerLocals, callerCaptures, callerPc, callerStackBase, construction, memoArguments, profileStart, typeArgs);
 
 		KValue[] calleeLocals = AllocateLocals(callee);
 		stack.CopyTo(callBase, calleeLocals, argc);

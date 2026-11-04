@@ -275,6 +275,16 @@ public sealed partial class CodeGenerator
 
 			// Рефлексия времени компиляции (spec §17/§18): `typeof<T>()` и `name_of<T>()`.
 			case BoundTypeOfExpression typeOf:
+				if (typeOf.TypeArgument is TypeParameterType parameter &&
+					_currentSymbol is { } typeSymbol &&
+					typeSymbol.GenericParameters.Any(item => item.Name == parameter.Name))
+				{
+					int index = typeSymbol.GenericParameters
+						.Select((item, position) => (item, position))
+						.First(pair => pair.item.Name == parameter.Name).position;
+					Emit(OpCode.TypeOfParam, index);
+					break;
+				}
 				Emit(OpCode.TypeOfSig, _module.InternTypeSig(TypeSigMap.From(typeOf.TypeArgument, _module.Name)));
 				break;
 

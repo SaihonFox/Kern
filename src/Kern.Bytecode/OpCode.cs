@@ -202,6 +202,10 @@ public enum OpCode
 	// --- identity-сравнение `===`/`!==` (spec §3/§9) ---
 	RefEq,            // [a, b] -> bool: ссылки на один объект (для unit/type/функций)
 	RefNe,            // [a, b] -> bool: ссылки на разные объекты
+
+	// --- runtime type arguments для generic-функций (2026-11-04) ---
+	CallGeneric,      // functionIdx, argc, typeSigListIdx: как Call + type args кадра
+	TypeOfParam,      // paramIndex: тип из type args текущего кадра
 }
 
 /// <summary>Раскладка операндов и вспомогательные проверки для <see cref="OpCode"/>.</summary>
@@ -218,11 +222,13 @@ public static class OpCodeInfo
 			or OpCode.NewTuple or OpCode.MakeFunc or OpCode.LoadCapture
 			or OpCode.CallValue or OpCode.TypeOfSig or OpCode.IsType
 			or OpCode.Slice or OpCode.SliceStep or OpCode.TupleGet
-			or OpCode.RefLocal or OpCode.RefField or OpCode.RefStatic => 1,
+			or OpCode.RefLocal or OpCode.RefField or OpCode.RefStatic
+			or OpCode.TypeOfParam => 1,
 		OpCode.PushI64 or OpCode.PushF64 or OpCode.Call or OpCode.CallVirtual
 			or OpCode.NewList or OpCode.NewArray or OpCode.NewDict
 			or OpCode.MakeClosure or OpCode.NewObjectGeneric or OpCode.CallBase
 			or OpCode.TailCall => 2,
+		OpCode.CallGeneric => 3,
 		_ => 0,
 	};
 
@@ -232,7 +238,7 @@ public static class OpCodeInfo
 	public static bool IsJump(OpCode op) => op is OpCode.Jmp or OpCode.JmpIf or OpCode.JmpIfNot;
 
 	/// <summary>Известен ли номер опкода (защита от мусора в .kbc).</summary>
-	public static bool IsDefined(int value) => value >= 0 && value <= (int)OpCode.RefNe;
+	public static bool IsDefined(int value) => value >= 0 && value <= (int)OpCode.TypeOfParam;
 
 	public static bool IsDefined(OpCode op) => IsDefined((int)op);
 }
