@@ -52,7 +52,7 @@ public static class DeadFunctionEliminator
 				int count = OpCodeInfo.OperandCount(op);
 				switch (op)
 				{
-					case OpCode.Call or OpCode.CallGeneric or OpCode.CallBase or OpCode.TailCall or OpCode.MakeFunc or OpCode.MakeClosure:
+					case OpCode.Call or OpCode.CallGeneric or OpCode.CallVirtualGeneric or OpCode.CallBase or OpCode.TailCall or OpCode.MakeFunc or OpCode.MakeClosure:
 					case OpCode.CallVirtual:
 						int target = function.Code[offset + 1];
 						if ((uint)target < (uint)kept.Length)
@@ -132,7 +132,7 @@ public static class DeadFunctionEliminator
 			var op = (OpCode)function.Code[offset];
 			int count = OpCodeInfo.OperandCount(op);
 			if (count > 0 &&
-				op is OpCode.Call or OpCode.CallGeneric or OpCode.CallVirtual or OpCode.CallBase or OpCode.TailCall
+				op is OpCode.Call or OpCode.CallGeneric or OpCode.CallVirtualGeneric or OpCode.CallVirtual or OpCode.CallBase or OpCode.TailCall
 					or OpCode.MakeFunc or OpCode.MakeClosure)
 			{
 				int old = function.Code[offset + 1];

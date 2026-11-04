@@ -269,13 +269,13 @@ public sealed partial class Interpreter
 							break;
 						}
 					// ---------- вызовы ----------
-					case OpCode.Call or OpCode.CallVirtual or OpCode.CallBase or OpCode.CallGeneric:
+					case OpCode.Call or OpCode.CallVirtual or OpCode.CallBase or OpCode.CallGeneric or OpCode.CallVirtualGeneric:
 						{
 							int calleeIndex = code[pc++];
 							int argc = code[pc++];
-							KType[]? callTypeArgs = op == OpCode.CallGeneric ? ResolveTypeArguments(code[pc++], typeArgs) : null;
+							KType[]? callTypeArgs = op is OpCode.CallGeneric or OpCode.CallVirtualGeneric ? ResolveTypeArguments(code[pc++], typeArgs) : null;
 							FunctionDef callee = _module.FunctionPool[calleeIndex];
-							if (op == OpCode.CallVirtual)
+							if (op is OpCode.CallVirtual or OpCode.CallVirtualGeneric)
 							{
 								// Получатель — первый аргумент, он же слот 0 кадра вызываемого.
 								// При недопустимой базе кадра резолв пропускаем: BeginCall ниже

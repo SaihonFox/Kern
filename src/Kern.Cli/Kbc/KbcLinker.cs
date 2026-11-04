@@ -327,7 +327,7 @@ internal static class KbcLinker
 						OpCode.NewObjectGeneric when operand == 0 => MapType(value),
 						OpCode.NewObjectGeneric => MapSigList(value),
 						OpCode.Call or OpCode.CallVirtual or OpCode.CallBase or OpCode.TailCall
-							or OpCode.CallGeneric
+							or OpCode.CallGeneric or OpCode.CallVirtualGeneric
 							or OpCode.MakeFunc or OpCode.MakeClosure
 							when operand == 0 => MapFunction(value),
 						OpCode.LoadField or OpCode.StoreField or OpCode.RefField => function.OwnerType >= 0
@@ -341,6 +341,7 @@ internal static class KbcLinker
 						OpCode.NewDict => MapSig(value),
 						OpCode.NewTuple => MapSigList(value),
 						OpCode.CallGeneric when operand == 2 => MapSigList(value),
+						OpCode.CallVirtualGeneric when operand == 2 => MapSigList(value),
 						_ => value,
 					};
 				}

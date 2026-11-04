@@ -28,11 +28,10 @@
   при `use kern.ansi…`/`use kern.csv…`. C# `CsvApi` удалён; CSV использует псевдонимы
   `csv_parse`/`csv_parse_dicts`/`csv_to_str`, чтобы не конфликтовать с глобальными
   `parse`/`to_str`. Тесты `KernStdTests` (4).
-- Native generics: runtime-аргументы generic-функций — новый опкод `CallGeneric`,
-  `TypeOfParam`, `TypeFactory.FromSig(TypeSig, KType[])`; `typeof<T>()` и передача `T`
-  через вложенный generic-вызов работают. Тесты `GenericTypeArgsTests` (1) и
-  `NativeGenericTests` (1); suite **644/644**. Виртуальные generic-методы и вызовы через
-  значение пока без runtime-аргументов.
+- Native generics: runtime-аргументы generic-функций — `CallGeneric`, `CallVirtualGeneric`,
+  `TypeOfParam`, `TypeFactory.FromSig(TypeSig, KType[])`; `typeof<T>()`, передача `T` и
+  generic instance-методы работают. Тесты `GenericTypeArgsTests` и `NativeGenericTests`;
+  suite **646/646**. Вызов generic-функции через значение пока без runtime-аргументов.
 - Обновлены spec §5/§7/§12.10/§18, `CHANGELOG_LANG.md`, `DECISIONS_NEEDED.md`.
 - Не входит в этот батч (крупный срез, см. `DECISIONS_NEEDED.md`): `typeof<T>()` внутри
   generic-функций (статическое стирание) и автоподключение `Kern.Std` с заменой C#-модулей.

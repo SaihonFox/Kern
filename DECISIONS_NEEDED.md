@@ -10,10 +10,10 @@
    `ConstructorInfo`/`Expression.New`, AOT-путь через `MethodInfo.Invoke`. Ограничения:
    открытые generic-типы BCL и члены с не импортированными типами пропускаются.
 2. **Native/type generics — runtime type args (2026-11-04).** `KNativeBox.NativeType`,
-   `[KernTypeArgs]`, `CallGeneric` и `TypeOfParam` передают reified-типы в generic-вызовы;
-   `typeof<T>()` и вложенная передача `T` работают (`GenericTypeArgsTests`,
-   `NativeGenericTests`). Остались виртуальные generic-методы и вызовы через значение —
-   они пока идут старым путём без runtime-аргументов.
+   `[KernTypeArgs]`, `CallGeneric`, `CallVirtualGeneric` и `TypeOfParam` передают reified-типы;
+   `typeof<T>()`, вложенная передача `T` и generic instance-методы работают
+   (`GenericTypeArgsTests`, `NativeGenericTests`). Остались вызовы generic-функции через
+   значение (`CallValue`) — там пока нет runtime-аргументов.
 3. **Библиотеки на Kern (`Kern.Std`) — ansi и csv (2026-11-04).** `ansi.kern` и `csv.kern`
    автоподключаются при `use kern.ansi…`/`use kern.csv…`; C# `CsvApi` удалён, CSV-функции
    называются `csv_parse`/`csv_parse_dicts`/`csv_to_str`. `KernStdTests` (4). Осталось:

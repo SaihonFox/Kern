@@ -170,7 +170,7 @@ public static class KbcModuleValidator
 				or OpCode.NewList or OpCode.NewArray or OpCode.NewDict
 				or OpCode.MakeClosure or OpCode.Call or OpCode.CallVirtual or OpCode.TupleGet
 				or OpCode.NewObjectGeneric or OpCode.CallBase or OpCode.TailCall
-				or OpCode.CallGeneric
+				or OpCode.CallGeneric or OpCode.CallVirtualGeneric
 				or OpCode.RefLocal or OpCode.RefField or OpCode.RefStatic => code[at + 1],
 			_ => -1,
 		};
@@ -194,6 +194,7 @@ public static class KbcModuleValidator
 				// цели проверяются после обхода кода (нужны все границы инструкций)
 				break;
 			case OpCode.CallGeneric:
+			case OpCode.CallVirtualGeneric:
 				{
 					int argc = code[at + 2];
 					if ((uint)arg >= (uint)module.FunctionPool.Count)

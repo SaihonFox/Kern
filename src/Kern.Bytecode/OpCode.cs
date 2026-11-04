@@ -205,6 +205,7 @@ public enum OpCode
 
 	// --- runtime type arguments для generic-функций (2026-11-04) ---
 	CallGeneric,      // functionIdx, argc, typeSigListIdx: как Call + type args кадра
+	CallVirtualGeneric, // functionIdx, argc, typeSigListIdx: как CallGeneric + virtual dispatch
 	TypeOfParam,      // paramIndex: тип из type args текущего кадра
 }
 
@@ -229,6 +230,7 @@ public static class OpCodeInfo
 			or OpCode.MakeClosure or OpCode.NewObjectGeneric or OpCode.CallBase
 			or OpCode.TailCall => 2,
 		OpCode.CallGeneric => 3,
+		OpCode.CallVirtualGeneric => 3,
 		_ => 0,
 	};
 

@@ -33,12 +33,12 @@ public sealed partial class CodeGenerator
 		}
 
 		var argumentCount = call.Arguments.Count + (call.Receiver is null ? 0 : 1);
-		if (!call.Virtual && call.Function.NativeKey is null && call.TypeArguments.Count > 0)
+		if (call.Function.NativeKey is null && call.TypeArguments.Count > 0)
 		{
 			int signatures = _module.InternTypeSigList(
 				[.. call.TypeArguments.Select(argument =>
 					TypeSigMap.From(argument, _module.Name, _currentSymbol?.GenericParameters))]);
-			Emit(OpCode.CallGeneric);
+			Emit(call.Virtual ? OpCode.CallVirtualGeneric : OpCode.CallGeneric);
 			EmitOperand(index);
 			EmitOperand(argumentCount);
 			EmitOperand(signatures);

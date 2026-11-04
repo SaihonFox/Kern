@@ -126,7 +126,7 @@ public static class StackAnalyzer
 			OpCode.ListSlice or OpCode.Slice or OpCode.DictSet => (3, 1),
 
 			// Вход/выход по операндам.
-			OpCode.Call or OpCode.CallVirtual or OpCode.CallBase or OpCode.CallGeneric => (instruction.Operands[1], 1),
+			OpCode.Call or OpCode.CallVirtual or OpCode.CallBase or OpCode.CallGeneric or OpCode.CallVirtualGeneric => (instruction.Operands[1], 1),
 			OpCode.TailCall => (instruction.Operands[1], 0),
 			OpCode.CallValue => (instruction.Operands[0] + 1, 1),
 			OpCode.MakeClosure => (instruction.Operands[1], 1),

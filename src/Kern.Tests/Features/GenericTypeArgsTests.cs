@@ -20,10 +20,19 @@ public sealed class GenericTypeArgsTests
 			fun direct() -> str id<i32>(1).name
 			fun inferred() -> str id("x").name
 			fun forwarded() -> str wrap<str>("x").name
+
+			type Box() {
+				fun method<T>(T value) -> object typeof<T>()
+			}
+			fun virtual_method() -> str {
+				Box box = Box()
+				box.method<str>("x").name
+			}
 			""";
 
 		Assert.Equal(KValue.Str("i32"), StdPipeline.Run(source, "direct"));
 		Assert.Equal(KValue.Str("str"), StdPipeline.Run(source, "inferred"));
 		Assert.Equal(KValue.Str("str"), StdPipeline.Run(source, "forwarded"));
+		Assert.Equal(KValue.Str("str"), StdPipeline.Run(source, "virtual_method"));
 	}
 }
