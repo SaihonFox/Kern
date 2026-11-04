@@ -136,6 +136,7 @@ public sealed class ToolingCommandTests
 			Assert.Equal(0, code);
 			Assert.Equal(string.Empty, error);
 			Assert.Contains("; профиль: функции", output);
+			Assert.Contains("собственное", output);
 			Assert.Contains("work", output);
 			Assert.Contains("; горячие строки", output);
 			Assert.Contains("main.kern:", output);
@@ -242,6 +243,30 @@ public sealed class ToolingCommandTests
 			WatchSet second = WatchCommand.Snapshot(directory, SourceKind.Project);
 			Assert.True(second.Differs(first));
 			Assert.False(second.Differs(WatchCommand.Snapshot(directory, SourceKind.Project)));
+		}
+		finally
+		{
+			Delete(directory);
+		}
+	}
+
+	[Fact]
+	public void Test_command_pumps_async_tests()
+	{
+		string directory = Temp("kern-async-test");
+		Directory.CreateDirectory(Path.Combine(directory, "src"));
+		File.WriteAllText(Path.Combine(directory, "src", "app.kern"), """
+			#[test]
+			async fun waits() {
+				await delay(1)
+			}
+			""", new UTF8Encoding(false));
+		try
+		{
+			int code = Run(["test", directory], out string output, out string error);
+			Assert.Equal(0, code);
+			Assert.Equal(string.Empty, error);
+			Assert.Contains("тестов: 1, успешно: 1", output);
 		}
 		finally
 		{

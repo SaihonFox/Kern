@@ -14,35 +14,64 @@ public sealed class Profiler
 	{
 		public long Calls;
 		public double Milliseconds;
+		public double SelfMilliseconds;
+	}
+
+	private sealed class CallFrame(FunctionDef function, long started)
+	{
+		public FunctionDef Function { get; } = function;
+		public long Started { get; } = started;
+		public double ChildMilliseconds { get; set; }
 	}
 
 	private readonly Dictionary<FunctionDef, Entry> _functions = new(ReferenceEqualityComparer.Instance);
 	private readonly Dictionary<(string File, int Line), long> _lines = [];
 	private readonly Dictionary<FunctionDef, int[]> _lineMaps = new(ReferenceEqualityComparer.Instance);
+	private readonly ThreadLocal<Stack<CallFrame>> _stacks = new(() => new Stack<CallFrame>());
 	private readonly object _lock = new();
 
 	/// <summary>Начать вызов: увеличить счётчик и вернуть метку времени для <see cref="EndCall"/>.</summary>
 	public long StartCall(FunctionDef function)
 	{
+		long started = Stopwatch.GetTimestamp();
+		_stacks.Value.Push(new CallFrame(function, started));
 		lock (_lock)
 		{
 			if (!_functions.TryGetValue(function, out Entry? entry))
 				_functions[function] = entry = new Entry();
 			entry.Calls++;
 		}
-		return Stopwatch.GetTimestamp();
+		return started;
 	}
 
-	/// <summary>Завершить вызов: добавить включительное время.</summary>
+	/// <summary>
+	/// Завершить вызов: добавить включительное и собственное время. Собственное время —
+	/// это общее минус время вложенных вызовов, поэтому рекурсия и вложенные функции не
+	/// задваивают счёт.
+	/// </summary>
 	public void EndCall(FunctionDef function, long started)
 	{
 		if (started == 0)
 			return;
 		double milliseconds = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+		Stack<CallFrame> stacks = _stacks.Value;
+		CallFrame? frame = stacks.Count > 0 ? stacks.Peek() : null;
+		double self = milliseconds;
+		if (frame is not null && ReferenceEquals(frame.Function, function) && frame.Started == started)
+		{
+			stacks.Pop();
+			self = Math.Max(0, milliseconds - frame.ChildMilliseconds);
+			if (stacks.Count > 0)
+				stacks.Peek().ChildMilliseconds += milliseconds;
+		}
+
 		lock (_lock)
 		{
 			if (_functions.TryGetValue(function, out Entry? entry))
+			{
 				entry.Milliseconds += milliseconds;
+				entry.SelfMilliseconds += self;
+			}
 		}
 	}
 
@@ -77,11 +106,11 @@ public sealed class Profiler
 		}
 
 		output.WriteLine("; профиль: функции");
-		output.WriteLine("; время — включительное (мс)");
+		output.WriteLine("; время — включительное и собственное (мс)");
 		if (functions.Count == 0)
 			output.WriteLine("; вызовов не было");
 		foreach (var (function, entry) in functions)
-			output.WriteLine($"{function.Name,-40} {entry.Calls,10} {entry.Milliseconds,12:F3}");
+			output.WriteLine($"{function.Name,-40} {entry.Calls,10} {entry.Milliseconds,12:F3} {entry.SelfMilliseconds,12:F3}");
 
 		output.WriteLine("; горячие строки");
 		if (lines.Count == 0)

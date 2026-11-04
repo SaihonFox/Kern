@@ -42,6 +42,33 @@ public sealed class KernStdTests
 	}
 
 	[Fact]
+	public void Single_file_auto_includes_std_modules()
+	{
+		string directory = Path.Combine(Path.GetTempPath(), "kern-std-file-" + Guid.NewGuid().ToString("N"));
+		Directory.CreateDirectory(directory);
+		string file = Path.Combine(directory, "app.kern");
+		File.WriteAllText(file, """
+			use kern.csv[csv_parse]
+			fun main {
+				match csv_parse("a,b\n") {
+					Ok(rows) => println(rows.len)
+					Err(_) => println(-1)
+				}
+			}
+			""", new System.Text.UTF8Encoding(false));
+		try
+		{
+			var error = new StringWriter();
+			int code = KernCli.Run(["check", file], TextWriter.Null, error);
+			Assert.True(code == 0, error.ToString());
+		}
+		finally
+		{
+			Directory.Delete(directory, recursive: true);
+		}
+	}
+
+	[Fact]
 	public void Include_adds_csv_from_use()
 	{
 		IReadOnlyList<(string Path, string Text)> files = StdSources.Include(

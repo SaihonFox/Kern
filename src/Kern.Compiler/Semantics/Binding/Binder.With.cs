@@ -51,10 +51,57 @@ public sealed partial class Binder
 			FieldSymbol? field = owner.Members.FindField(assignment.Name);
 			if (field is null)
 			{
-				Report(
-					"KRN2101",
-					$"у типа '{owner.Name}' нет поля '{assignment.Name}'",
-					assignment.Span);
+				PropertySymbol? property = owner.Members.FindProperty(assignment.Name);
+				if (property is null)
+				{
+					Report(
+						"KRN2101",
+						$"у типа '{owner.Name}' нет поля '{assignment.Name}'",
+						assignment.Span);
+					continue;
+				}
+
+				if (property.IsStatic)
+				{
+					Report(
+						"KRN2101",
+						$"свойство '{assignment.Name}' статическое: with заменяет только члены экземпляра",
+						assignment.Span);
+					continue;
+				}
+
+				if (!property.CanWrite)
+				{
+					Report(
+						"KRN2105",
+						$"свойство '{assignment.Name}' только для чтения: в with нужен set",
+						assignment.Span);
+					continue;
+				}
+
+				// Авто-свойство пишется в backing-поле, как и обычное присваивание;
+				// вычисляемое свойство — вызовом setter'а.
+				if (property.BackingField is { } backing)
+				{
+					KernType backingType = Substitute(backing.Type, arguments);
+					BoundExpression backingValue = BindExpression(assignment.Value, backingType);
+					if (backingValue.Type is ErrorType)
+						continue;
+					assignments.Add(new BoundWithAssignment(
+						backing,
+						null,
+						Convert(backingValue, backingType, assignment.Value.Span)));
+					continue;
+				}
+
+				KernType propertyType = Substitute(property.Type, arguments);
+				BoundExpression propertyValue = BindExpression(assignment.Value, propertyType);
+				if (propertyValue.Type is ErrorType)
+					continue;
+				assignments.Add(new BoundWithAssignment(
+					null,
+					property,
+					Convert(propertyValue, propertyType, assignment.Value.Span)));
 				continue;
 			}
 
@@ -71,7 +118,10 @@ public sealed partial class Binder
 			BoundExpression value = BindExpression(assignment.Value, fieldType);
 			if (value.Type is ErrorType)
 				continue;
-			assignments.Add(new BoundWithAssignment(field, Convert(value, fieldType, assignment.Value.Span)));
+			assignments.Add(new BoundWithAssignment(
+				field,
+				null,
+				Convert(value, fieldType, assignment.Value.Span)));
 		}
 
 		return new BoundWithExpression(target, assignments, expression.Span);

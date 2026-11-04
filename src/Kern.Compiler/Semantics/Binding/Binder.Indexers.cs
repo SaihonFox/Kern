@@ -1,5 +1,6 @@
 using Kern.Compiler.Semantics.Bound;
 using Kern.Compiler.Semantics.Declarations;
+using Kern.Compiler.Semantics.Overloads;
 using Kern.Compiler.Semantics.Types;
 using Kern.Compiler.Semantics.Types.Conversions;
 using Kern.Compiler.Syntax;
@@ -41,22 +42,30 @@ public sealed partial class Binder
 			return BindStrIndex(index, target);
 
 		var owner = OwnerOf(target.Type);
-		if (owner is null)
-		{
-			Report("KRN2101", $"Тип '{target.Type}' не поддерживает индексацию", index.Span);
-			return new BoundErrorExpression(index.Span);
-		}
-
 		var candidates = new List<FunctionSymbol>();
-		foreach (var function in owner.Members.Operators)
-			if (function.OpSymbol == IndexOperator && function.Parameters.Count == index.Arguments.Count)
-				candidates.Add(function);
+		if (owner is not null)
+			foreach (var function in owner.Members.Operators)
+				if (function.OpSymbol == IndexOperator && function.Parameters.Count == index.Arguments.Count)
+					candidates.Add(function);
+
+		KernType? extensionReceiver = null;
+		if (candidates.Count == 0)
+		{
+			foreach (var extensions in _moduleScope.FindExtensionsFor(target.Type))
+				foreach (var function in extensions.GetFunctions(IndexOperator))
+					if (function.Parameters.Count == index.Arguments.Count)
+					{
+						candidates.Add(function);
+						extensionReceiver = target.Type;
+					}
+		}
 
 		if (candidates.Count == 0)
 		{
+			string typeName = owner?.Name ?? target.Type.ToString();
 			Report(
 				"KRN2101",
-				$"У типа '{owner.Name}' нет индексатора '[]' для {index.Arguments.Count} аргументов",
+				$"У типа '{typeName}' нет индексатора '[]' для {index.Arguments.Count} аргументов",
 				index.Span);
 			return new BoundErrorExpression(index.Span);
 		}
@@ -65,12 +74,15 @@ public sealed partial class Binder
 		foreach (var argument in index.Arguments)
 			arguments.Add(BindExpression(argument));
 
-		var selected = SelectIndexer(candidates, arguments);
+		var selected = SelectIndexer(candidates, arguments, index.Span, extensionReceiver);
+		if (selected is null)
+			return new BoundErrorExpression(index.Span);
 		if (selected.ReturnType is null)
 		{
+			string typeName = owner?.Name ?? target.Type.ToString();
 			Report(
 				"KRN2101",
-				$"Индексатор '[]' типа '{owner.Name}' должен объявлять результат '-> R'",
+				$"Индексатор '[]' типа '{typeName}' должен объявлять результат '-> R'",
 				index.Span);
 			return new BoundErrorExpression(index.Span);
 		}
@@ -106,10 +118,12 @@ public sealed partial class Binder
 			indexArguments.Add(bound);
 		}
 
-		FunctionSymbol? setter = SelectUserIndexer(setters, indexArguments);
+		FunctionSymbol? setter = SelectUserIndexer(
+			setters, indexArguments, hasValueParameter: true, span: index.Span, out bool ambiguity);
 		if (setter is null)
 		{
-			Report("KRN2102", "Не найден подходящий op []= для аргументов индексатора", index.Span);
+			if (!ambiguity)
+				Report("KRN2102", "Не найден подходящий op []= для аргументов индексатора", index.Span);
 			return new BoundBlock([], null, FallsThrough: true, assignment.Span);
 		}
 
@@ -166,10 +180,12 @@ public sealed partial class Binder
 			foreach (var function in owner.Members.Operators)
 				if (function.OpSymbol == IndexOperator && function.Parameters.Count == indexReferences.Count)
 					getters.Add(function);
-		FunctionSymbol? getter = SelectUserIndexer(getters, indexReferences);
+		FunctionSymbol? getter = SelectUserIndexer(
+			getters, indexReferences, hasValueParameter: false, span: index.Span, out bool getterAmbiguity);
 		if (getter is null)
 		{
-			Report("KRN2101", "Для составного присваивания через op []= нужен парный op []", index.Span);
+			if (!getterAmbiguity)
+				Report("KRN2101", "Для составного присваивания через op []= нужен парный op []", index.Span);
 			return new BoundBlock([], null, FallsThrough: true, assignment.Span);
 		}
 
@@ -201,43 +217,56 @@ public sealed partial class Binder
 		return new BoundBlock(statements, null, FallsThrough: true, assignment.Span);
 	}
 
-	private static FunctionSymbol? SelectUserIndexer(
+	private FunctionSymbol? SelectUserIndexer(
 		IReadOnlyList<FunctionSymbol> candidates,
-		IReadOnlyList<BoundExpression> arguments)
+		IReadOnlyList<BoundExpression> arguments,
+		bool hasValueParameter,
+		TextSpan span,
+		out bool reported)
 	{
+		reported = false;
 		if (candidates.Count == 0)
 			return null;
-		foreach (FunctionSymbol candidate in candidates)
-		{
-			var exact = true;
-			for (var position = 0; position < arguments.Count; position++)
-			{
-				if (arguments[position].Type.Equals(candidate.Parameters[position].Type))
-					continue;
-				exact = false;
-				break;
-			}
-			if (exact)
-				return candidate;
-		}
 
+		var exact = new List<FunctionSymbol>();
+		var convertible = new List<FunctionSymbol>();
 		foreach (FunctionSymbol candidate in candidates)
 		{
-			var convertible = true;
+			if (hasValueParameter && candidate.Parameters.Count != arguments.Count + 1)
+				continue;
+			var isExact = true;
+			var isConvertible = true;
 			for (var position = 0; position < arguments.Count; position++)
 			{
+				KernType declared = candidate.Parameters[position].Type;
+				if (!arguments[position].Type.Equals(declared))
+					isExact = false;
 				if (IsError(arguments[position].Type) ||
-					!Conversions.TryClassify(arguments[position].Type, candidate.Parameters[position].Type, out _))
-				{
-					convertible = false;
-					break;
-				}
+					!Conversions.TryClassify(arguments[position].Type, declared, out _))
+					isConvertible = false;
 			}
-			if (convertible)
-				return candidate;
+			if (isExact)
+				exact.Add(candidate);
+			else if (isConvertible)
+				convertible.Add(candidate);
 		}
 
-		return candidates[0];
+		if (exact.Count == 1)
+			return exact[0];
+		if (convertible.Count == 1 && exact.Count == 0)
+			return convertible[0];
+
+		var tied = exact.Count > 1 ? exact : convertible;
+		if (tied.Count > 1)
+		{
+			string name = hasValueParameter ? IndexSetOperator : IndexOperator;
+			Report(
+				"KRN1402",
+				$"Неоднозначный индексатор '{name}': подходят — {string.Join(", ", tied.Select(candidate => candidate.Signature))}",
+				span);
+			reported = true;
+		}
+		return null;
 	}
 
 	/// <summary>
@@ -336,14 +365,20 @@ public sealed partial class Binder
 		// spec §5: пользовательский `op []=` — сеттер индексатора. Ищем его до
 		// встроенного правила, но только для не-встроенных типов.
 		if (target.Type is not BuiltinGenericType &&
-			target.Type is not PrimitiveType { Primitive: PrimitiveKind.Str } &&
-			OwnerOf(target.Type) is { } owner)
+			target.Type is not PrimitiveType { Primitive: PrimitiveKind.Str })
 		{
+			var owner = OwnerOf(target.Type);
 			var setters = new List<FunctionSymbol>();
-			foreach (var function in owner.Members.Operators)
-				if (function.OpSymbol == IndexSetOperator &&
-					function.Parameters.Count == index.Arguments.Count + 1)
-					setters.Add(function);
+			if (owner is not null)
+				foreach (var function in owner.Members.Operators)
+					if (function.OpSymbol == IndexSetOperator &&
+						function.Parameters.Count == index.Arguments.Count + 1)
+						setters.Add(function);
+			if (setters.Count == 0)
+				foreach (var extensions in _moduleScope.FindExtensionsFor(target.Type))
+					foreach (var function in extensions.GetFunctions(IndexSetOperator))
+						if (function.Parameters.Count == index.Arguments.Count + 1)
+							setters.Add(function);
 			if (setters.Count > 0)
 				return BindUserIndexAssignment(assignment, index, target, setters);
 		}
@@ -496,48 +531,45 @@ public sealed partial class Binder
 	}
 
 	/// <summary>
-	/// Выбор индексатора одной арности: точное совпадение типов важнее преобразования.
-	/// Если не подходит ни один, остаётся первый — его <see cref="Convert"/> и выдаст KRN2102.
+	/// Выбор индексатора одной арности через общий резолвер перегрузок (spec §15): точное
+	/// совпадение, затем преобразования; несколько равных кандидатов — <c>KRN1402</c>.
 	/// </summary>
-	private static FunctionSymbol SelectIndexer(
+	private FunctionSymbol? SelectIndexer(
 		IReadOnlyList<FunctionSymbol> candidates,
-		IReadOnlyList<BoundExpression> arguments)
+		IReadOnlyList<BoundExpression> arguments,
+		TextSpan span,
+		KernType? receiverType = null)
 	{
-		if (candidates.Count == 1)
-			return candidates[0];
+		return ResolveIndexer(candidates, arguments, span, receiverType);
+	}
 
-		foreach (var candidate in candidates)
+	/// <summary>
+	/// Общий резолвер для <c>op []</c> и <c>op []=</c>. Возвращает null после диагностики
+	/// (неоднозначность или отсутствие применимого кандидата).
+	/// </summary>
+	private FunctionSymbol? ResolveIndexer(
+		IReadOnlyList<FunctionSymbol> candidates,
+		IReadOnlyList<BoundExpression> arguments,
+		TextSpan span,
+		KernType? receiverType = null)
+	{
+		if (candidates.Count == 0)
+			return null;
+
+		var callArguments = new List<CallArgument>(arguments.Count);
+		foreach (BoundExpression argument in arguments)
 		{
-			var exact = true;
-			for (var position = 0; position < arguments.Count; position++)
-			{
-				if (arguments[position].Type.Equals(candidate.Parameters[position].Type))
-					continue;
-				exact = false;
-				break;
-			}
-
-			if (exact)
-				return candidate;
+			NumericLiteralValue? constant = argument is BoundLiteralExpression { Numeric: { } numeric }
+				? numeric
+				: null;
+			callArguments.Add(CallArgument.Positional(argument.Type, constant, argument.Span));
 		}
 
-		foreach (var candidate in candidates)
-		{
-			var convertible = true;
-			for (var position = 0; position < arguments.Count; position++)
-			{
-				if (IsError(arguments[position].Type) ||
-					!Conversions.TryClassify(arguments[position].Type, candidate.Parameters[position].Type, out _))
-				{
-					convertible = false;
-					break;
-				}
-			}
-
-			if (convertible)
-				return candidate;
-		}
-
-		return candidates[0];
+		OverloadResolution resolution = OverloadResolver.Resolve(
+			candidates,
+			new CallArguments(callArguments, receiverType, span: span, name: IndexOperator));
+		foreach (Diagnostic diagnostic in resolution.Diagnostics)
+			Report(diagnostic.Code, diagnostic.Message, span);
+		return resolution.Success ? resolution.Function : null;
 	}
 }

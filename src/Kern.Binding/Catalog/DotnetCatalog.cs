@@ -30,7 +30,11 @@ public static class DotnetCatalog
 			if (type.IsAbstract && type.IsSealed)
 				ImportStatic(type, typeName, members);
 			else
+			{
 				ImportInstance(type, typeName, members);
+				// Обычные классы тоже имеют статические члены: `String.Join`, `Int32.Parse`.
+				ImportStatic(type, typeName, members);
+			}
 
 			if (members.Count == 0)
 				continue;
@@ -119,9 +123,7 @@ public static class DotnetCatalog
 			keyTypes.Add(typeName);
 		}
 
-		string name = kind == NativeMemberKind.PropertyGet
-			? method.Name.StartsWith("get_", StringComparison.Ordinal) ? method.Name[4..] : method.Name
-			: method.Name;
+		string name = MemberName(method, kind);
 		string key = NativeKey.Create("dotnet:" + owner.FullName, name, kind, isStatic: true, keyTypes);
 		descriptor = new NativeFunctionDescriptor
 		{
@@ -164,9 +166,7 @@ public static class DotnetCatalog
 			keyTypes.Add(typeName);
 		}
 
-		string name = kind == NativeMemberKind.PropertyGet
-			? method.Name.StartsWith("get_", StringComparison.Ordinal) ? method.Name[4..] : method.Name
-			: method.Name;
+		string name = MemberName(method, kind);
 		string key = NativeKey.Create("dotnet:" + owner.FullName, name, kind, isStatic: true, keyTypes);
 		descriptor = new NativeFunctionDescriptor
 		{
@@ -223,6 +223,21 @@ public static class DotnetCatalog
 			Constructor = constructor,
 		};
 		return true;
+	}
+
+	/// <summary>
+	/// Имя члена как в C#; у accessor'ов снимается префикс <c>get_</c>/<c>set_</c>,
+	/// чтобы свойство называлось <c>Capacity</c>, а не <c>set_Capacity</c>.
+	/// </summary>
+	private static string MemberName(MethodInfo method, NativeMemberKind kind)
+	{
+		if (kind is NativeMemberKind.PropertyGet or NativeMemberKind.PropertySet)
+		{
+			if (method.Name.StartsWith("get_", StringComparison.Ordinal) ||
+				method.Name.StartsWith("set_", StringComparison.Ordinal))
+				return method.Name[4..];
+		}
+		return method.Name;
 	}
 
 	/// <summary>

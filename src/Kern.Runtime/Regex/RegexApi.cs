@@ -220,6 +220,10 @@ public static class RegexModule
 	[KernName("try_new")]
 	[KernMember]
 	public static KernRegex? TryNew(string pattern, string flags) => KernRegex.TryCreate(pattern, flags);
+
+	/// <summary><c>escape(text)</c>: экранировать спецсимволы регулярного выражения.</summary>
+	[KernMember]
+	public static string Escape(string text) => NetRegex.Escape(text);
 }
 
 /// <summary>
@@ -236,4 +240,8 @@ public static class RegexStaticApi
 	[KernStatic]
 	[KernName("try_new")]
 	public static KernRegex? TryNew(string pattern, string flags) => KernRegex.TryCreate(pattern, flags);
+
+	[KernStatic]
+	[KernName("escape")]
+	public static string Escape(string text) => NetRegex.Escape(text);
 }

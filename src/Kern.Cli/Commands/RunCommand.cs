@@ -190,7 +190,7 @@ internal static class RunCommand
 	/// Если <c>main</c> асинхронный, <see cref="Interpreter.Run"/> вернул <c>task&lt;T&gt;</c>:
 	/// крутим планировщик в текущем потоке, как это делает сам интерпретатор на <c>await</c>.
 	/// </summary>
-	private static KValue WaitForTask(Interpreter interpreter, KValue value)
+	internal static KValue WaitForTask(Interpreter interpreter, KValue value)
 	{
 		if (value.Kind != ValueKind.Ref || value.Ref is not KTask task)
 			return value;

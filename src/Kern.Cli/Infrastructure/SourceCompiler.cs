@@ -37,8 +37,10 @@ internal static class SourceCompiler
 			return new CompileResult { FailureMessage = $"не удалось прочитать {path}: {ex.Message}" };
 		}
 
-		var source = new SourceText(text, path);
-		return CompileCore(source, text, ModuleName(path), bundle: null, options ?? CompileOptions.Default);
+		// Одиночный файл идёт тем же путём, что и проект: макросы, автоподключение
+		// `Kern.Std` и `use dotnet` должны работать одинаково.
+		NativeCatalog catalog = NativeCatalog.Scan(typeof(CoreModule).Assembly);
+		return CompileFiles([(path, text)], ModuleName(path), catalog, options ?? CompileOptions.Default);
 	}
 
 	/// <summary>Компилирует проект по соглашению (см. <see cref="ProjectSources"/>).</summary>

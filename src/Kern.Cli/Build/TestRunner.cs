@@ -65,7 +65,7 @@ internal static class TestRunner
 			try
 			{
 				var interpreter = new Interpreter(module, new NativeResolver(program.Catalog));
-				_ = interpreter.Run(index, []);
+				_ = Kern.Cli.Commands.RunCommand.WaitForTask(interpreter, interpreter.Run(index, []));
 				stdout.WriteLine($"тест {function.Name}: ок");
 			}
 			catch (KernPanic panic)

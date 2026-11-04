@@ -105,6 +105,22 @@ public sealed class IndexAssignmentTests
 	}
 
 	[Fact]
+	public void Extension_indexer_reads_and_writes()
+	{
+		Assert.Equal(KValue.I32(5), Run("""
+			unit Box(i32 n)
+			op Box.[](i32 i) -> i32 $n + i
+			op Box.[]=(i32 i, i32 v) { $n = v }
+
+			fun f() -> i32 {
+				Box b = Box(1)
+				b[0] = 5
+				b[0]
+			}
+			""", "f"));
+	}
+
+	[Fact]
 	public void User_indexer_setter_writes_through_op_index_set()
 	{
 		Assert.Equal(KValue.I32(5), Run("""

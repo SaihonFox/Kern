@@ -5,7 +5,10 @@ using Kern.Core.Diagnostics;
 namespace Kern.Compiler.Semantics.Bound;
 
 /// <summary>Замена поля в <c>with</c>-выражении: слот известен после раскладки класса.</summary>
-public sealed record BoundWithAssignment(FieldSymbol Field, BoundExpression Value);
+public sealed record BoundWithAssignment(
+	FieldSymbol? Field,
+	PropertySymbol? Property,
+	BoundExpression Value);
 
 /// <summary>
 /// <c>x:{ a = 1 }</c> (spec round 27): копия значения с заменёнными полями. Codegen клонирует

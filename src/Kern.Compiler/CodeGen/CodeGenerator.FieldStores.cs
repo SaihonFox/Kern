@@ -220,7 +220,7 @@ public sealed partial class CodeGenerator
 	}
 
 	/// <summary>Вызов уже подготовленных аргументов (приёмник входит в <paramref name="argumentCount"/>).</summary>
-	private void EmitCallTo(FunctionSymbol function, int argumentCount, TextSpan span)
+	private void EmitCallTo(FunctionSymbol function, int argumentCount, TextSpan span, bool isVirtual = false)
 	{
 		if (!_functionIndices.TryGetValue(function, out var index))
 		{
@@ -231,7 +231,7 @@ public sealed partial class CodeGenerator
 			return;
 		}
 
-		Emit(OpCode.Call);
+		Emit(isVirtual ? OpCode.CallVirtual : OpCode.Call);
 		EmitOperand(index);
 		EmitOperand(argumentCount);
 	}

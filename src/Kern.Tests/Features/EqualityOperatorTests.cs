@@ -26,6 +26,24 @@ public sealed class EqualityOperatorTests
 	}
 
 	[Fact]
+	public void Protocol_operators_validate_arity_and_return_type()
+	{
+		const string source = """
+			type Bad {
+				op hash(i32 extra) -> u64 1u64
+				op compare() -> str "?"
+			}
+			""";
+
+		var module = StdPipeline.CompileOrNull(source, out var diagnostics);
+		Assert.Null(module);
+		Assert.Contains(diagnostics, diagnostic =>
+			diagnostic.Code == "KRN2101" && diagnostic.Message.Contains("'hash'", StringComparison.Ordinal));
+		Assert.Contains(diagnostics, diagnostic =>
+			diagnostic.Code == "KRN2101" && diagnostic.Message.Contains("'compare'", StringComparison.Ordinal));
+	}
+
+	[Fact]
 	public void Dictionary_keys_use_declared_hash_and_equality()
 	{
 		const string source = """

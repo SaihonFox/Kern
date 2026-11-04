@@ -141,6 +141,18 @@ public sealed class RegexModuleTests
 	}
 
 	[Fact]
+	public void Escape_and_qualified_static_members_work()
+	{
+		const string source = """
+			fun escaped() -> str regex.escape("a+b")
+			fun qualified() -> bool regex.try_new("(") == nil
+			""";
+
+		Assert.Equal(KValue.Str(@"a\+b"), Run(source, "escaped"));
+		Assert.Equal(KValue.Bool(true), Run(source, "qualified"));
+	}
+
+	[Fact]
 	public void Match_returns_regex_match_with_positions_and_groups()
 	{
 		const string source = """

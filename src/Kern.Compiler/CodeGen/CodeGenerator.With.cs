@@ -1,5 +1,6 @@
 using Kern.Bytecode;
 using Kern.Compiler.Semantics.Bound;
+using Kern.Compiler.Semantics.Declarations;
 
 namespace Kern.Compiler.CodeGen;
 
@@ -20,7 +21,16 @@ public sealed partial class CodeGenerator
 		{
 			Emit(OpCode.LoadLocal, slot);
 			EmitExpression(assignment.Value);
-			Emit(OpCode.StoreField, ClassFieldSlot(assignment.Field));
+			if (assignment.Field is { } field)
+			{
+				Emit(OpCode.StoreField, ClassFieldSlot(field));
+				Emit(OpCode.Pop);
+				continue;
+			}
+
+			FunctionSymbol setter = assignment.Property!.Setter!;
+			bool isVirtual = setter.IsOpen || setter.IsOverride || setter.IsAbstract;
+			EmitCallTo(setter, argumentCount: 2, assignment.Value.Span, isVirtual);
 			Emit(OpCode.Pop);
 		}
 

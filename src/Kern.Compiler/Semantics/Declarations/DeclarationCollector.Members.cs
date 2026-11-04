@@ -373,8 +373,9 @@ public sealed partial class DeclarationCollector
 		return constructor;
 	}
 
-	private FunctionSymbol CollectOperator(OperatorMemberNode declaration, TypeSymbol owner, TypeParameterScope scope) =>
-		new(declaration.Operator, FunctionKind.Operator)
+	private FunctionSymbol CollectOperator(OperatorMemberNode declaration, TypeSymbol owner, TypeParameterScope scope)
+	{
+		var symbol = new FunctionSymbol(declaration.Operator, FunctionKind.Operator)
 		{
 			Parameters = ResolveParameters(declaration.Parameters, scope),
 			ReturnType = ResolveReturnType(declaration.ReturnType, scope),
@@ -386,6 +387,49 @@ public sealed partial class DeclarationCollector
 			Declaration = declaration,
 			Attributes = AttributeValues.Build(declaration.DeclaredAttributes)
 		};
+		ValidateProtocolOperator(symbol, declaration.Span);
+		return symbol;
+	}
+
+	/// <summary>
+	/// Форма протокольных операторов (spec §9/Q23): <c>hash() -&gt; u64</c>,
+	/// <c>compare(T) -&gt; i32</c>, <c>clone()</c>, <c>to_str()/to_debug() -&gt; str</c>.
+	/// Ошибка арности/типа результата видна сразу, а не только в месте вызова.
+	/// </summary>
+	private void ValidateProtocolOperator(FunctionSymbol symbol, TextSpan span)
+	{
+		int expectedParameters = symbol.OpSymbol switch
+		{
+			"hash" or "clone" or "to_str" or "to_debug" => 0,
+			"compare" => 1,
+			_ => -1
+		};
+		if (expectedParameters < 0)
+			return;
+		if (symbol.Parameters.Count != expectedParameters)
+		{
+			_diagnostics.Add(new Diagnostic(
+				"KRN2101",
+				$"Оператор '{symbol.OpSymbol}' должен принимать {expectedParameters} параметр(ов), а не {symbol.Parameters.Count}",
+				span));
+			return;
+		}
+
+		string? expectedReturn = symbol.OpSymbol switch
+		{
+			"hash" => "u64",
+			"compare" => "i32",
+			"to_str" or "to_debug" => "str",
+			_ => null
+		};
+		if (expectedReturn is null || symbol.ReturnType is null)
+			return;
+		if (symbol.ReturnType.ToString() != expectedReturn)
+			_diagnostics.Add(new Diagnostic(
+				"KRN2101",
+				$"Оператор '{symbol.OpSymbol}' должен возвращать {expectedReturn}, а не '{symbol.ReturnType}'",
+				span));
+	}
 
 	private FunctionSymbol CollectParentMethodSelection(
 		ParentMethodSelectionNode declaration,

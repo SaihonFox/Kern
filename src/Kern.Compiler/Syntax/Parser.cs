@@ -179,7 +179,7 @@ public sealed partial class Parser
 		var start = Consume(TokenKind.Op, "Ожидалось ключевое слово op").Span.Start;
 		var receiver = ParseTypeSyntax();
 		Consume(TokenKind.Dot, "Ожидалась точка перед оператором");
-		var op = Current.Kind == TokenKind.Operator ? Advance() : Consume(TokenKind.Identifier, "Ожидался оператор");
+		var op = ParseOperatorSymbol();
 		var parameters = ParseParameters();
 		TypeSyntax? returnType = null;
 		if (Current.Kind == TokenKind.Operator && Current.Text == "->")
@@ -188,7 +188,7 @@ public sealed partial class Parser
 			returnType = ParseTypeSyntax();
 		}
 		SyntaxNode? body = Current.Kind == TokenKind.LeftBrace ? ParseBlock() : ParseFunctionBody();
-		return new ExtensionOperatorDeclaration(receiver, op.Text, parameters, returnType, body,
+		return new ExtensionOperatorDeclaration(receiver, op, parameters, returnType, body,
 			new TextSpan(start, (body?.Span.End ?? Previous.Span.End) - start), modifiers.Accessibility,
 			Attributes: attributes);
 	}

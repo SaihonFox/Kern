@@ -22,6 +22,16 @@ public sealed class DotnetInteropTests
 	}
 
 	[Fact]
+	public void Ordinary_class_static_members_are_imported()
+	{
+		Type? text = DotnetCatalog.FindType("System.String");
+		Assert.NotNull(text);
+		NativeCatalog catalog = DotnetCatalog.Import(StdPipeline.Catalog(), [text!]);
+		Assert.Contains(catalog.Functions, function =>
+			function.Name == "Join" && function.IsStatic && function.Owner == "String");
+	}
+
+	[Fact]
 	public void Kernel_program_can_call_dotnet_static_methods()
 	{
 		string directory = Path.Combine(Path.GetTempPath(), $"kern-dotnet-{Guid.NewGuid():N}");
@@ -29,7 +39,7 @@ public sealed class DotnetInteropTests
 		string file = Path.Combine(directory, "main.kern");
 		System.IO.File.WriteAllText(file, """
 			use dotnet.System.IO[File, Path]
-			use dotnet.System[Math]
+			use dotnet.System[Math, String]
 
 			fun main {
 				str path = "kern-dotnet-interop.tmp"
@@ -37,6 +47,8 @@ public sealed class DotnetInteropTests
 				println(File.ReadAllText(path))
 				println(Path.GetFileNameWithoutExtension("a/b.txt"))
 				println(Math.Abs(-3.0))
+				array<str> parts = <str>["a", "b"]
+				println(String.Join("-", parts))
 			}
 			""", new System.Text.UTF8Encoding(false));
 		try
@@ -57,7 +69,7 @@ public sealed class DotnetInteropTests
 
 			Assert.Equal(0, code);
 			Assert.Equal(string.Empty, error.ToString());
-			Assert.Equal("ok\nb\n3\n", output.ToString().Replace("\r\n", "\n"));
+			Assert.Equal("ok\nb\n3\na-b\n", output.ToString().Replace("\r\n", "\n"));
 		}
 		finally
 		{
@@ -75,6 +87,8 @@ public sealed class DotnetInteropTests
 		Assert.Contains(catalog.Functions, function =>
 			function.Name == "Append" && function.SelfType == "StringBuilder");
 		Assert.Contains(catalog.Functions, function =>
+			function.Name == "Capacity" && function.Kind == NativeMemberKind.PropertySet);
+		Assert.Contains(catalog.Functions, function =>
 			function.Kind == NativeMemberKind.Constructor && function.Owner == "StringBuilder");
 	}
 
@@ -91,8 +105,10 @@ public sealed class DotnetInteropTests
 				StringBuilder b = StringBuilder()
 				b.Append("a")
 				b.Append("b")
+				b.Capacity = 64
 				println(b.ToString())
 				println(b.Length)
+				println(b.Capacity)
 			}
 			""", new System.Text.UTF8Encoding(false));
 		try
@@ -113,7 +129,7 @@ public sealed class DotnetInteropTests
 
 			Assert.Equal(0, code);
 			Assert.Equal(string.Empty, error.ToString());
-			Assert.Equal("ab\n2\n", output.ToString().Replace("\r\n", "\n"));
+			Assert.Equal("ab\n2\n64\n", output.ToString().Replace("\r\n", "\n"));
 		}
 		finally
 		{

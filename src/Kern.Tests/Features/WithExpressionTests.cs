@@ -77,6 +77,45 @@ public sealed class WithExpressionTests
 	}
 
 	[Fact]
+	public void With_replaces_writable_properties()
+	{
+		const string source = """
+			type User(str name) {
+				i32 age { get; set } = 1
+			}
+
+			fun run() -> str {
+				var a = User("аня")
+				var b = a:{ age = 30 }
+				f"${a.age}/${b.age}/${b.name}"
+			}
+			""";
+
+		Assert.Equal(KValue.Str("1/30/аня"), StdPipeline.Run(source, "run"));
+	}
+
+	[Fact]
+	public void With_rejects_read_only_properties()
+	{
+		const string source = """
+			type User {
+				i32 age { get; set } = 1
+				i32 doubled { get age * 2 }
+			}
+
+			fun run() {
+				var a = User()
+				var b = a:{ doubled = 4 }
+			}
+			""";
+
+		var module = StdPipeline.CompileOrNull(source, out var diagnostics);
+		Assert.Null(module);
+		Assert.Contains(diagnostics, diagnostic =>
+			diagnostic.Code == "KRN2105" && diagnostic.Message.Contains("только для чтения", StringComparison.Ordinal));
+	}
+
+	[Fact]
 	public void With_rejects_unknown_static_duplicate_and_immutable_fields()
 	{
 		const string source = """
