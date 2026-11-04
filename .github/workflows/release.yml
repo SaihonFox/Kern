@@ -1,16 +1,95 @@
+# Автоматический релиз Kern.
+#
+#  * push в master  -> prerelease v<версия>-build.<номер запуска> (версия из kern-version);
+#  * push тега v*   -> обычный релиз с этим тегом (он же становится latest);
+#  * workflow_dispatch -> то же, что push в master, но версию можно задать вручную.
+#
+# Перед упаковкой запускаются style/build/test, поэтому сломанный коммит
+# релиз не публикует. Архивы: kern-<rid>.zip (kernc + libs/ + examples/)
+# и SHA256SUMS.txt.
 name: release
 
 on:
   push:
+    branches:
+      - master
     tags:
       - "v*"
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Версия без префикса v (по умолчанию первая строка kern-version)"
+        required: false
+        type: string
 
 permissions:
   contents: write
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      name: ${{ steps.version.outputs.name }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Resolve release version
+        id: version
+        shell: bash
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+          RUN_NUMBER: ${{ github.run_number }}
+          SHA: ${{ github.sha }}
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          base="$(grep -v '^[[:space:]]*#' kern-version | grep -v '^[[:space:]]*$' | head -n1 | tr -d '[:space:]' || true)"
+          base="${base#v}"
+          if [ "$REF_TYPE" = "tag" ]; then
+            tag="$REF_NAME"
+            name="Kern $REF_NAME"
+            prerelease="false"
+          else
+            version="${INPUT_VERSION:-$base}"
+            version="${version#v}"
+            if [ -z "$version" ]; then
+              echo "::error::не удалось определить версию (kern-version пуст?)"
+              exit 1
+            fi
+            tag="v${version}-build.${RUN_NUMBER}"
+            name="Kern ${version} build ${RUN_NUMBER} (${SHA:0:7})"
+            prerelease="true"
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
+          echo "Релиз: $tag ($name), prerelease=$prerelease"
+
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Style
+        run: node tools/check-style.mjs
+      - name: Build
+        run: dotnet build Kern.slnx -c Release --nologo
+      - name: Test
+        run: dotnet test Kern.slnx -c Release --no-build --nologo
+
   package:
+    needs: [prepare, verify]
     strategy:
       fail-fast: false
       matrix:
@@ -46,8 +125,7 @@ jobs:
           if-no-files-found: error
 
   release:
-    needs: package
-    if: startsWith(github.ref, 'refs/tags/')
+    needs: [prepare, package]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
@@ -55,7 +133,19 @@ jobs:
           path: artifacts
           pattern: kern-*
           merge-multiple: true
+      - name: Checksums
+        shell: bash
+        run: |
+          cd artifacts
+          sha256sum *.zip > SHA256SUMS.txt
+          cat SHA256SUMS.txt
       - uses: softprops/action-gh-release@v2
         with:
-          files: artifacts/*.zip
+          tag_name: ${{ needs.prepare.outputs.tag }}
+          name: ${{ needs.prepare.outputs.name }}
+          prerelease: ${{ needs.prepare.outputs.prerelease }}
+          make_latest: ${{ needs.prepare.outputs.prerelease == 'false' }}
           generate_release_notes: true
+          files: |
+            artifacts/*.zip
+            artifacts/SHA256SUMS.txt

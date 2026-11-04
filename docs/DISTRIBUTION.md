@@ -99,7 +99,26 @@ with `KERNW_ALLOW_HTTP=1`.
 ## GitHub Releases
 
 `.github/workflows/release.yml` builds `kernc` (self-contained, trimmed single-file) for
-`win-x64`, `linux-x64`, `osx-x64` and `osx-arm64` on a tag `v*` (or manual dispatch). Each job
-runs `tools/package-release.ps1`, uploads `kern-<rid>.zip` (kernc + `libs/` + `examples/`) and
-the release job attaches all archives to the GitHub release with generated notes.
+`win-x64`, `linux-x64`, `osx-x64` and `osx-arm64`. Each job runs
+`tools/package-release.ps1`, uploads `kern-<rid>.zip` (kernc + `libs/` + `examples/`) and
+the release job attaches all archives plus `SHA256SUMS.txt` to the GitHub release.
+
+Triggers:
+
+| Событие | Тег релиза | Тип |
+| --- | --- | --- |
+| push в `master` | `v<версия>-build.<номер запуска>` | prerelease (не становится latest) |
+| push тега `v*` | этот тег | обычный релиз (становится latest) |
+| manual dispatch | `v<версия>-build.<номер>` или указанная версия | prerelease |
+
+Версия берётся из первой строки `kern-version`; чтобы выпустить новую версию,
+поднимите её там (например `0.2.0`) и создайте тег `v0.2.0`. Обычный push версию
+не меняет: сборки получают суффикс `-build.<run>`, поэтому теги уникальны и не
+перезаписывают друг друга. Перед упаковкой workflow запускает
+`tools/check-style.mjs`, `dotnet build` и `dotnet test` на Ubuntu, поэтому
+сломанный коммит релиз не публикует.
+
+Архивы автоматических сборок доступны по адресу
+`https://github.com/SaihonFox/Kern/releases/download/v<версия>-build.<run>/kern-<rid>.zip`;
+`kernw` по-прежнему скачивает закреплённую версию из `kern-version`.
 

@@ -2,6 +2,16 @@
 
 ## Now
 
+### Батч 2026-11-04 (owner request): авто-релиз на каждый push
+
+- `.github/workflows/release.yml` переработан: каждый push в `master` публикует
+  GitHub Release `v<версия>-build.<run>` (prerelease, версия из `kern-version`);
+  тег `v*` — обычный релиз и latest; manual dispatch позволяет задать версию.
+  Перед упаковкой идёт style/build/test, архивы `kern-<rid>.zip` +
+  `SHA256SUMS.txt`. Описано в `docs/DISTRIBUTION.md`.
+- Осталось: проверить первый запуск на GitHub и, при желании, добавить
+  авто-подъём версии/обновление `kern-version` с checksums.
+
 ### Батч 2026-11-04 (owner request): закрытие известных ограничений
 
 Сделано и проверено (build 0 errors, suite **658/658**, style clean):
