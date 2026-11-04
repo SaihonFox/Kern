@@ -6,7 +6,7 @@
 ## Сделано
 
 - **Stage 1 (M0–M12) и M13/M14** закрыты: лексер, парсер, binder, типы, codegen,
-  `.kbc` v3, VM, async/threads, std, CLI, builder, `kernc dll`, fmt, repl, optimizer,
+  `.kbc` v4, VM, async/threads, std, CLI, builder, `kernc dll`, fmt, repl, optimizer,
   NativeAOT, goldens, CI.
 - **Std на Kern:** `kern.ansi`, `kern.csv`, `kern.parse` (автоподключение через
   `StdSources`); C# `CsvApi`/`ParseApi` удалены. `kern.text`/`kern.num` пока на C#.
@@ -42,9 +42,9 @@
 
 ## Осталось — нужно решение owner
 
-1. **`kern.text`/`kern.num` на Kern.** Квалифицированный доступ к source-модулям уже
-   готов (2026-11-04), поэтому перенос можно делать без breaking-изменений; осталось
-   решить, когда переносить.
+1. **`kern.text`/`kern.num` → Kern.** Решено оставить на C# (owner разрешил fallback):
+   полный перенос требует нативных примитивов (графемы, Unicode-нормализация, UTF-8,
+   комплексные числа/FFT/QR). API не менялся; перенос возможен отдельным срезом.
 2. **Полнота std:** BLAKE3/Ed25519/argon2/bcrypt, parser-комбинаторы в `kern.parse`.
    Варианты: задокументировать, NuGet или своя реализация (XL + крипто-ревью).
 3. **«Настоящие» C#-генерики (variant 2):** reified `KType[]` в `KNativeBox`.
